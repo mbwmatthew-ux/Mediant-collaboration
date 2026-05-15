@@ -36,7 +36,11 @@ export default function Analysis() {
   useEffect(() => {
     if (initialized.current || !scoreEl.current) return
     initialized.current = true
-    renderScore(scoreEl.current, setActiveFlag)
+    try {
+      renderScore(scoreEl.current, setActiveFlag)
+    } catch (err) {
+      console.error('VexFlow render error:', err)
+    }
   }, [])
 
   const info = activeFlag ? FLAGS[activeFlag] : null
@@ -172,10 +176,11 @@ function renderScore(el, setActiveFlag) {
     } else {
       const staveNotes = m.notes.map(keys => new StaveNote({ clef: 'treble', keys, duration: 'q' }))
       voice = new Voice({ num_beats: 3, beat_value: 4 })
+      voice.setStrict(false)
       voice.addTickables(staveNotes)
     }
 
-    const noteWidth = stave.getEndX() - stave.getNoteStartX() - 8
+    const noteWidth = (stave.getX() + stave.getWidth()) - stave.getNoteStartX() - 8
     new Formatter().joinVoices([voice]).format([voice], noteWidth)
     voice.draw(ctx, stave)
 

@@ -4,6 +4,7 @@ import AppShell from './components/AppShell'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import ConfirmEmail from './pages/ConfirmEmail'
 import Home from './pages/Home'
 import Search from './pages/Search'
 import Record from './pages/Record'
@@ -20,7 +21,8 @@ export default function App() {
         <Routes>
           <Route path="/"       element={<Landing />} />
           <Route path="/login"  element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/signup"        element={<Signup />} />
+          <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route element={<AppShell />}>
             <Route path="/home"     element={<Home />} />
             <Route path="/search"   element={<Search />} />

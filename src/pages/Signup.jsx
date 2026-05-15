@@ -28,7 +28,11 @@ export default function Signup() {
       return
     }
     const result = await signup(name, email, password, instrument)
-    if (result.ok) nav('/home')
+    if (result.ok) {
+      nav(result.user ? '/home' : '/confirm-email')
+    } else {
+      setError(result.error || 'Something went wrong. Please try again.')
+    }
   }
 
   return (
