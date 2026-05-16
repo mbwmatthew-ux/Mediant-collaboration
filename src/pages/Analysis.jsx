@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Vex from 'vexflow'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
-const FLAGS = {
+// ── Hardcoded fallback (shown when no takeId in URL) ──────────────────────
+
+const MOCK_FLAGS = {
   timing: {
     tag: 'Measure 16 · Timing',
     title: 'Left hand enters early',
@@ -21,37 +24,103 @@ const FLAGS = {
   },
 }
 
-const ISSUE_CHIPS = [
+const MOCK_CHIPS = [
   { flag: 'timing',   label: 'm.16 · Timing' },
   { flag: 'dynamics', label: 'm.28 · Dynamics' },
   { flag: 'voicing',  label: 'm.33 · Voicing' },
 ]
 
+const MOCK_FLAG_MEASURES = new Map([[16, 'timing'], [28, 'dynamics'], [33, 'voicing']])
+
+function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
+
+// ── Component ─────────────────────────────────────────────────────────────
+
 export default function Analysis() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const scoreEl = useRef(null)
-  const [activeFlag, setActiveFlag] = useState(null)
-  const initialized = useRef(false)
 
+  // take: undefined = loading, null = not found / no takeId, object = loaded
+  const [take, setTake]           = useState(undefined)
+  const [activeFlag, setActiveFlag] = useState(null)
+
+  // Fetch take from DB if takeId present
   useEffect(() => {
-    if (initialized.current || !scoreEl.current) return
-    initialized.current = true
+    const takeId = searchParams.get('takeId')
+    if (!takeId) { setTake(null); return }
+
+    supabase
+      .from('takes')
+      .select('*')
+      .eq('id', takeId)
+      .single()
+      .then(({ data, error }) => setTake(error || !data ? null : data))
+  }, [])
+
+  // Render VexFlow score once take status is determined
+  useEffect(() => {
+    if (take === undefined) return           // still fetching
+    if (!scoreEl.current) return
+    if (scoreEl.current.querySelector('svg')) return  // already rendered
+
+    const flagMeasures = take?.flags?.length
+      ? new Map(take.flags.map((f, i) => [f.measure, `flag_${i}`]))
+      : MOCK_FLAG_MEASURES
+
     try {
-      renderScore(scoreEl.current, setActiveFlag)
+      renderScore(scoreEl.current, setActiveFlag, flagMeasures)
     } catch (err) {
       console.error('VexFlow render error:', err)
     }
-  }, [])
+  }, [take])
 
-  const info = activeFlag ? FLAGS[activeFlag] : null
+  // Derive FLAGS map and chips from real take or hardcoded mock
+  const flagsMap = take?.flags?.length
+    ? Object.fromEntries(
+        take.flags.map((f, i) => [
+          `flag_${i}`,
+          {
+            tag:   `Measure ${f.measure} · ${capitalize(f.type)}`,
+            title: f.title,
+            body:  f.body,
+          },
+        ])
+      )
+    : MOCK_FLAGS
+
+  const chips = take?.flags?.length
+    ? take.flags.map((f, i) => ({ flag: `flag_${i}`, label: `m.${f.measure} · ${capitalize(f.type)}` }))
+    : MOCK_CHIPS
+
+  const pieceTitle    = take?.piece_title    ?? 'Clair de Lune'
+  const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
+  const issueCount    = chips.length
+  const score         = take?.score
+
+  const info = activeFlag ? flagsMap[activeFlag] : null
+
+  if (take === undefined) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.analyzeScreen}>
+          <div className={styles.analyzeIcon}>♩</div>
+          <p className={styles.analyzeSub}>Loading your analysis…</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
           <p className={styles.label}>Score Review</p>
-          <h1 className={styles.reviewTitle}>Clair de Lune</h1>
-          <p className={styles.sub}>Claude Debussy · Solo Piano · 3 issues found</p>
+          <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
+          <p className={styles.sub}>
+            {pieceComposer} · Solo Piano · {issueCount} issue{issueCount !== 1 ? 's' : ''} found
+            {score != null && <> · <span style={{ color: scoreColor(score) }}>{score}/100</span></>}
+          </p>
         </div>
         <div className={styles.headerActions}>
           <button className={styles.ghostBtn} onClick={() => nav('/record')}>Re-upload</button>
@@ -61,7 +130,7 @@ export default function Analysis() {
 
       <div className={styles.issueStrip}>
         <span className={styles.issueStripLabel}>Issues:</span>
-        {ISSUE_CHIPS.map(({ flag, label }) => (
+        {chips.map(({ flag, label }) => (
           <button
             key={flag}
             className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
@@ -99,19 +168,25 @@ export default function Analysis() {
   )
 }
 
-// ── VexFlow score renderer ─────────────────────────────────
+function scoreColor(n) {
+  if (n >= 88) return '#8fbe9f'
+  if (n >= 74) return 'var(--gold)'
+  return 'var(--coral)'
+}
 
-function renderScore(el, setActiveFlag) {
+// ── VexFlow score renderer ────────────────────────────────────────────────
+
+function renderScore(el, setActiveFlag, flagMeasures) {
   const { Renderer, Stave, StaveNote, Voice, Formatter } = Vex
 
-  const W = Math.max(el.clientWidth, 480)
-  const ROW_H = 120
-  const H = ROW_H * 4 + 48
-  const MARGIN = 22
+  const W       = Math.max(el.clientWidth, 480)
+  const ROW_H   = 120
+  const H       = ROW_H * 4 + 48
+  const MARGIN  = 22
   const INNER_W = W - MARGIN * 2
   const PER_ROW = 4
   const PREAMBLE = 108
-  const BASE_W = (INNER_W - PREAMBLE) / PER_ROW
+  const BASE_W  = (INNER_W - PREAMBLE) / PER_ROW
   const FIRST_W = BASE_W + PREAMBLE
 
   const renderer = new Renderer(el, Renderer.Backends.SVG)
@@ -119,30 +194,30 @@ function renderScore(el, setActiveFlag) {
   const ctx = renderer.getContext()
 
   const measureDefs = [
-    { num: 12, flag: null,       notes: [['db/5'], ['f/5'],  ['ab/5']] },
-    { num: 13, flag: null,       notes: [['bb/5'], ['ab/5'], ['gb/5']] },
-    { num: 14, flag: null,       notes: [['f/5'],  ['eb/5'], ['db/5']] },
-    { num: 15, flag: null,       notes: [['c/5'],  ['bb/4'], ['ab/4']] },
-    { num: 16, flag: 'timing',   notes: [['ab/4'], ['gb/4'], ['f/4']]  },
-    { num: 17, flag: null,       notes: [['eb/4'], ['f/4'],  ['gb/4']] },
-    { num: 18, flag: null,       notes: [['ab/4'], ['bb/4'], ['c/5']]  },
-    { num: 19, flag: null,       notes: [['db/5'], ['eb/5'], ['f/5']]  },
-    { num: 28, flag: 'dynamics', notes: [['db/5'], ['c/5'],  ['bb/4']] },
-    { num: 29, flag: null,       notes: [['ab/4'], ['gb/4'], ['f/4']]  },
-    { num: 30, flag: null,       notes: [['eb/4'], ['f/4'],  ['gb/4']] },
-    { num: 31, flag: null,       notes: [['ab/4'], ['bb/4'], ['c/5']]  },
-    { num: 33, flag: 'voicing',  notes: [['db/5'], ['eb/5'], ['f/5']]  },
-    { num: 34, flag: null,       notes: [['gb/5'], ['f/5'],  ['eb/5']] },
-    { num: 35, flag: null,       notes: [['db/5'], ['c/5'],  ['bb/4']] },
-    { num: 36, flag: null,       notes: [['ab/4', 'db/5', 'f/5']]     },
+    { num: 12, notes: [['db/5'], ['f/5'],  ['ab/5']] },
+    { num: 13, notes: [['bb/5'], ['ab/5'], ['gb/5']] },
+    { num: 14, notes: [['f/5'],  ['eb/5'], ['db/5']] },
+    { num: 15, notes: [['c/5'],  ['bb/4'], ['ab/4']] },
+    { num: 16, notes: [['ab/4'], ['gb/4'], ['f/4']]  },
+    { num: 17, notes: [['eb/4'], ['f/4'],  ['gb/4']] },
+    { num: 18, notes: [['ab/4'], ['bb/4'], ['c/5']]  },
+    { num: 19, notes: [['db/5'], ['eb/5'], ['f/5']]  },
+    { num: 28, notes: [['db/5'], ['c/5'],  ['bb/4']] },
+    { num: 29, notes: [['ab/4'], ['gb/4'], ['f/4']]  },
+    { num: 30, notes: [['eb/4'], ['f/4'],  ['gb/4']] },
+    { num: 31, notes: [['ab/4'], ['bb/4'], ['c/5']]  },
+    { num: 33, notes: [['db/5'], ['eb/5'], ['f/5']]  },
+    { num: 34, notes: [['gb/5'], ['f/5'],  ['eb/5']] },
+    { num: 35, notes: [['db/5'], ['c/5'],  ['bb/4']] },
+    { num: 36, notes: [['ab/4', 'db/5', 'f/5']]     },
   ]
 
   const svg = el.querySelector('svg')
 
   measureDefs.forEach((m, i) => {
-    const row = Math.floor(i / PER_ROW)
-    const col = i % PER_ROW
-    const isFirst = col === 0
+    const row      = Math.floor(i / PER_ROW)
+    const col      = i % PER_ROW
+    const isFirst  = col === 0
     const isVeryFirst = i === 0
 
     const x = MARGIN + (isFirst ? 0 : PREAMBLE + col * BASE_W)
@@ -184,7 +259,9 @@ function renderScore(el, setActiveFlag) {
     new Formatter().joinVoices([voice]).format([voice], noteWidth)
     voice.draw(ctx, stave)
 
-    if (m.flag && svg) {
+    // Highlight flagged measures
+    const flagId = flagMeasures.get(m.num) ?? null
+    if (flagId && svg) {
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
       rect.setAttribute('x', String(x + 1))
       rect.setAttribute('y', String(y - 10))
@@ -194,11 +271,10 @@ function renderScore(el, setActiveFlag) {
       rect.setAttribute('fill', 'rgba(225, 134, 118, 0.09)')
       rect.setAttribute('stroke', 'rgba(225, 134, 118, 0.5)')
       rect.setAttribute('stroke-width', '1.5')
-      rect.setAttribute('data-flag', m.flag)
+      rect.setAttribute('data-flag', flagId)
       rect.style.cursor = 'pointer'
       svg.appendChild(rect)
-
-      rect.addEventListener('click', () => setActiveFlag(f => f === m.flag ? null : m.flag))
+      rect.addEventListener('click', () => setActiveFlag(f => f === flagId ? null : flagId))
     }
   })
 }
