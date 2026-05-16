@@ -1,13 +1,24 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
+const PIECE = {
+  title:    'Clair de Lune',
+  composer: 'Claude Debussy',
+  timeSig:  '3/4',
+  instrument: 'Piano',
+}
+
 export default function Record() {
-  const nav = useNavigate()
-  const [file, setFile]         = useState(null)
+  const nav  = useNavigate()
+  const { user } = useAuth()
+  const [file, setFile]       = useState(null)
   const [dragging, setDragging] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
+  const [phase, setPhase]     = useState('idle')   // idle | uploading | analyzing | error
   const [progress, setProgress] = useState(0)
+  const [errorMsg, setErrorMsg] = useState('')
   const inputRef = useRef()
 
   function handleDrop(e) {
@@ -22,36 +33,98 @@ export default function Record() {
     if (f) setFile(f)
   }
 
-  function handleSubmit() {
-    setAnalyzing(true)
+  async function handleSubmit() {
+    if (!file || !user) return
+    setPhase('uploading')
     setProgress(0)
-    // Simulate analysis progress
-    let p = 0
-    const tick = setInterval(() => {
-      p += Math.random() * 14
-      setProgress(Math.min(p, 99))
-      if (p >= 99) {
-        clearInterval(tick)
-        setTimeout(() => nav('/analysis'), 600)
-      }
-    }, 200)
+    setErrorMsg('')
+
+    try {
+      // 1. Upload video to Supabase Storage
+      const ext      = file.name.split('.').pop()
+      const videoPath = `${user.id}/${Date.now()}.${ext}`
+
+      // Simulate upload progress (Supabase JS SDK doesn't expose byte progress yet)
+      const progressTick = setInterval(() => {
+        setProgress(p => Math.min(p + 6, 45))
+      }, 300)
+
+      const { error: uploadError } = await supabase.storage
+        .from('recordings')
+        .upload(videoPath, file, { contentType: file.type })
+
+      clearInterval(progressTick)
+      if (uploadError) throw uploadError
+
+      setProgress(50)
+      setPhase('analyzing')
+
+      // 2. Call analyze-performance edge function
+      const { data: { session } } = await supabase.auth.getSession()
+
+      // Advance progress bar during AI analysis
+      const analysisTick = setInterval(() => {
+        setProgress(p => Math.min(p + 3, 95))
+      }, 800)
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-performance`,
+        {
+          method:  'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type':  'application/json',
+          },
+          body: JSON.stringify({
+            videoPath,
+            videoMimeType: file.type,
+            pieceTitle:  PIECE.title,
+            composer:    PIECE.composer,
+            timeSig:     PIECE.timeSig,
+            instrument:  PIECE.instrument,
+          }),
+        }
+      )
+
+      clearInterval(analysisTick)
+      const result = await res.json()
+      if (!res.ok || result.error) throw new Error(result.error || 'Analysis failed')
+
+      setProgress(100)
+      setTimeout(() => nav(`/analysis?takeId=${result.takeId}`), 400)
+
+    } catch (err) {
+      setErrorMsg(err.message ?? 'Something went wrong. Please try again.')
+      setPhase('error')
+    }
   }
 
-  if (analyzing) {
+  // ── Loading screens ────────────────────────────────────────
+
+  if (phase === 'uploading' || phase === 'analyzing') {
+    const title = phase === 'uploading'
+      ? 'Uploading your video…'
+      : 'AI is listening to your performance…'
+    const sub = phase === 'uploading'
+      ? 'Sending your recording to the server.'
+      : 'Gemini is analyzing timing, dynamics, and technique. This takes about 30 seconds.'
+
     return (
       <div className={styles.page}>
         <div className={styles.analyzeScreen}>
           <div className={styles.analyzeIcon}>♪</div>
-          <h2 className={styles.analyzeTitle}>Analyzing your performance…</h2>
-          <p className={styles.analyzeSub}>Matching to score, identifying part, flagging moments.</p>
+          <h2 className={styles.analyzeTitle}>{title}</h2>
+          <p className={styles.analyzeSub}>{sub}</p>
           <div className={styles.progressBar}>
-            <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+            <div className={styles.progressFill} style={{ width: `${progress}%`, transition: 'width 0.4s ease' }} />
           </div>
           <p className={styles.progressLabel}>{Math.round(progress)}%</p>
         </div>
       </div>
     )
   }
+
+  // ── Upload form ────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
@@ -60,19 +133,26 @@ export default function Record() {
           <p className={styles.label}>Upload Recording</p>
           <h1 className={styles.title}>Submit your take</h1>
         </div>
-        {file && (
+        {file && phase !== 'error' && (
           <button className={styles.primaryBtn} onClick={handleSubmit}>
             Analyze recording →
           </button>
         )}
       </div>
 
+      {phase === 'error' && (
+        <div className={styles.errorBanner}>
+          <strong>Analysis failed:</strong> {errorMsg}
+          <button className={styles.errorRetry} onClick={() => setPhase('idle')}>Try again</button>
+        </div>
+      )}
+
       <div className={styles.recordLayout}>
         <div>
           <div className={styles.pieceCard}>
             <p className={styles.label}>Selected piece</p>
-            <h3 className={styles.resultTitle}>Clair de Lune</h3>
-            <p className={styles.resultSub}>Solo piano · the app will infer your part automatically.</p>
+            <h3 className={styles.resultTitle}>{PIECE.title}</h3>
+            <p className={styles.resultSub}>{PIECE.instrument} · the app will match your recording to this score.</p>
           </div>
 
           <div
@@ -82,7 +162,13 @@ export default function Record() {
             onDrop={handleDrop}
             onClick={() => inputRef.current?.click()}
           >
-            <input ref={inputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleFile} />
+            <input
+              ref={inputRef}
+              type="file"
+              accept="video/*"
+              style={{ display: 'none' }}
+              onChange={handleFile}
+            />
             {file ? (
               <>
                 <span className={styles.dropzoneCheck}>✓</span>
@@ -92,8 +178,8 @@ export default function Record() {
             ) : (
               <>
                 <span className={styles.dropzoneIcon}>↑</span>
-                <strong>Drag a recording here or click to upload</strong>
-                <span className={styles.dropzoneSub}>WAV, MP3, AIFF, or M4A</span>
+                <strong>Drag a video here or click to upload</strong>
+                <span className={styles.dropzoneSub}>MP4, MOV, or WebM · max 200 MB</span>
               </>
             )}
           </div>
@@ -113,18 +199,18 @@ export default function Record() {
 
           <div className={styles.captureGrid}>
             <div className={styles.captureCard}>
-              <p className={styles.label}>Detected setup</p>
-              <strong>Piano · indoor room · solo part</strong>
+              <p className={styles.label}>What AI listens for</p>
+              <strong>Timing · Dynamics · Articulation · Intonation</strong>
             </div>
             <div className={styles.captureCard}>
               <p className={styles.label}>Expected output</p>
-              <strong>Generated notation + flagged measures</strong>
+              <strong>Flagged measures + coaching feedback</strong>
             </div>
           </div>
         </div>
       </div>
 
-      {file && (
+      {file && phase !== 'error' && (
         <button className={`${styles.primaryBtn} ${styles.submitBtn}`} onClick={handleSubmit}>
           Analyze recording →
         </button>
