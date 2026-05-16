@@ -1,189 +1,203 @@
 import { useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
 import styles from './UploadPieceModal.module.css'
 
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
-const MAX_MB   = 20
+const ACCEPTED    = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
+const MAX_MB      = 20
+const INSTRUMENTS = ['Piano', 'Violin', 'Cello', 'Viola', 'Guitar', 'Flute', 'Clarinet', 'Trumpet', 'Saxophone', 'Oboe', 'Horn', 'Harp', 'Other']
+const ERAS        = ['Baroque', 'Classical', 'Romantic', 'Modern']
+const LEVELS      = ['Beginner', 'Intermediate', 'Advanced']
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 export default function UploadPieceModal({ onClose, onAdded }) {
-  const { user } = useAuth()
-  const inputRef  = useRef(null)
-  const [file,    setFile]    = useState(null)
-  const [stage,   setStage]   = useState('idle')   // idle | uploading | analyzing | done | error
-  const [error,   setError]   = useState(null)
-  const [result,  setResult]  = useState(null)
-  const [drag,    setDrag]    = useState(false)
+  const inputRef = useRef(null)
+  const [file,       setFile]       = useState(null)
+  const [drag,       setDrag]       = useState(false)
+  const [instrument, setInstrument] = useState('Piano')
+  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready
+  const [form,       setForm]       = useState(null)     // AI-filled values
+  const [error,      setError]      = useState(null)
 
-  function pickFile(f) {
-    if (!f) return
-    if (!ACCEPTED.includes(f.type)) { setError('Please upload a PNG, JPG, WEBP, or PDF file.'); return }
-    if (f.size > MAX_MB * 1024 * 1024) { setError(`File must be under ${MAX_MB} MB.`); return }
+  async function analyze(f) {
+    setPhase('analyzing')
     setError(null)
-    setFile(f)
-  }
-
-  function onDrop(e) {
-    e.preventDefault(); setDrag(false)
-    pickFile(e.dataTransfer.files[0])
-  }
-
-  async function handleUpload() {
-    if (!file) return
-    setStage('uploading')
-    setError(null)
-
     try {
-      // 1. Upload file to Supabase Storage
-      const ext      = file.name.split('.').pop()
-      const filePath = `${user.id}/${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage
-        .from('sheet-music')
-        .upload(filePath, file, { contentType: file.type })
-      if (upErr) throw new Error(upErr.message)
-
-      // 2. Call Edge Function to analyze with Claude
-      setStage('analyzing')
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-sheet-music`,
-        {
-          method:  'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ filePath, fileType: file.type }),
-        }
-      )
-      const analysis = await res.json()
-      if (analysis.error) throw new Error(analysis.error)
-
-      // 3. Get public URL for display
-      const { data: { publicUrl } } = supabase.storage
-        .from('sheet-music')
-        .getPublicUrl(filePath)
-
-      // 4. Save to user_pieces table
-      const { data: piece, error: dbErr } = await supabase
-        .from('user_pieces')
-        .insert({
-          user_id:    user.id,
-          title:      analysis.title,
-          composer:   analysis.composer,
-          instrument: analysis.instrument,
-          era:        analysis.era,
-          difficulty: analysis.difficulty,
-          key:        analysis.key,
-          time:       analysis.time,
-          ai_summary: analysis.ai_summary,
-          file_path:  filePath,
-          file_url:   publicUrl,
-        })
-        .select()
-        .single()
-      if (dbErr) throw new Error(dbErr.message)
-
-      setResult({ ...piece })
-      setStage('done')
-    } catch (err) {
-      setError(err.message)
-      setStage('error')
+      const imageBase64 = await fileToBase64(f)
+      const res = await fetch('/api/analyze-sheet-music', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ imageBase64, mediaType: f.type }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      const name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+      setForm({
+        title:      data.title      || name,
+        composer:   data.composer   || '',
+        era:        ERAS.includes(data.era) ? data.era : 'Romantic',
+        difficulty: LEVELS.includes(data.difficulty) ? data.difficulty : 'Intermediate',
+        key:        data.key        || '',
+        time:       data.time       || '',
+      })
+      setPhase('ready')
+    } catch {
+      setError('Could not analyze the file — fill in the details manually.')
+      const name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+      setForm({ title: name, composer: '', era: 'Romantic', difficulty: 'Intermediate', key: '', time: '' })
+      setPhase('ready')
     }
   }
 
-  function handleDone() {
-    onAdded(result)
+  function pickFile(f) {
+    if (!f) return
+    if (!ACCEPTED.includes(f.type)) { setError('Please upload a PNG, JPG, WEBP, or PDF.'); return }
+    if (f.size > MAX_MB * 1024 * 1024) { setError(`File must be under ${MAX_MB} MB.`); return }
+    setError(null)
+    setFile(f)
+    analyze(f)
+  }
+
+  function set(field) {
+    return e => setForm(prev => ({ ...prev, [field]: e.target.value }))
+  }
+
+  function handleAdd() {
+    if (!file || !form) return
+    onAdded({
+      id:         `upload-${Date.now()}`,
+      ...form,
+      title:      form.title.trim()    || file.name,
+      composer:   form.composer.trim() || 'Unknown',
+      key:        form.key.trim()      || '—',
+      time:       form.time.trim()     || '—',
+      instrument,
+      userUploaded: true,
+    })
     onClose()
   }
 
   return (
     <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className={styles.modal}>
+
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Upload your sheet music</h2>
+          <h2 className={styles.modalTitle}>Add a piece</h2>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        {stage === 'idle' || stage === 'error' ? (
-          <>
-            <p className={styles.modalSub}>
-              Upload a PNG, JPG, or PDF of any sheet music — Mediant's AI will read it and add it to your library.
-            </p>
+        <p className={styles.modalSub}>
+          Drop your sheet music and AI will fill in the details. You just need to select the instrument.
+        </p>
 
-            <div
-              className={`${styles.dropzone} ${drag ? styles.dropzoneDrag : ''} ${file ? styles.dropzoneFilled : ''}`}
-              onClick={() => inputRef.current.click()}
-              onDragOver={e => { e.preventDefault(); setDrag(true) }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={onDrop}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept={ACCEPTED.join(',')}
-                style={{ display: 'none' }}
-                onChange={e => pickFile(e.target.files[0])}
-              />
-              {file ? (
-                <>
-                  <span className={styles.dzIcon}>✓</span>
-                  <strong className={styles.dzFileName}>{file.name}</strong>
-                  <span className={styles.dzHint}>Click to change file</span>
-                </>
-              ) : (
-                <>
-                  <span className={styles.dzIcon}>♩</span>
-                  <strong className={styles.dzLabel}>Drop your sheet music here</strong>
-                  <span className={styles.dzHint}>PNG, JPG, WEBP, or PDF · up to {MAX_MB} MB</span>
-                </>
-              )}
-            </div>
+        {/* Drop zone */}
+        <div
+          className={`${styles.dropzone} ${drag ? styles.dropzoneDrag : ''} ${file ? styles.dropzoneFilled : ''}`}
+          onClick={() => phase === 'idle' && inputRef.current.click()}
+          onDragOver={e => { e.preventDefault(); setDrag(true) }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); pickFile(e.dataTransfer.files[0]) }}
+          style={phase !== 'idle' ? { cursor: 'default' } : {}}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED.join(',')}
+            style={{ display: 'none' }}
+            onChange={e => pickFile(e.target.files[0])}
+          />
+          {phase === 'idle' ? (
+            <>
+              <span className={styles.dzIcon}>♩</span>
+              <strong className={styles.dzLabel}>Drop your sheet music here</strong>
+              <span className={styles.dzHint}>PNG, JPG, WEBP, or PDF · up to {MAX_MB} MB</span>
+            </>
+          ) : (
+            <>
+              <span className={styles.dzIcon}>✓</span>
+              <strong className={styles.dzFileName}>{file.name}</strong>
+              {phase === 'idle' && <span className={styles.dzHint}>Click to change</span>}
+            </>
+          )}
+        </div>
 
+        {/* Analyzing spinner */}
+        {phase === 'analyzing' && (
+          <div className={styles.progress}>
+            <div className={styles.spinner} />
+            <p className={styles.progressLabel}>Reading your sheet music…</p>
+            <p className={styles.progressSub}>AI is extracting the title, composer, key, and more.</p>
+          </div>
+        )}
+
+        {/* Form — shown once analysis is done */}
+        {phase === 'ready' && form && (
+          <div className={styles.form}>
             {error && <p className={styles.errorMsg}>{error}</p>}
 
-            <div className={styles.modalActions}>
-              <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-              <button
-                className={styles.uploadBtn}
-                onClick={handleUpload}
-                disabled={!file}
-              >
-                Analyze & add to library
-              </button>
+            <div className={styles.formRow}>
+              <label className={styles.formLabel}>Instrument <span className={styles.formRequired}>— select yours</span></label>
+              <select className={styles.formSelect} value={instrument} onChange={e => setInstrument(e.target.value)}>
+                {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
+              </select>
             </div>
-          </>
-        ) : stage === 'uploading' ? (
-          <div className={styles.progress}>
-            <div className={styles.spinner} />
-            <p className={styles.progressLabel}>Uploading your file…</p>
-          </div>
-        ) : stage === 'analyzing' ? (
-          <div className={styles.progress}>
-            <div className={styles.spinner} />
-            <p className={styles.progressLabel}>AI is reading your sheet music…</p>
-            <p className={styles.progressSub}>Extracting title, composer, key, difficulty, and learning notes</p>
-          </div>
-        ) : stage === 'done' && result ? (
-          <div className={styles.resultBox}>
-            <span className={styles.resultCheck}>✓</span>
-            <h3 className={styles.resultTitle}>{result.title}</h3>
-            <p className={styles.resultComposer}>{result.composer}</p>
-            <div className={styles.resultTags}>
-              <span className={styles.tag}>{result.instrument}</span>
-              <span className={styles.tag}>{result.era}</span>
-              <span className={styles.tag}>{result.difficulty}</span>
-              <span className={styles.tag}>{result.key}</span>
-              <span className={styles.tag}>{result.time}</span>
+
+            <div className={styles.formDivider} />
+
+            <p className={styles.formAiLabel}>Detected by AI — edit if needed</p>
+
+            <div className={styles.formRow}>
+              <label className={styles.formLabel}>Title</label>
+              <input className={styles.formInput} value={form.title} onChange={set('title')} />
             </div>
-            {result.ai_summary && (
-              <p className={styles.resultSummary}>{result.ai_summary}</p>
-            )}
-            <button className={styles.uploadBtn} onClick={handleDone}>
-              Add to my library
-            </button>
+            <div className={styles.formRow}>
+              <label className={styles.formLabel}>Composer</label>
+              <input className={styles.formInput} value={form.composer} onChange={set('composer')} placeholder="Unknown" />
+            </div>
+            <div className={styles.formRowGroup}>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>Era</label>
+                <select className={styles.formSelect} value={form.era} onChange={set('era')}>
+                  {ERAS.map(e => <option key={e}>{e}</option>)}
+                </select>
+              </div>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>Level</label>
+                <select className={styles.formSelect} value={form.difficulty} onChange={set('difficulty')}>
+                  {LEVELS.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className={styles.formRowGroup}>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>Key</label>
+                <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D♭ major" />
+              </div>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>Time</label>
+                <input className={styles.formInput} value={form.time} onChange={set('time')} placeholder="e.g. 4/4" />
+              </div>
+            </div>
           </div>
-        ) : null}
+        )}
+
+        <div className={styles.modalActions}>
+          <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
+          <button
+            className={styles.uploadBtn}
+            onClick={handleAdd}
+            disabled={phase !== 'ready'}
+          >
+            Add to library
+          </button>
+        </div>
+
       </div>
     </div>
   )
