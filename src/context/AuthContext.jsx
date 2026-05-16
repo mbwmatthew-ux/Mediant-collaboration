@@ -14,24 +14,65 @@ function userFromSession(session) {
   }
 }
 
+async function fetchSubscription(userId) {
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('status, plan, current_period_end')
+    .eq('user_id', userId)
+    .single()
+  return data ?? { status: 'inactive', plan: null, current_period_end: null }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser]               = useState(null)
+  const [subscription, setSubscription] = useState(null)
+  const [loading, setLoading]         = useState(true)
+
+  async function refreshSubscription(userId) {
+    const sub = await fetchSubscription(userId)
+    setSubscription(sub)
+    return sub
+  }
 
   useEffect(() => {
-    // Load existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(userFromSession(session))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const u = userFromSession(session)
+      setUser(u)
+      if (u) await refreshSubscription(u.id)
       setLoading(false)
     })
 
-    // Keep state in sync when the session changes (tab focus, token refresh, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(userFromSession(session))
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = userFromSession(session)
+      setUser(u)
+      if (u) {
+        await refreshSubscription(u.id)
+      } else {
+        setSubscription(null)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => authSub.unsubscribe()
   }, [])
+
+  // Realtime: update subscription state immediately when the webhook writes to Supabase
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel(`sub-${user.id}`)
+      .on('postgres_changes', {
+        event:  '*',
+        schema: 'public',
+        table:  'subscriptions',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        setSubscription(payload.new)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
 
   async function signup(name, email, password, instrument) {
     const { data, error } = await supabase.auth.signUp({
@@ -51,12 +92,13 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     await supabase.auth.signOut()
+    setSubscription(null)
   }
 
   if (loading) return null
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, subscription, login, signup, logout, refreshSubscription }}>
       {children}
     </AuthContext.Provider>
   )

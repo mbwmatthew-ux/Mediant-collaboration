@@ -1,10 +1,12 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import AppShell from './components/AppShell'
+import RequireSubscription from './components/RequireSubscription'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import ConfirmEmail from './pages/ConfirmEmail'
+import Pricing from './pages/Pricing'
 import Home from './pages/Home'
 import Search from './pages/Search'
 import Record from './pages/Record'
@@ -23,7 +25,8 @@ export default function App() {
           <Route path="/login"  element={<Login />} />
           <Route path="/signup"        element={<Signup />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
-          <Route element={<AppShell />}>
+          <Route path="/pricing"       element={<Pricing />} />
+          <Route element={<RequireSubscription><AppShell /></RequireSubscription>}>
             <Route path="/home"     element={<Home />} />
             <Route path="/search"   element={<Search />} />
             <Route path="/record"   element={<Record />} />
