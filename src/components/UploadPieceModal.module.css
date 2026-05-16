@@ -104,6 +104,68 @@
   font-size: 0.82rem;
 }
 
+/* ── Form ─────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formRowGroup {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.formLabel {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.formInput {
+  background: var(--cream);
+  border: 1px solid rgba(88, 121, 101, 0.22);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.92rem;
+  padding: 10px 14px;
+  transition: border-color 140ms ease;
+  width: 100%;
+}
+.formInput:focus { border-color: var(--hero-green); outline: none; }
+
+.formSelect {
+  background: var(--cream);
+  border: 1px solid rgba(88, 121, 101, 0.22);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.92rem;
+  padding: 10px 14px;
+  width: 100%;
+}
+
+.formDivider {
+  border: none;
+  border-top: 1px solid rgba(88, 121, 101, 0.12);
+  margin: 2px 0;
+}
+
+.formAiLabel {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-style: italic;
+  margin: 0;
+}
+
 /* ── Error ────────────────────────────────────────────────── */
 .errorMsg {
   background: rgba(225, 134, 118, 0.1);
