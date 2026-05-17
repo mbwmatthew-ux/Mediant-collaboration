@@ -39,36 +39,41 @@ function buildGeminiPrompt(
     ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
     : ''
 
-  return `You are an expert music teacher analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
-Instrument: ${instrument}. Time signature: ${timeSig}.
+  return `You are an expert music teacher and professional ${instrument} player analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
+Time signature: ${timeSig}.
 ${measureLine}
-${hasVisualScore ? 'A sheet music image is provided. The printed measure numbers in the image are ground truth — cross-reference them with the audio to pinpoint exactly which measure each issue occurs in.' : ''}
+${hasVisualScore ? 'A sheet music image is provided. The printed measure numbers in the image are ground truth — use them to pinpoint exactly which measure each issue occurs in.' : ''}
 
-Listen to the ENTIRE recording carefully and identify 2–4 specific, real performance issues you actually hear.
+Listen to the ENTIRE recording carefully. Identify 2–4 specific, real performance issues you actually hear.
 
-IMPORTANT: Only flag issues in measures the student actually plays in this recording. Do not flag measures they did not play.
+IMPORTANT RULES:
+- Only flag measures the student actually plays in this recording. Do not invent issues.
+- Be precise: name the exact beat, note, or passage within the measure where the issue happens.
+- For TIMING issues: describe whether it rushes, drags, or loses pulse, and on which beat.
+- For DYNAMICS issues: describe whether a phrase peaks too early/late, or a note is too loud/soft relative to its musical role.
+- For ARTICULATION issues: describe which notes are too short, too long, or missing bow/tongue separation.
+- For INTONATION issues: name whether the pitch is sharp or flat, and in which register or shift.
+- For VOICING issues: describe which voice or string is overpowering the others and why it muddies the texture.
 
 For each issue provide:
-- measure: the exact printed measure number (from the score) where the issue occurs
+- measure: the exact printed measure number where the issue occurs
 - type: one of: timing, dynamics, voicing, articulation, intonation
-- title: a 6–10 word description of the specific issue
-- raw_detail: 2–3 sentences describing what you heard and why it matters musically
+- title: 6–10 words naming the specific problem (e.g. "Bow rushes through dotted rhythm in m.217")
+- raw_detail: 3 sentences — (1) exactly what you heard, (2) which beat/note it occurs on, (3) why it matters for this passage
 ${bboxField}
 
 Return ONLY valid JSON — no markdown, no explanation:
 {
-  "score": <integer 0–100, overall performance quality>,
+  "score": <integer 0–100>,
   "flags": [
     {
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
-      "title": "<short issue description>",${bboxJson}
-      "raw_detail": "<technical detail for teacher>"
+      "title": "<specific issue>",${bboxJson}
+      "raw_detail": "<what you heard · which beat/note · why it matters>"
     }
   ]
-}
-
-Be specific and honest. Only report issues you genuinely detected. Return 2–4 flags maximum.`
+}`
 }
 
 // Parse total measure count from MusicXML text
@@ -150,7 +155,7 @@ async function analyzeWithGemini(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0.3 },
+        generationConfig: { temperature: 0.1 },
       }),
     }
   )
@@ -167,20 +172,26 @@ const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'im
 // ── Claude Haiku coaching text ─────────────────────────────────────────────
 
 async function generateCoachingText(
-  flag: { type: string; title: string; raw_detail: string },
+  flag: { measure: number; type: string; title: string; raw_detail: string },
   pieceTitle: string,
   composer: string,
+  instrument: string,
 ): Promise<string> {
   const msg = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 280,
+    max_tokens: 380,
     messages: [{
       role: 'user',
-      content: `You are a warm, encouraging music teacher. A student is working on "${pieceTitle}" by ${composer}.
+      content: `You are an expert ${instrument} teacher giving feedback to a student on "${pieceTitle}" by ${composer}.
 
-The AI detected this issue: ${flag.raw_detail}
+Issue detected in measure ${flag.measure} (${flag.type}): ${flag.raw_detail}
 
-Write 2–3 sentences of specific, actionable coaching feedback. Sound like a human teacher — warm but direct. Give one concrete practice technique they can try right now.`,
+Write 3 sentences of coaching feedback:
+1. Acknowledge specifically what happened and where (reference the measure and what went wrong).
+2. Explain briefly why this matters musically in this passage.
+3. Give one concrete, named practice technique specific to ${instrument} they can use right now — be precise (e.g. "slow-bow on just beats 2–3", "use a metronome at 60 bpm", "practice the shift in isolation without vibrato").
+
+Be direct and specific. Do not be vague or generic. Sound like a master teacher, not a chatbot.`,
     }],
   })
   return (msg.content[0] as { type: string; text: string }).text.trim()
@@ -262,7 +273,7 @@ serve(async (req) => {
     // Generate warm coaching text for each flag via Claude Haiku
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
-        const body = await generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer')
+        const body = await generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'instrument')
         return { measure: f.measure, type: f.type, title: f.title, body, bbox: f.bbox ?? null }
       })
     )
