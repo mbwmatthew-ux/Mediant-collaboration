@@ -12,10 +12,16 @@ const INSTRUMENTS = [
 export default function Record() {
   const nav  = useNavigate()
 
+  // Pre-fill from piece detail panel if navigated from library
+  const prefill = (() => {
+    try { return JSON.parse(sessionStorage.getItem('mediant_prefill') || 'null') }
+    catch { return null }
+  })()
+
   // Piece info form
-  const [pieceTitle,  setPieceTitle]  = useState('')
-  const [composer,    setComposer]    = useState('')
-  const [instrument,  setInstrument]  = useState('Piano')
+  const [pieceTitle,  setPieceTitle]  = useState(prefill?.pieceTitle  || '')
+  const [composer,    setComposer]    = useState(prefill?.composer     || '')
+  const [instrument,  setInstrument]  = useState(prefill?.instrument   || 'Piano')
   const [part,        setPart]        = useState('')
 
   // Upload state
@@ -76,14 +82,23 @@ export default function Record() {
       const result = await res.json()
       if (!res.ok || result.error) throw new Error(result.error || 'Analysis failed')
 
-      // Store result locally so Analysis page can read it without a DB
-      localStorage.setItem('mediant_last_take', JSON.stringify({
+      const newTake = {
         id:             `local-${Date.now()}`,
         piece_title:    pieceTitle.trim(),
         piece_composer: composer.trim(),
         score:          result.score,
         flags:          result.flags,
-      }))
+        date:           new Date().toISOString(),
+      }
+
+      // Save to per-piece history
+      const allTakes = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+      allTakes.unshift(newTake)
+      localStorage.setItem('mediant_takes', JSON.stringify(allTakes))
+
+      // Keep last_take for Analysis page backward compat
+      localStorage.setItem('mediant_last_take', JSON.stringify(newTake))
+      sessionStorage.removeItem('mediant_prefill')
 
       setProgress(100)
       setTimeout(() => nav('/analysis'), 400)

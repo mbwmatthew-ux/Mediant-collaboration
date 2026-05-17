@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import UploadPieceModal from '../components/UploadPieceModal'
+import PieceDetailPanel from '../components/PieceDetailPanel'
 import styles from './Page.module.css'
 
 const PIECES = [
@@ -149,7 +150,8 @@ export default function Search() {
     try { return JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]') }
     catch { return [] }
   })
-  const [showUpload, setShowUpload] = useState(false)
+  const [showUpload,    setShowUpload]    = useState(false)
+  const [selectedPiece, setSelectedPiece] = useState(null)
 
   useEffect(() => {
     localStorage.setItem('mediant_user_pieces', JSON.stringify(userPieces))
@@ -183,6 +185,12 @@ export default function Search() {
         <UploadPieceModal
           onClose={() => setShowUpload(false)}
           onAdded={handlePieceAdded}
+        />
+      )}
+      {selectedPiece && (
+        <PieceDetailPanel
+          piece={selectedPiece}
+          onClose={() => setSelectedPiece(null)}
         />
       )}
 
@@ -273,7 +281,7 @@ export default function Search() {
             </thead>
             <tbody>
               {results.map(p => (
-                <tr key={p.id} className={styles.tableRow} onClick={() => nav('/record')}>
+                <tr key={p.id} className={styles.tableRow} onClick={() => setSelectedPiece(p)}>
                   <td className={styles.td}>
                     {p.title}
                     {p.userUploaded && <span className={styles.uploadedTag}> · Uploaded</span>}
