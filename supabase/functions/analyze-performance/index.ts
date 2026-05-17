@@ -17,14 +17,24 @@ function buildGeminiPrompt(
   timeSig: string,
   instrument: string,
   totalMeasures: number | null,
+  hasVisualScore: boolean,
 ): string {
   const measureLine = totalMeasures
     ? `The score has ${totalMeasures} measures. Identify each issue by its actual measure number (1 through ${totalMeasures}).`
     : `Estimate the measure number by counting from the start of the recording using the time signature.`
 
+  const bboxField = hasVisualScore
+    ? `- bbox: bounding box of that measure in the sheet music image as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right)`
+    : ''
+
+  const bboxJson = hasVisualScore
+    ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
+    : ''
+
   return `You are analyzing a music practice recording. The student is performing "${pieceTitle}" by ${composer}.
 Time signature: ${timeSig}. Instrument: ${instrument}.
 ${measureLine}
+${hasVisualScore ? 'A sheet music image is also provided — use it to locate the exact position of each flagged measure.' : ''}
 
 Listen carefully to the ENTIRE recording and identify 2–4 specific performance issues.
 
@@ -33,6 +43,7 @@ For each issue provide:
 - type: one of: timing, dynamics, voicing, articulation, intonation
 - title: a 6–10 word description of the specific issue
 - raw_detail: 2–3 sentences describing what happened and why it matters musically
+${bboxField}
 
 Return ONLY valid JSON — no markdown, no explanation:
 {
@@ -41,7 +52,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     {
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
-      "title": "<short issue description>",
+      "title": "<short issue description>",${bboxJson}
       "raw_detail": "<technical detail for teacher>"
     }
   ]
@@ -231,6 +242,7 @@ serve(async (req) => {
       timeSig     ?? '4/4',
       instrument  ?? 'Piano',
       totalMeasures,
+      !!scoreFileUri,
     )
     const { score, flags: rawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
@@ -240,7 +252,7 @@ serve(async (req) => {
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
         const body = await generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer')
-        return { measure: f.measure, type: f.type, title: f.title, body }
+        return { measure: f.measure, type: f.type, title: f.title, body, bbox: f.bbox ?? null }
       })
     )
 
