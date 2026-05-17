@@ -49,10 +49,12 @@ Time signature: ${timeSig}.
 ${measureLine}
 ${hasVisualScore ? 'The sheet music image is shown first. Read every printed measure number carefully before listening. Use ONLY those printed numbers — never invent or estimate a measure number.' : ''}
 
-Listen to the ENTIRE recording carefully. Identify 2–4 specific, real performance issues you actually hear.
+Listen to the ENTIRE recording carefully. Your job is to flag ONLY issues you can clearly and specifically hear — not issues you assume might be there.
 
 IMPORTANT RULES:
-- Only flag measures the student actually plays in this recording. Do not invent issues.
+- Quality over quantity: return 1–4 flags. Fewer accurate flags are far better than more invented ones.
+- If you are not at least 70% confident an issue is real, do not include it. Return zero flags rather than guess.
+- Only flag measures the student actually plays. Do not invent or assume issues.
 - Be precise: name the exact beat, note, or passage within the measure where the issue happens.
 - For TIMING issues: describe whether it rushes, drags, or loses pulse, and on which beat.
 - For DYNAMICS issues: describe whether a phrase peaks too early/late, or a note is too loud/soft relative to its musical role.
@@ -63,6 +65,7 @@ IMPORTANT RULES:
 For each issue provide:
 - measure: the exact printed measure number where the issue occurs
 - type: one of: timing, dynamics, voicing, articulation, intonation
+- confidence: integer 0–100 — how certain you are this is a real, clearly audible issue (only include flags where this is ≥ 70)
 - title: 6–10 words naming the specific problem (e.g. "Bow rushes through dotted rhythm in m.217")
 - timestamp_start: time in seconds from the start of the video where this measure begins (e.g. 45.2)
 - timestamp_end: time in seconds from the start of the video where this measure ends (e.g. 48.8)
@@ -76,6 +79,7 @@ Return ONLY valid JSON — no markdown, no explanation:
     {
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
+      "confidence": <integer 70–100>,
       "title": "<specific issue>",
       "timestamp_start": <number>,
       "timestamp_end": <number>,${bboxJson}
@@ -175,7 +179,7 @@ async function analyzeWithGemini(
   const data = await res.json()
   const raw = data.candidates[0].content.parts[0].text as string
   const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
+  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -421,9 +425,12 @@ serve(async (req) => {
       startMeasure ? parseInt(startMeasure, 10) : null,
       anchoredMeasures,
     )
-    const { score, flags: rawFlags } = await analyzeWithGemini(
+    const { score, flags: allRawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
+
+    // Drop flags Gemini itself isn't confident about
+    const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 70)
 
     // Generate coaching text + refine spot in parallel for each flag
     const flags = await Promise.all(
