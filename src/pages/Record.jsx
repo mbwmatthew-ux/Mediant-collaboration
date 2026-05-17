@@ -246,7 +246,7 @@ export default function Record() {
               <input
                 ref={scoreInputRef}
                 type="file"
-                accept="image/*,application/pdf,.xml,.musicxml,.mxl"
+                accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.xml,.musicxml,.mxl"
                 style={{ display: 'none' }}
                 onChange={handleScoreFile}
               />
