@@ -60,7 +60,6 @@ export default function Analysis() {
   const [isLooping, setIsLooping]     = useState(false)
   const [scoreReady, setScoreReady]   = useState(false)
   const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
-  const [scoreImgLoaded, setScoreImgLoaded] = useState(false)
 
   // Chat state
   const [chatMessages, setChatMessages] = useState([])
@@ -110,7 +109,7 @@ export default function Analysis() {
     supabase.storage
       .from('sheet-music')
       .createSignedUrl(take.score_path, 3600)
-      .then(({ data }) => { if (data?.signedUrl) { setScoreImgLoaded(false); setScoreUrl(data.signedUrl) } })
+      .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
   }, [take])
 
   // Generate signed URL for the video recording
@@ -346,15 +345,13 @@ export default function Analysis() {
                 title="Sheet music"
               />
             ) : (
-              <div style={{ position: 'relative', lineHeight: 0 }}>
+              <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                 <img
                   src={scoreUrl}
                   className={styles.scorePhoto}
-                  style={{ width: '100%', display: 'block' }}
                   alt="Sheet music"
-                  onLoad={() => setScoreImgLoaded(true)}
                 />
-                {scoreImgLoaded && (take?.flags ?? []).map((f, i) => {
+                {(take?.flags ?? []).map((f, i) => {
                   if (!f.bbox) return null
                   const [y0, x0, y1, x1] = f.bbox
                   const flagId = `flag_${i}`
