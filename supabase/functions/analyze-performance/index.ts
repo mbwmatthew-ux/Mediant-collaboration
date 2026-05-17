@@ -19,20 +19,25 @@ function buildGeminiPrompt(
   totalMeasures: number | null,
   hasVisualScore: boolean,
   startMeasure: number | null,
+  anchoredMeasures: number[],
 ): string {
   let measureLine: string
-  if (startMeasure !== null && totalMeasures !== null) {
+  if (anchoredMeasures.length > 0) {
+    const first = anchoredMeasures[0]
+    const last  = anchoredMeasures[anchoredMeasures.length - 1]
+    measureLine = `The sheet music image shows measures ${anchoredMeasures.join(', ')}. The recording covers this exact range (${first}–${last}). You MUST use only these printed numbers — never count or guess. Every flagged measure must appear in this list.`
+  } else if (startMeasure !== null && totalMeasures !== null) {
     measureLine = `The student is playing measures ${startMeasure} through ${totalMeasures}. The recording starts at measure ${startMeasure} — use this as your anchor. All flagged measures must be within this range.`
   } else if (startMeasure !== null) {
-    measureLine = `The recording starts at measure ${startMeasure}. Use this as your anchor point when counting measures — do not start from measure 1.`
+    measureLine = `The recording starts at measure ${startMeasure}. Use this as your anchor — do not start counting from measure 1.`
   } else if (totalMeasures !== null) {
-    measureLine = `The score has ${totalMeasures} measures. Identify each issue by its actual measure number.`
+    measureLine = `The score has ${totalMeasures} measures total.`
   } else {
     measureLine = `Count measures carefully from the start of the recording using the time signature.`
   }
 
   const bboxField = hasVisualScore
-    ? `- bbox: bounding box of that measure in the sheet music image as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right). The sheet music image has printed measure numbers — use them as ground truth.`
+    ? `- bbox: bounding box of that measure in the sheet music image as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right). Read the number printed at the start of the system — do not estimate.`
     : ''
 
   const bboxJson = hasVisualScore
@@ -42,7 +47,7 @@ function buildGeminiPrompt(
   return `You are an expert music teacher and professional ${instrument} player analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
 Time signature: ${timeSig}.
 ${measureLine}
-${hasVisualScore ? 'A sheet music image is provided. The printed measure numbers in the image are ground truth — use them to pinpoint exactly which measure each issue occurs in.' : ''}
+${hasVisualScore ? 'The sheet music image is shown first. Read every printed measure number carefully before listening. Use ONLY those printed numbers — never invent or estimate a measure number.' : ''}
 
 Listen to the ENTIRE recording carefully. Identify 2–4 specific, real performance issues you actually hear.
 
@@ -142,10 +147,12 @@ async function analyzeWithGemini(
   scoreFileUri?: string,
   scoreMimeType?: string,
 ) {
-  const parts: unknown[] = [{ fileData: { mimeType: videoMimeType, fileUri: videoFileUri } }]
+  // Score image first so Gemini anchors to the printed measure numbers before listening
+  const parts: unknown[] = []
   if (scoreFileUri && scoreMimeType) {
     parts.push({ fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } })
   }
+  parts.push({ fileData: { mimeType: videoMimeType, fileUri: videoFileUri } })
   parts.push({ text: prompt })
 
   const res = await fetch(
@@ -168,6 +175,38 @@ async function analyzeWithGemini(
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
+
+// Pre-pass: ask Gemini to read the printed measure numbers off the score image.
+// Returns them sorted ascending. Falls back to [] on any error.
+async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number[]> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
+              { text: 'Look at this sheet music image. Find every measure number that is printed at the start of a measure or system. List them all in ascending order. Return ONLY a JSON array of integers with no other text, e.g. [212, 213, 214, 215, 216, 217, 218, 219, 220]. If no numbers are visible return [].' },
+            ],
+          }],
+          generationConfig: { temperature: 0 },
+        }),
+      }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text as string ?? ''
+    const match = raw.match(/\[[\d,\s]*\]/)
+    if (!match) return []
+    const nums = JSON.parse(match[0]) as number[]
+    return nums.filter((n): n is number => typeof n === 'number' && !isNaN(n)).sort((a, b) => a - b)
+  } catch {
+    return []
+  }
+}
 
 // ── Claude Haiku coaching text ─────────────────────────────────────────────
 
@@ -256,6 +295,12 @@ serve(async (req) => {
     // Upload video to Gemini Files API
     const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
+    // Pre-pass: read the printed measure numbers off the score image so Gemini
+    // doesn't have to count — it can use the exact numbers as ground truth.
+    const anchoredMeasures = scoreFileUri && scoreGeminiMime
+      ? await extractMeasureNumbers(scoreFileUri, scoreGeminiMime, googleApiKey)
+      : []
+
     // Analyze with Gemini (video + optional visual score)
     const prompt = buildGeminiPrompt(
       pieceTitle   ?? 'this piece',
@@ -265,6 +310,7 @@ serve(async (req) => {
       totalMeasures,
       !!scoreFileUri,
       startMeasure ? parseInt(startMeasure, 10) : null,
+      anchoredMeasures,
     )
     const { score, flags: rawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
