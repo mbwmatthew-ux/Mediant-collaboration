@@ -212,17 +212,9 @@ async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string
   }
 }
 
-// Dedicated spot pass: locate the specific note/passage for a flag in the score image.
-// Returns bbox of just the note/passage + the staff tilt angle so the frontend
-// can render a rotated highlight that follows the staff lines.
-async function refineSpot(
-  measureNum: number,
-  issueType: string,
-  issueDetail: string,
-  scoreFileUri: string,
-  scoreMimeType: string,
-  apiKey: string,
-): Promise<{ bbox: [number, number, number, number]; angle: number } | null> {
+// Pre-pass: detect the clockwise tilt angle of the staff lines in the score photo.
+// Called once per submission; the same angle is applied to all flag highlights.
+async function detectStaffAngle(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -233,22 +225,64 @@ async function refineSpot(
           contents: [{
             parts: [
               { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
-              { text: `This is a sheet music image. I need to highlight a specific performance issue.
+              { text: 'Look at the horizontal staff lines in this sheet music photo. Estimate the clockwise rotation angle of the staff lines in degrees — positive means the right side is lower than the left, negative means the right side is higher. A perfectly level photo is 0. Most hand-held photos are between -10 and +10 degrees. Return ONLY a single number with up to one decimal place, e.g. 3.5 or -2.0. No other text.' },
+            ],
+          }],
+          generationConfig: { temperature: 0 },
+        }),
+      }
+    )
+    if (!res.ok) return 0
+    const data = await res.json()
+    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text as string ?? '').trim()
+    const angle = parseFloat(raw)
+    return isNaN(angle) ? 0 : Math.max(-15, Math.min(15, angle))
+  } catch {
+    return 0
+  }
+}
 
-Measure: ${measureNum} (find the printed number "${measureNum}" at its opening barline)
+// Dedicated spot pass: locate the specific note/passage for a flag in the score image.
+// staffAngle is detected separately; this call only returns the bbox.
+async function refineSpot(
+  measureNum: number,
+  issueType: string,
+  issueDetail: string,
+  visibleMeasureCount: number,
+  scoreFileUri: string,
+  scoreMimeType: string,
+  apiKey: string,
+): Promise<[number, number, number, number] | null> {
+  // Estimate maximum reasonable width for the issue in 0-1000 units.
+  // visibleMeasureCount is how many measures fit across the full image width.
+  const maxMeasureWidth = visibleMeasureCount > 0 ? Math.round(1000 / visibleMeasureCount) : 150
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
+              { text: `This is a sheet music image. Locate a specific performance issue and return a bounding box for it.
+
+Measure: ${measureNum} — find its opening barline (the number "${measureNum}" is printed near it).
 Issue type: ${issueType}
 What happened: ${issueDetail}
 
-Step 1 — Find measure ${measureNum} in the image.
-Step 2 — Determine the full extent of the issue described above. This might be a single note, several notes, a full measure, or multiple consecutive measures — whatever the issue actually spans. Do not artificially shrink or expand: if the problem is one note, box that note; if it is the whole measure, box the whole measure; if it spans several measures, box all of them together.
-Step 3 — Draw a bounding box that tightly covers the entire affected region. The box height should span from the top staff line to the bottom staff line at that location (include ledger lines if needed). The box width covers the full horizontal extent of the issue.
-Step 4 — Estimate the rotation angle of the staff lines at that location in degrees. Clockwise tilt = positive (e.g. +2.5). Counter-clockwise = negative. Perfectly level = 0. Most hand-held photos are between -8 and +8 degrees.
-
-Return ONLY valid JSON, no other text:
-{"bbox": [<y_min>, <x_min>, <y_max>, <x_max>], "angle": <degrees>}
-
-All bbox values are integers 0–1000 (0=top/left corner, 1000=bottom/right corner).
-If you cannot locate the issue region with confidence, return {"bbox": null, "angle": 0}.` },
+Instructions:
+1. Find measure ${measureNum}.
+2. Identify exactly which note(s), beat(s), or passage the issue spans. This could be a single note, a group of notes, one full measure, or multiple consecutive measures.
+3. Draw a bounding box covering only the affected region — not the whole staff row, not the whole line.
+   - Height: from top staff line to bottom staff line at that location (include ledger lines if used).
+   - Width: the actual horizontal extent of the affected note(s)/measure(s).
+   - IMPORTANT: this image has approximately ${visibleMeasureCount} measures visible. One measure is therefore roughly ${maxMeasureWidth} units wide (out of 1000 total). A single-note issue should be much narrower than that. Do NOT return a box wider than the actual extent of the problem.
+4. Return ONLY valid JSON with no other text:
+{"bbox": [<y_min>, <x_min>, <y_max>, <x_max>]}
+All values are integers 0–1000 (0 = top-left corner, 1000 = bottom-right corner).
+If you cannot find measure ${measureNum} with confidence, return {"bbox": null}.` },
             ],
           }],
           generationConfig: { temperature: 0 },
@@ -258,15 +292,15 @@ If you cannot locate the issue region with confidence, return {"bbox": null, "an
     if (!res.ok) return null
     const data = await res.json()
     const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
-    const match = raw.match(/\{\s*"bbox"\s*:\s*(\[[^\]]*\]|null)\s*,\s*"angle"\s*:\s*(-?[\d.]+)\s*\}/)
-    if (!match) return null
-    if (match[1] === 'null') return null
-    const arr = JSON.parse(match[1]) as number[]
-    if (!Array.isArray(arr) || arr.length !== 4) return null
-    const [y0, x0, y1, x1] = arr.map(v => Math.max(0, Math.min(1000, Math.round(v))))
+    // Robust JSON extraction — find the first {...} block regardless of field order
+    const jsonMatch = raw.match(/\{[\s\S]*?\}/)
+    if (!jsonMatch) return null
+    let parsed: { bbox?: unknown }
+    try { parsed = JSON.parse(jsonMatch[0]) } catch { return null }
+    if (!parsed.bbox || !Array.isArray(parsed.bbox) || parsed.bbox.length !== 4) return null
+    const [y0, x0, y1, x1] = (parsed.bbox as number[]).map(v => Math.max(0, Math.min(1000, Math.round(v))))
     if (y1 <= y0 || x1 <= x0) return null
-    const angle = parseFloat(match[2])
-    return { bbox: [y0, x0, y1, x1], angle: isNaN(angle) ? 0 : Math.max(-15, Math.min(15, angle)) }
+    return [y0, x0, y1, x1]
   } catch {
     return null
   }
@@ -359,14 +393,22 @@ serve(async (req) => {
     // Upload video to Gemini Files API
     const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
-    // Pre-pass: read the printed measure numbers off the score image.
-    // Capped at 10 s so a slow image never blocks the main analysis.
-    const anchoredMeasures = scoreFileUri && scoreGeminiMime
-      ? await Promise.race([
-          extractMeasureNumbers(scoreFileUri, scoreGeminiMime, googleApiKey),
-          new Promise<number[]>(resolve => setTimeout(() => resolve([]), 10_000)),
-        ])
-      : []
+    // Pre-pass: read measure numbers + detect staff tilt angle in parallel.
+    // Both capped at 10 s so a slow image never blocks the main analysis.
+    const [anchoredMeasures, staffAngle] = await Promise.all([
+      scoreFileUri && scoreGeminiMime
+        ? Promise.race([
+            extractMeasureNumbers(scoreFileUri, scoreGeminiMime, googleApiKey),
+            new Promise<number[]>(resolve => setTimeout(() => resolve([]), 10_000)),
+          ])
+        : Promise.resolve([] as number[]),
+      scoreFileUri && scoreGeminiMime
+        ? Promise.race([
+            detectStaffAngle(scoreFileUri, scoreGeminiMime, googleApiKey),
+            new Promise<number>(resolve => setTimeout(() => resolve(0), 10_000)),
+          ])
+        : Promise.resolve(0),
+    ])
 
     // Analyze with Gemini (video + optional visual score)
     const prompt = buildGeminiPrompt(
@@ -386,10 +428,10 @@ serve(async (req) => {
     // Generate coaching text + refine spot in parallel for each flag
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
-        const [body, spot] = await Promise.all([
+        const [body, spotBbox] = await Promise.all([
           generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'instrument'),
           scoreFileUri && scoreGeminiMime
-            ? refineSpot(f.measure, f.type, f.raw_detail, scoreFileUri, scoreGeminiMime, googleApiKey)
+            ? refineSpot(f.measure, f.type, f.raw_detail, anchoredMeasures.length, scoreFileUri, scoreGeminiMime, googleApiKey)
             : Promise.resolve(null),
         ])
         return {
@@ -397,8 +439,8 @@ serve(async (req) => {
           type:            f.type,
           title:           f.title,
           body,
-          spot:            spot?.bbox  ?? null,
-          spot_angle:      spot?.angle ?? 0,
+          spot:            spotBbox ?? null,
+          spot_angle:      staffAngle,
           timestamp_start: f.timestamp_start ?? null,
           timestamp_end:   f.timestamp_end   ?? null,
         }
