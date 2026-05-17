@@ -57,16 +57,10 @@ export default function Record() {
     setErrorMsg('')
 
     try {
-      // Simulate upload progress while we call the AI
+      // Phase 1: uploading — tick up to 45%
       const progressTick = setInterval(() => {
-        setProgress(p => Math.min(p + 8, 50))
+        setProgress(p => Math.min(p + 8, 45))
       }, 300)
-
-      setPhase('analyzing')
-
-      const analysisTick = setInterval(() => {
-        setProgress(p => Math.min(p + 3, 95))
-      }, 600)
 
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
       const filePath = `${user.id}/${Date.now()}-${safeName}`
@@ -78,7 +72,15 @@ export default function Record() {
           upsert: false,
         })
 
+      clearInterval(progressTick)
       if (uploadError) throw new Error(uploadError.message || 'Upload failed')
+
+      // Phase 2: analyzing — tick from 50% up to 95%
+      setProgress(50)
+      setPhase('analyzing')
+      const analysisTick = setInterval(() => {
+        setProgress(p => Math.min(p + 2, 95))
+      }, 800)
 
       const { data: result, error: fnError } = await supabase.functions.invoke('analyze-performance', {
         body: {
