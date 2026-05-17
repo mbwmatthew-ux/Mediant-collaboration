@@ -338,9 +338,15 @@ serve(async (req) => {
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
 
+    // Drop any flag whose measure number Gemini hallucinated outside the anchored list.
+    const anchoredSet = new Set(anchoredMeasures)
+    const validatedFlags = anchoredMeasures.length > 0
+      ? rawFlags.filter(f => anchoredSet.has(f.measure))
+      : rawFlags
+
     // Generate warm coaching text for each flag via Claude Haiku
     const flags = await Promise.all(
-      rawFlags.map(async (f) => {
+      validatedFlags.map(async (f) => {
         const body = await generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'instrument')
         return {
           measure:         f.measure,
