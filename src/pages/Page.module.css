@@ -736,6 +736,39 @@
   width: 100%;
 }
 
+/* ── Excerpt video player ───────────────────────────────────── */
+.excerptPlayer {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.excerptVideo {
+  background: #000;
+  display: block;
+  height: 160px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.excerptControls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 6px 10px 10px;
+}
+
+.excerptTime {
+  color: rgba(248,246,242,0.35);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .feedbackSidebar {
   border-left: 1px solid rgba(255,255,255,0.07);
   display: flex;

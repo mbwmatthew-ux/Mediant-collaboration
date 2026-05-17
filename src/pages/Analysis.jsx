@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
@@ -50,9 +50,14 @@ export default function Analysis() {
   const scoreEl  = useRef(null)
   const osmdRef  = useRef(null)
 
+  const videoRef    = useRef(null)
+  const loopRef     = useRef(null)   // {start, end} for current excerpt loop
+
   const [take, setTake]               = useState(undefined)
   const [scoreUrl, setScoreUrl]       = useState(null)
+  const [videoUrl, setVideoUrl]       = useState(null)
   const [activeFlag, setActiveFlag]   = useState(null)
+  const [isLooping, setIsLooping]     = useState(false)
   const [scoreReady, setScoreReady]   = useState(false)
   const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
 
@@ -106,6 +111,49 @@ export default function Analysis() {
       .createSignedUrl(take.score_path, 3600)
       .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
   }, [take])
+
+  // Generate signed URL for the video recording
+  useEffect(() => {
+    if (!take?.video_path) return
+    supabase.storage
+      .from('recordings')
+      .createSignedUrl(take.video_path, 3600)
+      .then(({ data }) => { if (data?.signedUrl) setVideoUrl(data.signedUrl) })
+  }, [take])
+
+  // Loop the active excerpt whenever isLooping changes
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !isLooping || !loopRef.current) return
+    const { start, end } = loopRef.current
+    video.currentTime = start
+    video.play().catch(() => {})
+
+    function onTimeUpdate() {
+      if (videoRef.current && videoRef.current.currentTime >= end) {
+        videoRef.current.currentTime = start
+      }
+    }
+    video.addEventListener('timeupdate', onTimeUpdate)
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate)
+      video.pause()
+    }
+  }, [isLooping])
+
+  const startLoop = useCallback((flag) => {
+    if (!flag?.timestamp_start || !flag?.timestamp_end) return
+    loopRef.current = { start: flag.timestamp_start, end: flag.timestamp_end }
+    setIsLooping(true)
+  }, [])
+
+  const stopLoop = useCallback(() => {
+    setIsLooping(false)
+    loopRef.current = null
+  }, [])
+
+  // Stop loop when active flag changes
+  useEffect(() => { stopLoop() }, [activeFlag, stopLoop])
 
   // Determine if score is a visual file (photo/PDF) vs MusicXML
   const isVisualScore = scoreUrl && (() => {
@@ -236,6 +284,11 @@ export default function Analysis() {
   const issueCount    = chips.length
   const score         = take?.score
   const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
+
+  // Raw flag data for the active flag (has timestamps, bbox, etc.)
+  const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
+  const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
+  const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
 
   const info = activeFlag ? flagsMap[activeFlag] : null
 
@@ -373,7 +426,39 @@ export default function Analysis() {
                 <p className={styles.detailTag}>{info.tag}</p>
                 <h3 className={styles.detailTitle}>{info.title}</h3>
                 <p className={styles.detailBody}>{info.body}</p>
-                <button className={styles.loopBtn} onClick={() => nav('/follow')}>Loop this section</button>
+
+                {/* Video excerpt player */}
+                {videoUrl && hasTimestamps && (
+                  <div className={styles.excerptPlayer}>
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      className={styles.excerptVideo}
+                      playsInline
+                      preload="metadata"
+                    />
+                    <div className={styles.excerptControls}>
+                      {!isLooping ? (
+                        <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                          ▶ Loop m.{activeFlagRaw.measure}
+                        </button>
+                      ) : (
+                        <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
+                          ■ Stop loop
+                        </button>
+                      )}
+                      <span className={styles.excerptTime}>
+                        {activeFlagRaw.timestamp_start.toFixed(1)}s – {activeFlagRaw.timestamp_end.toFixed(1)}s
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fallback when no timestamps yet */}
+                {(!videoUrl || !hasTimestamps) && (
+                  <button className={styles.loopBtn} onClick={() => nav('/follow')}>Loop this section</button>
+                )}
+
                 <button className={styles.dismissBtn} onClick={() => setActiveFlag(null)}>Dismiss</button>
               </div>
             )}

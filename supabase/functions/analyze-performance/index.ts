@@ -64,6 +64,8 @@ For each issue provide:
 - measure: the exact printed measure number where the issue occurs
 - type: one of: timing, dynamics, voicing, articulation, intonation
 - title: 6–10 words naming the specific problem (e.g. "Bow rushes through dotted rhythm in m.217")
+- timestamp_start: time in seconds from the start of the video where this measure begins (e.g. 45.2)
+- timestamp_end: time in seconds from the start of the video where this measure ends (e.g. 48.8)
 - raw_detail: 3 sentences — (1) exactly what you heard, (2) which beat/note it occurs on, (3) why it matters for this passage
 ${bboxField}
 
@@ -74,7 +76,9 @@ Return ONLY valid JSON — no markdown, no explanation:
     {
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
-      "title": "<specific issue>",${bboxJson}
+      "title": "<specific issue>",
+      "timestamp_start": <number>,
+      "timestamp_end": <number>,${bboxJson}
       "raw_detail": "<what you heard · which beat/note · why it matters>"
     }
   ]
@@ -171,7 +175,7 @@ async function analyzeWithGemini(
   const data = await res.json()
   const raw = data.candidates[0].content.parts[0].text as string
   const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string; bbox?: [number, number, number, number] }> }
+  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -323,7 +327,15 @@ serve(async (req) => {
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
         const body = await generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'instrument')
-        return { measure: f.measure, type: f.type, title: f.title, body, bbox: f.bbox ?? null }
+        return {
+          measure:         f.measure,
+          type:            f.type,
+          title:           f.title,
+          body,
+          bbox:            f.bbox ?? null,
+          timestamp_start: f.timestamp_start ?? null,
+          timestamp_end:   f.timestamp_end   ?? null,
+        }
       })
     )
 
