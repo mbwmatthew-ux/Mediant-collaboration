@@ -11,14 +11,25 @@ const CORS = {
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
-function buildGeminiPrompt(pieceTitle: string, composer: string, timeSig: string, instrument: string): string {
+function buildGeminiPrompt(
+  pieceTitle: string,
+  composer: string,
+  timeSig: string,
+  instrument: string,
+  totalMeasures: number | null,
+): string {
+  const measureLine = totalMeasures
+    ? `The score has ${totalMeasures} measures. Identify each issue by its actual measure number (1 through ${totalMeasures}).`
+    : `Estimate the measure number by counting from the start of the recording using the time signature.`
+
   return `You are analyzing a music practice recording. The student is performing "${pieceTitle}" by ${composer}.
 Time signature: ${timeSig}. Instrument: ${instrument}.
+${measureLine}
 
 Listen carefully to the ENTIRE recording and identify 2–4 specific performance issues.
 
 For each issue provide:
-- measure: your best estimate of the measure number (count from 1 using the time signature)
+- measure: the exact measure number where the issue occurs
 - type: one of: timing, dynamics, voicing, articulation, intonation
 - title: a 6–10 word description of the specific issue
 - raw_detail: 2–3 sentences describing what happened and why it matters musically
@@ -37,6 +48,17 @@ Return ONLY valid JSON — no markdown, no explanation:
 }
 
 Be specific and musical. Focus on the most significant issues. Return 2–4 flags maximum.`
+}
+
+// Parse total measure count from MusicXML text
+function parseMeasureCount(xmlText: string): number | null {
+  try {
+    const matches = [...xmlText.matchAll(/<measure[^>]+number="(\d+)"/g)]
+    const nums = matches.map(m => parseInt(m[1], 10)).filter(n => !isNaN(n))
+    return nums.length > 0 ? Math.max(...nums) : null
+  } catch {
+    return null
+  }
 }
 
 // ── Gemini Files API ───────────────────────────────────────────────────────
@@ -147,7 +169,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    const { videoPath, videoMimeType, pieceTitle, composer, timeSig, instrument } = await req.json()
+    const { videoPath, videoMimeType, scorePath, pieceTitle, composer, timeSig, instrument } = await req.json()
     if (!videoPath || !videoMimeType) throw new Error('videoPath and videoMimeType are required')
 
     // Download video from Supabase Storage via service role
@@ -162,16 +184,29 @@ serve(async (req) => {
 
     const videoBytes = new Uint8Array(await videoBlob.arrayBuffer())
 
+    // Parse measure count from uploaded MusicXML score (if provided)
+    let totalMeasures: number | null = null
+    if (scorePath) {
+      const { data: scoreBlob } = await admin.storage.from('sheet-music').download(scorePath)
+      if (scoreBlob) {
+        try {
+          const xmlText = await scoreBlob.text()
+          totalMeasures = parseMeasureCount(xmlText)
+        } catch { /* not plain XML — skip */ }
+      }
+    }
+
     // Upload to Gemini Files API
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
     const fileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
-    // Analyze with Gemini 2.0 Flash
+    // Analyze with Gemini
     const prompt = buildGeminiPrompt(
       pieceTitle  ?? 'this piece',
       composer    ?? 'unknown composer',
       timeSig     ?? '4/4',
       instrument  ?? 'Piano',
+      totalMeasures,
     )
     const { score, flags: rawFlags } = await analyzeWithGemini(fileUri, videoMimeType, prompt, googleApiKey)
 
@@ -192,6 +227,7 @@ serve(async (req) => {
         piece_composer:  composer    ?? 'Unknown',
         video_path:      videoPath,
         video_mime_type: videoMimeType,
+        score_path:      scorePath ?? null,
         score:           Math.round(score),
         flags,
       })

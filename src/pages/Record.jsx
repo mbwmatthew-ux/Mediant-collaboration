@@ -22,12 +22,14 @@ export default function Record() {
   const [part,        setPart]        = useState('')
 
   // Upload state
-  const [file,      setFile]      = useState(null)
-  const [dragging,  setDragging]  = useState(false)
-  const [phase,     setPhase]     = useState('idle')   // idle | uploading | analyzing | error
-  const [progress,  setProgress]  = useState(0)
-  const [errorMsg,  setErrorMsg]  = useState('')
-  const inputRef = useRef()
+  const [file,       setFile]       = useState(null)
+  const [scoreFile,  setScoreFile]  = useState(null)
+  const [dragging,   setDragging]   = useState(false)
+  const [phase,      setPhase]      = useState('idle')   // idle | uploading | analyzing | error
+  const [progress,   setProgress]   = useState(0)
+  const [errorMsg,   setErrorMsg]   = useState('')
+  const inputRef      = useRef()
+  const scoreInputRef = useRef()
 
   const formComplete   = pieceTitle.trim() && composer.trim() && instrument
   const readyToAnalyze = formComplete && file && phase !== 'error'
@@ -72,6 +74,17 @@ export default function Record() {
           upsert: false,
         })
 
+      // Upload MusicXML score if provided
+      let scorePath = undefined
+      if (scoreFile) {
+        const safeSN = scoreFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+        const sp = `${user.id}/xml/${Date.now()}-${safeSN}`
+        const { error: scoreUploadErr } = await supabase.storage
+          .from('sheet-music')
+          .upload(sp, scoreFile, { contentType: 'text/xml', upsert: false })
+        if (!scoreUploadErr) scorePath = sp
+      }
+
       clearInterval(progressTick)
       if (uploadError) throw new Error(uploadError.message || 'Upload failed')
 
@@ -86,6 +99,7 @@ export default function Record() {
         body: {
           videoPath:     filePath,
           videoMimeType: file.type || 'video/mp4',
+          scorePath,
           pieceTitle:    pieceTitle.trim(),
           composer:      composer.trim(),
           instrument,
@@ -247,6 +261,28 @@ export default function Record() {
                 <span className={styles.dropzoneSub}>MP4, MOV, or WebM · max 200 MB</span>
               </>
             )}
+          </div>
+
+          {/* Optional MusicXML score upload */}
+          <div className={styles.scoreAttach}>
+            <input
+              ref={scoreInputRef}
+              type="file"
+              accept=".xml,.musicxml,.mxl"
+              style={{ display: 'none' }}
+              onChange={e => setScoreFile(e.target.files[0] || null)}
+            />
+            <button
+              className={styles.scoreAttachBtn}
+              onClick={() => scoreInputRef.current?.click()}
+              type="button"
+            >
+              {scoreFile ? `♩ ${scoreFile.name}` : '+ Attach MusicXML score (optional)'}
+            </button>
+            {scoreFile && (
+              <button className={styles.scoreAttachClear} onClick={() => setScoreFile(null)} type="button">✕</button>
+            )}
+            <span className={styles.formHint}>Helps AI identify exact measure numbers</span>
           </div>
 
           {!formComplete && (

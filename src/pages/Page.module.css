@@ -528,6 +528,41 @@
   text-align: center;
 }
 
+/* ── Score attach (MusicXML optional upload) ────────────────── */
+.scoreAttach {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scoreAttachBtn {
+  background: rgba(88,121,101,0.08);
+  border: 1px dashed rgba(88,121,101,0.3);
+  border-radius: 8px;
+  color: rgba(248,246,242,0.6);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 7px 14px;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.scoreAttachBtn:hover {
+  background: rgba(88,121,101,0.14);
+  border-color: var(--hero-green);
+  color: var(--text-inverse);
+}
+
+.scoreAttachClear {
+  background: none;
+  border: none;
+  color: rgba(248,246,242,0.35);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  transition: color 150ms ease;
+}
+.scoreAttachClear:hover { color: var(--coral); }
+
 /* Score unavailable placeholder */
 .scoreUnavailable {
   align-items: center;

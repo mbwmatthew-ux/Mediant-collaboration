@@ -51,6 +51,7 @@ export default function Analysis() {
   const osmdRef  = useRef(null)
 
   const [take, setTake]               = useState(undefined)
+  const [scoreUrl, setScoreUrl]       = useState(null)
   const [activeFlag, setActiveFlag]   = useState(null)
   const [scoreReady, setScoreReady]   = useState(false)
   const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
@@ -70,7 +71,7 @@ export default function Analysis() {
       if (takeId) {
         const { data, error } = await supabase
           .from('takes')
-          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, created_at')
+          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, score_path, created_at')
           .eq('id', takeId)
           .single()
 
@@ -97,6 +98,15 @@ export default function Analysis() {
     return () => { cancelled = true }
   }, [takeId])
 
+  // Generate signed URL for uploaded score (if stored in Supabase)
+  useEffect(() => {
+    if (!take?.score_path) return
+    supabase.storage
+      .from('sheet-music')
+      .createSignedUrl(take.score_path, 3600)
+      .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
+  }, [take])
+
   // Render score once take is resolved
   useEffect(() => {
     if (take === undefined) return
@@ -104,7 +114,7 @@ export default function Analysis() {
     if (scoreReady) return
 
     const pieceTitle = take?.piece_title ?? 'Clair de Lune'
-    const scoreFile  = scoreFileForPiece(pieceTitle)
+    const scoreFile  = scoreUrl ?? scoreFileForPiece(pieceTitle)
 
     if (!scoreFile) {
       setScoreReady(true)
@@ -161,7 +171,7 @@ export default function Analysis() {
         console.error('OSMD load error:', err)
         setScoreReady(true)
       })
-  }, [take])
+  }, [take, scoreUrl])
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
@@ -218,7 +228,7 @@ export default function Analysis() {
   const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
   const issueCount    = chips.length
   const score         = take?.score
-  const hasScore      = !!scoreFileForPiece(pieceTitle)
+  const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
 
   const info = activeFlag ? flagsMap[activeFlag] : null
 
