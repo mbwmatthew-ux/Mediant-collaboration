@@ -18,31 +18,41 @@ function buildGeminiPrompt(
   instrument: string,
   totalMeasures: number | null,
   hasVisualScore: boolean,
+  startMeasure: number | null,
 ): string {
-  const measureLine = totalMeasures
-    ? `The score has ${totalMeasures} measures. Identify each issue by its actual measure number (1 through ${totalMeasures}).`
-    : `Estimate the measure number by counting from the start of the recording using the time signature.`
+  let measureLine: string
+  if (startMeasure !== null && totalMeasures !== null) {
+    measureLine = `The student is playing measures ${startMeasure} through ${totalMeasures}. The recording starts at measure ${startMeasure} — use this as your anchor. All flagged measures must be within this range.`
+  } else if (startMeasure !== null) {
+    measureLine = `The recording starts at measure ${startMeasure}. Use this as your anchor point when counting measures — do not start from measure 1.`
+  } else if (totalMeasures !== null) {
+    measureLine = `The score has ${totalMeasures} measures. Identify each issue by its actual measure number.`
+  } else {
+    measureLine = `Count measures carefully from the start of the recording using the time signature.`
+  }
 
   const bboxField = hasVisualScore
-    ? `- bbox: bounding box of that measure in the sheet music image as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right)`
+    ? `- bbox: bounding box of that measure in the sheet music image as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right). The sheet music image has printed measure numbers — use them as ground truth.`
     : ''
 
   const bboxJson = hasVisualScore
     ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
     : ''
 
-  return `You are analyzing a music practice recording. The student is performing "${pieceTitle}" by ${composer}.
-Time signature: ${timeSig}. Instrument: ${instrument}.
+  return `You are an expert music teacher analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
+Instrument: ${instrument}. Time signature: ${timeSig}.
 ${measureLine}
-${hasVisualScore ? 'A sheet music image is also provided — use it to locate the exact position of each flagged measure.' : ''}
+${hasVisualScore ? 'A sheet music image is provided. The printed measure numbers in the image are ground truth — cross-reference them with the audio to pinpoint exactly which measure each issue occurs in.' : ''}
 
-Listen carefully to the ENTIRE recording and identify 2–4 specific performance issues.
+Listen to the ENTIRE recording carefully and identify 2–4 specific, real performance issues you actually hear.
+
+IMPORTANT: Only flag issues in measures the student actually plays in this recording. Do not flag measures they did not play.
 
 For each issue provide:
-- measure: the exact measure number where the issue occurs
+- measure: the exact printed measure number (from the score) where the issue occurs
 - type: one of: timing, dynamics, voicing, articulation, intonation
 - title: a 6–10 word description of the specific issue
-- raw_detail: 2–3 sentences describing what happened and why it matters musically
+- raw_detail: 2–3 sentences describing what you heard and why it matters musically
 ${bboxField}
 
 Return ONLY valid JSON — no markdown, no explanation:
@@ -58,7 +68,7 @@ Return ONLY valid JSON — no markdown, no explanation:
   ]
 }
 
-Be specific and musical. Focus on the most significant issues. Return 2–4 flags maximum.`
+Be specific and honest. Only report issues you genuinely detected. Return 2–4 flags maximum.`
 }
 
 // Parse total measure count from MusicXML text
@@ -134,7 +144,7 @@ async function analyzeWithGemini(
   parts.push({ text: prompt })
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -149,7 +159,7 @@ async function analyzeWithGemini(
   const data = await res.json()
   const raw = data.candidates[0].content.parts[0].text as string
   const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string }> }
+  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string; bbox?: [number, number, number, number] }> }
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -192,7 +202,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    const { videoPath, videoMimeType, scorePath, scoreMimeType, pieceTitle, composer, timeSig, instrument } = await req.json()
+    const { videoPath, videoMimeType, scorePath, scoreMimeType, pieceTitle, composer, timeSig, instrument, startMeasure } = await req.json()
     if (!videoPath || !videoMimeType) throw new Error('videoPath and videoMimeType are required')
 
     // Download video from Supabase Storage via service role
@@ -237,12 +247,13 @@ serve(async (req) => {
 
     // Analyze with Gemini (video + optional visual score)
     const prompt = buildGeminiPrompt(
-      pieceTitle  ?? 'this piece',
-      composer    ?? 'unknown composer',
-      timeSig     ?? '4/4',
-      instrument  ?? 'Piano',
+      pieceTitle   ?? 'this piece',
+      composer     ?? 'unknown composer',
+      timeSig      ?? '4/4',
+      instrument   ?? 'Piano',
       totalMeasures,
       !!scoreFileUri,
+      startMeasure ? parseInt(startMeasure, 10) : null,
     )
     const { score, flags: rawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
