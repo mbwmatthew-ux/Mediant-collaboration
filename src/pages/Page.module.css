@@ -1071,6 +1071,39 @@
 .dangerBtn:hover { background: rgba(225,134,118,0.08); }
 
 /* ── Streak (still used in old home — keep for compat) ───────── */
+/* ── Empty library state ────────────────────────────────────── */
+.emptyLibrary {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.emptyLibraryTitle {
+  color: var(--text-inverse);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.emptyLibrarySub {
+  color: rgba(248,246,242,0.38);
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 36ch;
+}
+
+/* ── Uploaded tag ───────────────────────────────────────────── */
+.uploadedTag {
+  color: rgba(143,190,159,0.7);
+  font-size: 0.75em;
+}
+
+/* ── Streak (still used in old home — keep for compat) ───────── */
 .streakCard { display: none; }
 .streakTop  { display: none; }
 .streakBadge { display: none; }

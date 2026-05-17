@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
+import { getFile } from '../lib/fileStore'
 import styles from './PieceDetailPanel.module.css'
 
 function scoreColor(n) {
@@ -22,6 +23,7 @@ export default function PieceDetailPanel({ piece, onClose }) {
   const [scoreFetching, setScoreFetching] = useState(false)
   const [scoreReady,    setScoreReady]    = useState(false)
   const [scoreSource,   setScoreSource]   = useState(null)
+  const [fileURL,       setFileURL]       = useState(null)  // object URL for uploaded file
   const [pastSessions,  setPastSessions]  = useState([])
 
   // Load past sessions for this piece from localStorage
@@ -34,40 +36,55 @@ export default function PieceDetailPanel({ piece, onClose }) {
     } catch { setPastSessions([]) }
   }, [piece.title])
 
-  // Fetch and render sheet music
+  // Load sheet music — use uploaded file if available, otherwise search online
   useEffect(() => {
-    if (!scoreEl.current) return
-    setScoreFetching(true)
-    setScoreReady(false)
+    let objectURL = null
 
-    fetch('/api/get-score', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ pieceTitle: piece.title, composer: piece.composer }),
-    })
-      .then(r => r.json())
-      .then(({ xml, source }) => {
-        setScoreSource(source ?? null)
-        if (!xml || !scoreEl.current) { setScoreReady(true); return }
+    async function load() {
+      setScoreFetching(true)
+      setScoreReady(false)
 
-        const osmd = new OpenSheetMusicDisplay(scoreEl.current, {
-          autoResize: true,
-          backend: 'svg',
-          drawTitle: false,
-          drawComposer: false,
-          drawCredits: false,
-          drawPartNames: false,
-          drawMeasureNumbers: true,
-          measureNumberInterval: 4,
+      // 1. For user-uploaded pieces, load the actual file from IndexedDB
+      if (piece.userUploaded) {
+        const file = await getFile(piece.id).catch(() => null)
+        if (file) {
+          objectURL = URL.createObjectURL(file)
+          setFileURL(objectURL)
+          setScoreSource('uploaded')
+          setScoreReady(true)
+          setScoreFetching(false)
+          return
+        }
+      }
+
+      // 2. For non-uploaded pieces, search Mutopia / ask Claude
+      try {
+        const res  = await fetch('/api/get-score', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pieceTitle: piece.title, composer: piece.composer }),
         })
-        osmdRef.current = osmd
-        return osmd.load(xml)
-          .then(() => { osmd.render(); setScoreReady(true) })
-          .catch(() => setScoreReady(true))
-      })
-      .catch(() => setScoreReady(true))
-      .finally(() => setScoreFetching(false))
-  }, [piece.title, piece.composer])
+        const { xml, source } = await res.json()
+        setScoreSource(source ?? null)
+
+        if (xml && scoreEl.current) {
+          const osmd = new OpenSheetMusicDisplay(scoreEl.current, {
+            autoResize: true, backend: 'svg',
+            drawTitle: false, drawComposer: false, drawCredits: false,
+            drawPartNames: false, drawMeasureNumbers: true, measureNumberInterval: 4,
+          })
+          osmdRef.current = osmd
+          await osmd.load(xml).then(() => osmd.render()).catch(() => {})
+        }
+      } catch { /* show nothing */ }
+
+      setScoreReady(true)
+      setScoreFetching(false)
+    }
+
+    load()
+    return () => { if (objectURL) URL.revokeObjectURL(objectURL) }
+  }, [piece.id, piece.title, piece.composer, piece.userUploaded])
 
   function startRecording() {
     sessionStorage.setItem('mediant_prefill', JSON.stringify({
@@ -109,15 +126,38 @@ export default function PieceDetailPanel({ piece, onClose }) {
                 <p>Searching for sheet music…</p>
               </div>
             )}
-            <div ref={scoreEl} />
-            {scoreReady && scoreSource && (
+
+            {/* Uploaded image */}
+            {fileURL && piece.mediaType?.startsWith('image/') && (
+              <img
+                src={fileURL}
+                alt={piece.title}
+                style={{ width: '100%', borderRadius: 6, display: 'block' }}
+              />
+            )}
+
+            {/* Uploaded PDF */}
+            {fileURL && piece.mediaType === 'application/pdf' && (
+              <embed
+                src={fileURL}
+                type="application/pdf"
+                width="100%"
+                height="700px"
+                style={{ borderRadius: 6 }}
+              />
+            )}
+
+            {/* OSMD container — shown only when no uploaded file */}
+            {!fileURL && <div ref={scoreEl} />}
+
+            {scoreReady && scoreSource && !fileURL && (
               <p className={styles.sourceLabel}>
                 {scoreSource === 'mutopia'
                   ? 'Sheet music from Mutopia Project (public domain)'
                   : 'AI-approximated sheet music — may not be note-perfect'}
               </p>
             )}
-            {scoreReady && !scoreSource && !scoreFetching && (
+            {scoreReady && !scoreSource && !scoreFetching && !fileURL && (
               <div className={styles.noScore}>
                 <p>Sheet music not available for this piece yet.</p>
               </div>

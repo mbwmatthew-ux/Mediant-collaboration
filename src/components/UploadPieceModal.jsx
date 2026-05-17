@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { saveFile } from '../lib/fileStore'
 import styles from './UploadPieceModal.module.css'
 
 const ACCEPTED    = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -68,18 +69,23 @@ export default function UploadPieceModal({ onClose, onAdded }) {
     return e => setForm(prev => ({ ...prev, [field]: e.target.value }))
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!file || !form) return
-    onAdded({
-      id:         `upload-${Date.now()}`,
+    const id = `upload-${Date.now()}`
+    const piece = {
+      id,
       ...form,
-      title:      form.title.trim()    || file.name,
-      composer:   form.composer.trim() || 'Unknown',
-      key:        form.key.trim()      || '—',
-      time:       form.time.trim()     || '—',
+      title:       form.title.trim()    || file.name,
+      composer:    form.composer.trim() || 'Unknown',
+      key:         form.key.trim()      || '—',
+      time:        form.time.trim()     || '—',
       instrument,
+      mediaType:   file.type,
       userUploaded: true,
-    })
+    }
+    // Save the actual file to IndexedDB so it can be viewed later
+    await saveFile(id, file).catch(() => {})
+    onAdded(piece)
     onClose()
   }
 
