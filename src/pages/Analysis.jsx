@@ -52,7 +52,9 @@ export default function Analysis() {
   const [take, setTake]               = useState(undefined)
   const [activeFlag, setActiveFlag]   = useState(null)
   const [scoreReady, setScoreReady]   = useState(false)
-  const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
+  const [highlights, setHighlights]   = useState([])
+  const [dynamicScore, setDynamicScore] = useState(null)   // null=pending, ''=failed, xml=ready
+  const [scoreFetching, setScoreFetching] = useState(false)
 
   // Chat state
   const [chatMessages, setChatMessages] = useState([])
@@ -70,7 +72,25 @@ export default function Analysis() {
     }
   }, [])
 
-  // Render score once take is resolved
+  // Fetch AI-generated score when no bundled file exists
+  useEffect(() => {
+    if (take === undefined || take === null) return
+    const scoreFile = scoreFileForPiece(take?.piece_title)
+    if (scoreFile) return // bundled score exists, no need to fetch
+
+    setScoreFetching(true)
+    fetch('/api/get-score', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ pieceTitle: take.piece_title, composer: take.piece_composer }),
+    })
+      .then(r => r.json())
+      .then(({ xml }) => setDynamicScore(xml || ''))
+      .catch(() => setDynamicScore(''))
+      .finally(() => setScoreFetching(false))
+  }, [take])
+
+  // Render score once take + score source are resolved
   useEffect(() => {
     if (take === undefined) return
     if (!scoreEl.current) return
@@ -78,8 +98,12 @@ export default function Analysis() {
 
     const pieceTitle = take?.piece_title ?? 'Clair de Lune'
     const scoreFile  = scoreFileForPiece(pieceTitle)
+    const source     = scoreFile || dynamicScore
 
-    if (!scoreFile) {
+    // Wait for dynamic score to finish loading
+    if (!scoreFile && dynamicScore === null) return
+
+    if (!source) {
       setScoreReady(true)
       return
     }
@@ -100,7 +124,7 @@ export default function Analysis() {
     })
     osmdRef.current = osmd
 
-    osmd.load(scoreFile)
+    osmd.load(source)
       .then(() => {
         osmd.render()
         setScoreReady(true)
@@ -134,7 +158,7 @@ export default function Analysis() {
         console.error('OSMD load error:', err)
         setScoreReady(true)
       })
-  }, [take])
+  }, [take, dynamicScore])
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
@@ -191,7 +215,7 @@ export default function Analysis() {
   const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
   const issueCount    = chips.length
   const score         = take?.score
-  const hasScore      = !!scoreFileForPiece(pieceTitle)
+  const hasScore      = !!scoreFileForPiece(pieceTitle) || !!dynamicScore
 
   const info = activeFlag ? flagsMap[activeFlag] : null
 
@@ -239,10 +263,10 @@ export default function Analysis() {
 
       <div className={styles.reviewBody}>
         <div className={styles.scoreArea}>
-          {!hasScore && scoreReady && (
-            <div className={styles.scoreUnavailable}>
-              <p>Score not available for <em>{pieceTitle}</em> yet.</p>
-              <p>Coaching feedback above is based on the AI's audio analysis.</p>
+          {scoreFetching && (
+            <div className={styles.scoreLoading}>
+              <div className={styles.scoreSpinner} />
+              <p>Loading sheet music…</p>
             </div>
           )}
 

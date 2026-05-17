@@ -518,6 +518,27 @@
 }
 .scoreUnavailable p { font-size: 0.88rem; line-height: 1.6; margin: 0; }
 
+.scoreLoading {
+  align-items: center;
+  color: var(--text-soft);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.88rem;
+  gap: 14px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.scoreSpinner {
+  animation: scoreSpin 0.9s linear infinite;
+  border: 3px solid rgba(88, 121, 101, 0.2);
+  border-top-color: var(--hero-green);
+  border-radius: 50%;
+  height: 36px;
+  width: 36px;
+}
+@keyframes scoreSpin { to { transform: rotate(360deg); } }
+
 .dropzone {
   align-items: center;
   background: rgba(255,255,255,0.02);
