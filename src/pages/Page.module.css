@@ -528,6 +528,34 @@
   text-align: center;
 }
 
+/* ── Required label dot + OCR badge ────────────────────────── */
+.requiredDot {
+  background: rgba(88,121,101,0.15);
+  border-radius: 4px;
+  color: var(--hero-green);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.ocrBadge {
+  background: rgba(214,177,104,0.12);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* ── Score attach (MusicXML optional upload) ────────────────── */
 .scoreAttach {
   align-items: center;

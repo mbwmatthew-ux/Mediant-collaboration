@@ -11,40 +11,85 @@ const INSTRUMENTS = [
   'Guitar', 'Harp', 'Voice', 'Other',
 ]
 
+const OCR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
+
 export default function Record() {
-  const nav  = useNavigate()
+  const nav      = useNavigate()
   const { user } = useAuth()
 
-  // Piece info form
-  const [pieceTitle,  setPieceTitle]  = useState('')
-  const [composer,    setComposer]    = useState('')
-  const [instrument,  setInstrument]  = useState('Piano')
-  const [part,        setPart]        = useState('')
-
-  // Upload state
-  const [file,       setFile]       = useState(null)
-  const [scoreFile,  setScoreFile]  = useState(null)
-  const [dragging,   setDragging]   = useState(false)
-  const [phase,      setPhase]      = useState('idle')   // idle | uploading | analyzing | error
-  const [progress,   setProgress]   = useState(0)
-  const [errorMsg,   setErrorMsg]   = useState('')
-  const inputRef      = useRef()
+  // Sheet music (required)
+  const [scoreFile,    setScoreFile]    = useState(null)
+  const [scoreDrag,    setScoreDrag]    = useState(false)
+  const [ocrLoading,   setOcrLoading]   = useState(false)
   const scoreInputRef = useRef()
 
-  const formComplete   = pieceTitle.trim() && composer.trim() && instrument
-  const readyToAnalyze = formComplete && file && phase !== 'error'
+  // Auto-filled piece info (from OCR, editable)
+  const [pieceTitle, setPieceTitle] = useState('')
+  const [composer,   setComposer]   = useState('')
+  const [instrument, setInstrument] = useState('Piano')
+  const [part,       setPart]       = useState('')
 
-  function handleDrop(e) {
+  // Video recording (required)
+  const [file,      setFile]      = useState(null)
+  const [videoDrag, setVideoDrag] = useState(false)
+  const videoInputRef = useRef()
+
+  // Submission state
+  const [phase,    setPhase]    = useState('idle')  // idle | uploading | analyzing | error
+  const [progress, setProgress] = useState(0)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const readyToAnalyze = scoreFile && file && instrument && phase !== 'error'
+
+  // ── OCR: auto-fill title/composer from sheet music photo ──────
+
+  async function runOcr(f) {
+    if (!OCR_TYPES.has(f.type)) return  // skip for XML/MXL
+    setOcrLoading(true)
+    try {
+      const buf    = await f.arrayBuffer()
+      const b64    = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      const res    = await fetch('/api/analyze-sheet-music', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ imageBase64: b64, mediaType: f.type }),
+      })
+      const data = await res.json()
+      if (data.title)    setPieceTitle(data.title)
+      if (data.composer) setComposer(data.composer)
+    } catch { /* silently skip — user can fill manually */ }
+    finally { setOcrLoading(false) }
+  }
+
+  function handleScoreDrop(e) {
     e.preventDefault()
-    setDragging(false)
+    setScoreDrag(false)
+    const f = e.dataTransfer.files[0]
+    if (!f) return
+    setScoreFile(f)
+    runOcr(f)
+  }
+
+  function handleScoreFile(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    setScoreFile(f)
+    runOcr(f)
+  }
+
+  function handleVideoDrop(e) {
+    e.preventDefault()
+    setVideoDrag(false)
     const f = e.dataTransfer.files[0]
     if (f) setFile(f)
   }
 
-  function handleFile(e) {
+  function handleVideoFile(e) {
     const f = e.target.files[0]
     if (f) setFile(f)
   }
+
+  // ── Submit ────────────────────────────────────────────────────
 
   async function handleSubmit() {
     if (!readyToAnalyze) return
@@ -59,36 +104,33 @@ export default function Record() {
     setErrorMsg('')
 
     try {
-      // Phase 1: uploading — tick up to 45%
+      // Tick upload progress
       const progressTick = setInterval(() => {
-        setProgress(p => Math.min(p + 8, 45))
+        setProgress(p => Math.min(p + 6, 45))
       }, 300)
 
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-      const filePath = `${user.id}/${Date.now()}-${safeName}`
-
+      // Upload video
+      const safeName   = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+      const filePath   = `${user.id}/${Date.now()}-${safeName}`
       const { error: uploadError } = await supabase.storage
         .from('recordings')
-        .upload(filePath, file, {
-          contentType: file.type || 'video/mp4',
-          upsert: false,
-        })
+        .upload(filePath, file, { contentType: file.type || 'video/mp4', upsert: false })
 
-      // Upload MusicXML score if provided
+      // Upload sheet music (any type)
       let scorePath = undefined
       if (scoreFile) {
         const safeSN = scoreFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-        const sp = `${user.id}/xml/${Date.now()}-${safeSN}`
-        const { error: scoreUploadErr } = await supabase.storage
+        const sp = `${user.id}/scores/${Date.now()}-${safeSN}`
+        const { error: scoreErr } = await supabase.storage
           .from('sheet-music')
-          .upload(sp, scoreFile, { contentType: 'text/xml', upsert: false })
-        if (!scoreUploadErr) scorePath = sp
+          .upload(sp, scoreFile, { contentType: scoreFile.type || 'application/octet-stream', upsert: false })
+        if (!scoreErr) scorePath = sp
       }
 
       clearInterval(progressTick)
       if (uploadError) throw new Error(uploadError.message || 'Upload failed')
 
-      // Phase 2: analyzing — tick from 50% up to 95%
+      // Analyzing phase
       setProgress(50)
       setPhase('analyzing')
       const analysisTick = setInterval(() => {
@@ -97,32 +139,32 @@ export default function Record() {
 
       const { data: result, error: fnError } = await supabase.functions.invoke('analyze-performance', {
         body: {
-          videoPath:     filePath,
-          videoMimeType: file.type || 'video/mp4',
+          videoPath:      filePath,
+          videoMimeType:  file.type || 'video/mp4',
           scorePath,
-          pieceTitle:    pieceTitle.trim(),
-          composer:      composer.trim(),
+          scoreMimeType:  scoreFile?.type || null,
+          pieceTitle:     pieceTitle.trim() || undefined,
+          composer:       composer.trim() || undefined,
           instrument,
-          part:          part.trim() || undefined,
-          timeSig:       '4/4',
+          part:           part.trim() || undefined,
+          timeSig:        '4/4',
         },
       })
 
-      clearInterval(progressTick)
       clearInterval(analysisTick)
 
       if (fnError) throw new Error(fnError.message || 'Analysis failed')
       if (!result || result.error) throw new Error(result?.error || 'Analysis failed')
 
-      // Store result locally so Analysis page can read it without a DB
       localStorage.setItem('mediant_last_take', JSON.stringify({
-        id:             result.takeId ?? `local-${Date.now()}`,
-        piece_title:    pieceTitle.trim(),
-        piece_composer: composer.trim(),
-        score:          result.score,
-        flags:          result.flags,
-        video_path:     filePath,
-        video_mime_type:file.type || 'video/mp4',
+        id:              result.takeId ?? `local-${Date.now()}`,
+        piece_title:     pieceTitle.trim() || 'Untitled',
+        piece_composer:  composer.trim() || 'Unknown',
+        score:           result.score,
+        flags:           result.flags,
+        video_path:      filePath,
+        video_mime_type: file.type || 'video/mp4',
+        score_path:      scorePath,
       }))
 
       setProgress(100)
@@ -136,14 +178,14 @@ export default function Record() {
     }
   }
 
-  // ── Loading screens ────────────────────────────────────────
+  // ── Loading screens ───────────────────────────────────────────
 
   if (phase === 'uploading' || phase === 'analyzing') {
     const title = phase === 'uploading'
-      ? 'Uploading your video…'
+      ? 'Uploading your files…'
       : 'AI is listening to your performance…'
     const sub = phase === 'uploading'
-      ? 'Sending your recording to the server.'
+      ? 'Sending your recording and sheet music to the server.'
       : 'Gemini is analyzing timing, dynamics, and technique. This takes about 30 seconds.'
 
     return (
@@ -161,7 +203,7 @@ export default function Record() {
     )
   }
 
-  // ── Upload form ────────────────────────────────────────────
+  // ── Form ──────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
@@ -185,28 +227,72 @@ export default function Record() {
       )}
 
       <div className={styles.recordLayout}>
-        {/* Left column — piece info + dropzone */}
+        {/* Left column */}
         <div className={styles.recordLeft}>
-          <div className={styles.pieceForm}>
-            <p className={styles.label}>About this piece</p>
 
+          {/* ── Sheet music (required) ── */}
+          <div className={styles.pieceForm}>
+            <p className={styles.label}>
+              Sheet music <span className={styles.requiredDot}>required</span>
+            </p>
+
+            <div
+              className={`${styles.dropzone} ${scoreDrag ? styles.dropzoneActive : ''} ${scoreFile ? styles.dropzoneDone : ''}`}
+              onDragOver={e => { e.preventDefault(); setScoreDrag(true) }}
+              onDragLeave={() => setScoreDrag(false)}
+              onDrop={handleScoreDrop}
+              onClick={() => scoreInputRef.current?.click()}
+            >
+              <input
+                ref={scoreInputRef}
+                type="file"
+                accept="image/*,application/pdf,.xml,.musicxml,.mxl"
+                style={{ display: 'none' }}
+                onChange={handleScoreFile}
+              />
+              {scoreFile ? (
+                <>
+                  <span className={styles.dropzoneCheck}>✓</span>
+                  <strong>{scoreFile.name}</strong>
+                  {ocrLoading
+                    ? <span className={styles.dropzoneSub}>Reading sheet music…</span>
+                    : <span className={styles.dropzoneSub}>Click to replace</span>
+                  }
+                </>
+              ) : (
+                <>
+                  <span className={styles.dropzoneIcon}>♩</span>
+                  <strong>Photo, PDF, or MusicXML</strong>
+                  <span className={styles.dropzoneSub}>Take a photo of your sheet music or drag a file here</span>
+                </>
+              )}
+            </div>
+
+            {/* Auto-filled piece info */}
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Piece title</label>
+                <label className={styles.formLabel}>
+                  Title
+                  {ocrLoading && <span className={styles.ocrBadge}>reading…</span>}
+                  {!ocrLoading && pieceTitle && <span className={styles.ocrBadge}>AI detected</span>}
+                </label>
                 <input
                   className={styles.formInput}
                   value={pieceTitle}
                   onChange={e => setPieceTitle(e.target.value)}
-                  placeholder="e.g. Clair de Lune"
+                  placeholder="Auto-filled from sheet music"
                 />
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Composer</label>
+                <label className={styles.formLabel}>
+                  Composer
+                  {!ocrLoading && composer && <span className={styles.ocrBadge}>AI detected</span>}
+                </label>
                 <input
                   className={styles.formInput}
                   value={composer}
                   onChange={e => setComposer(e.target.value)}
-                  placeholder="e.g. Claude Debussy"
+                  placeholder="Auto-filled from sheet music"
                 />
               </div>
             </div>
@@ -223,7 +309,9 @@ export default function Record() {
                 </select>
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Movement / part <span className={styles.formOptional}>(optional)</span></label>
+                <label className={styles.formLabel}>
+                  Movement / part <span className={styles.formOptional}>(optional)</span>
+                </label>
                 <input
                   className={styles.formInput}
                   value={part}
@@ -234,63 +322,47 @@ export default function Record() {
             </div>
           </div>
 
-          <div
-            className={`${styles.dropzone} ${dragging ? styles.dropzoneActive : ''} ${file ? styles.dropzoneDone : ''}`}
-            onDragOver={e => { e.preventDefault(); setDragging(true) }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept="video/*"
-              style={{ display: 'none' }}
-              onChange={handleFile}
-            />
-            {file ? (
-              <>
-                <span className={styles.dropzoneCheck}>✓</span>
-                <strong>{file.name}</strong>
-                <span className={styles.dropzoneSub}>Click to choose a different file</span>
-              </>
-            ) : (
-              <>
-                <span className={styles.dropzoneIcon}>↑</span>
-                <strong>Drag a video here or click to upload</strong>
-                <span className={styles.dropzoneSub}>MP4, MOV, or WebM · max 200 MB</span>
-              </>
-            )}
-          </div>
-
-          {/* Optional MusicXML score upload */}
-          <div className={styles.scoreAttach}>
-            <input
-              ref={scoreInputRef}
-              type="file"
-              accept=".xml,.musicxml,.mxl"
-              style={{ display: 'none' }}
-              onChange={e => setScoreFile(e.target.files[0] || null)}
-            />
-            <button
-              className={styles.scoreAttachBtn}
-              onClick={() => scoreInputRef.current?.click()}
-              type="button"
+          {/* ── Video recording (required) ── */}
+          <div className={styles.pieceForm}>
+            <p className={styles.label}>
+              Recording <span className={styles.requiredDot}>required</span>
+            </p>
+            <div
+              className={`${styles.dropzone} ${videoDrag ? styles.dropzoneActive : ''} ${file ? styles.dropzoneDone : ''}`}
+              onDragOver={e => { e.preventDefault(); setVideoDrag(true) }}
+              onDragLeave={() => setVideoDrag(false)}
+              onDrop={handleVideoDrop}
+              onClick={() => videoInputRef.current?.click()}
             >
-              {scoreFile ? `♩ ${scoreFile.name}` : '+ Attach MusicXML score (optional)'}
-            </button>
-            {scoreFile && (
-              <button className={styles.scoreAttachClear} onClick={() => setScoreFile(null)} type="button">✕</button>
-            )}
-            <span className={styles.formHint}>Helps AI identify exact measure numbers</span>
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                style={{ display: 'none' }}
+                onChange={handleVideoFile}
+              />
+              {file ? (
+                <>
+                  <span className={styles.dropzoneCheck}>✓</span>
+                  <strong>{file.name}</strong>
+                  <span className={styles.dropzoneSub}>Click to choose a different file</span>
+                </>
+              ) : (
+                <>
+                  <span className={styles.dropzoneIcon}>↑</span>
+                  <strong>Drag a video here or click to upload</strong>
+                  <span className={styles.dropzoneSub}>MP4, MOV, or WebM · max 200 MB</span>
+                </>
+              )}
+            </div>
           </div>
 
-          {!formComplete && (
-            <p className={styles.formHint}>Fill in the piece details above before analyzing.</p>
+          {!scoreFile && (
+            <p className={styles.formHint}>Upload a photo of your sheet music to get started.</p>
           )}
         </div>
 
-        {/* Right column — waveform + info cards */}
+        {/* Right column — status cards */}
         <div>
           <div className={styles.waveformCard}>
             <div className={styles.waveform}>
@@ -305,12 +377,12 @@ export default function Record() {
 
           <div className={styles.captureGrid}>
             <div className={styles.captureCard}>
-              <p className={styles.label}>What AI listens for</p>
-              <strong>Timing · Dynamics · Articulation · Intonation</strong>
+              <p className={styles.label}>What AI sees</p>
+              <strong>Sheet music · Measure structure · Notation</strong>
             </div>
             <div className={styles.captureCard}>
-              <p className={styles.label}>Expected output</p>
-              <strong>Flagged measures + coaching feedback</strong>
+              <p className={styles.label}>What AI listens for</p>
+              <strong>Timing · Dynamics · Articulation · Intonation</strong>
             </div>
           </div>
         </div>

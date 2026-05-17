@@ -108,17 +108,27 @@ async function uploadVideoToGemini(videoBytes: Uint8Array, mimeType: string, api
   return file.uri as string
 }
 
-async function analyzeWithGemini(fileUri: string, mimeType: string, prompt: string, apiKey: string) {
+async function analyzeWithGemini(
+  videoFileUri: string,
+  videoMimeType: string,
+  prompt: string,
+  apiKey: string,
+  scoreFileUri?: string,
+  scoreMimeType?: string,
+) {
+  const parts: unknown[] = [{ fileData: { mimeType: videoMimeType, fileUri: videoFileUri } }]
+  if (scoreFileUri && scoreMimeType) {
+    parts.push({ fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } })
+  }
+  parts.push({ text: prompt })
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [
-          { fileData: { mimeType, fileUri } },
-          { text: prompt },
-        ]}],
+        contents: [{ parts }],
         generationConfig: { temperature: 0.3 },
       }),
     }
@@ -130,6 +140,8 @@ async function analyzeWithGemini(fileUri: string, mimeType: string, prompt: stri
   const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
   return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; raw_detail: string }> }
 }
+
+const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
 // ── Claude Haiku coaching text ─────────────────────────────────────────────
 
@@ -169,7 +181,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    const { videoPath, videoMimeType, scorePath, pieceTitle, composer, timeSig, instrument } = await req.json()
+    const { videoPath, videoMimeType, scorePath, scoreMimeType, pieceTitle, composer, timeSig, instrument } = await req.json()
     if (!videoPath || !videoMimeType) throw new Error('videoPath and videoMimeType are required')
 
     // Download video from Supabase Storage via service role
@@ -183,24 +195,36 @@ serve(async (req) => {
     if (dlError || !videoBlob) throw new Error(`Video download failed: ${dlError?.message}`)
 
     const videoBytes = new Uint8Array(await videoBlob.arrayBuffer())
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
 
-    // Parse measure count from uploaded MusicXML score (if provided)
+    // Handle score file: image/PDF → upload to Gemini for visual analysis;
+    // XML → parse measure count for text context
     let totalMeasures: number | null = null
-    if (scorePath) {
+    let scoreFileUri: string | undefined
+    let scoreGeminiMime: string | undefined
+
+    if (scorePath && scoreMimeType) {
       const { data: scoreBlob } = await admin.storage.from('sheet-music').download(scorePath)
       if (scoreBlob) {
-        try {
-          const xmlText = await scoreBlob.text()
-          totalMeasures = parseMeasureCount(xmlText)
-        } catch { /* not plain XML — skip */ }
+        if (VISUAL_SCORE_TYPES.has(scoreMimeType)) {
+          // Upload image/PDF to Gemini so it can visually see the sheet music
+          const scoreBytes = new Uint8Array(await scoreBlob.arrayBuffer())
+          scoreFileUri   = await uploadVideoToGemini(scoreBytes, scoreMimeType, googleApiKey)
+          scoreGeminiMime = scoreMimeType
+        } else {
+          // Try to parse measure count from XML
+          try {
+            const xmlText = await scoreBlob.text()
+            totalMeasures = parseMeasureCount(xmlText)
+          } catch { /* not plain XML */ }
+        }
       }
     }
 
-    // Upload to Gemini Files API
-    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
-    const fileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+    // Upload video to Gemini Files API
+    const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
-    // Analyze with Gemini
+    // Analyze with Gemini (video + optional visual score)
     const prompt = buildGeminiPrompt(
       pieceTitle  ?? 'this piece',
       composer    ?? 'unknown composer',
@@ -208,7 +232,9 @@ serve(async (req) => {
       instrument  ?? 'Piano',
       totalMeasures,
     )
-    const { score, flags: rawFlags } = await analyzeWithGemini(fileUri, videoMimeType, prompt, googleApiKey)
+    const { score, flags: rawFlags } = await analyzeWithGemini(
+      videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
+    )
 
     // Generate warm coaching text for each flag via Claude Haiku
     const flags = await Promise.all(
