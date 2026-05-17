@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import UploadPieceModal from '../components/UploadPieceModal'
 import styles from './Page.module.css'
@@ -146,18 +145,15 @@ export default function Search() {
   const [instrument, setInstrument] = useState('All')
   const [era,        setEra]        = useState('All eras')
   const [difficulty, setDifficulty] = useState('Any level')
-  const [userPieces, setUserPieces] = useState([])
+  const [userPieces, setUserPieces] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]') }
+    catch { return [] }
+  })
   const [showUpload, setShowUpload] = useState(false)
 
   useEffect(() => {
-    if (!user) return
-    supabase
-      .from('user_pieces')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setUserPieces(data) })
-  }, [user])
+    localStorage.setItem('mediant_user_pieces', JSON.stringify(userPieces))
+  }, [userPieces])
 
   function handlePieceAdded(piece) {
     setUserPieces(prev => [piece, ...prev])

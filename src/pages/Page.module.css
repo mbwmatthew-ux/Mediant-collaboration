@@ -37,7 +37,7 @@
 }
 
 .sub {
-  color: rgba(248,246,242,0.42);
+  color: rgba(248,246,242,0.56);
   font-size: 0.87rem;
   line-height: 1.6;
   margin: 0;
@@ -72,25 +72,27 @@
 .primaryBtn {
   background: var(--hero-green);
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   color: white;
   font-size: 0.83rem;
   font-weight: 600;
-  padding: 8px 16px;
-  transition: filter 150ms ease;
+  letter-spacing: 0.01em;
+  padding: 9px 18px;
+  transition: filter 150ms ease, transform 150ms ease;
 }
-.primaryBtn:hover { filter: brightness(1.1); }
+.primaryBtn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.primaryBtn:active { transform: translateY(0); }
 
 .ghostBtn {
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 7px;
-  color: rgba(248,246,242,0.7);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 8px;
+  color: rgba(248,246,242,0.72);
   font-size: 0.83rem;
-  padding: 8px 16px;
-  transition: background 150ms ease, color 150ms ease;
+  padding: 9px 18px;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
-.ghostBtn:hover { background: rgba(255,255,255,0.09); color: var(--text-inverse); }
+.ghostBtn:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.18); color: var(--text-inverse); }
 
 /* ── Metrics — large flat numbers, no box ───────────────────── */
 .metrics {
@@ -313,7 +315,9 @@
   transition: background 120ms ease;
 }
 .tableRow:last-child { border-bottom: 0; }
-.tableRow:hover { background: rgba(255,255,255,0.03); }
+.tableRow:hover { background: rgba(255,255,255,0.04); }
+.tableRow:hover .td,
+.tableRow:hover .tdSoft { color: rgba(248,246,242,0.9); }
 
 .td {
   color: var(--text-inverse);
@@ -380,6 +384,24 @@
 .filterChipActive    { background: rgba(88,121,101,0.2); border-color: rgba(88,121,101,0.4); color: #8fbe9f; }
 
 .emptyState { color: rgba(248,246,242,0.3); font-size: 0.9rem; }
+
+.uploadedTag {
+  background: rgba(88,121,101,0.2);
+  border-radius: 4px;
+  color: #8fbe9f;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+
+.resultSub {
+  color: rgba(248,246,242,0.38);
+  font-size: 0.82rem;
+  margin: 0;
+}
 
 .searchInput {
   background: rgba(255,255,255,0.04);
@@ -452,12 +474,71 @@
 
 /* ── Upload / Record ────────────────────────────────────────── */
 .recordLayout { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+.recordLeft   { display: flex; flex-direction: column; gap: 16px; }
 
 .pieceCard {
   border-bottom: 1px solid rgba(255,255,255,0.07);
   margin-bottom: 16px;
   padding-bottom: 16px;
 }
+
+/* Piece identification form */
+.pieceForm {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.formRow { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+
+.formGroup { display: flex; flex-direction: column; gap: 5px; }
+
+.formLabel {
+  color: rgba(248,246,242,0.45);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.formOptional { color: rgba(248,246,242,0.25); font-size: 0.68rem; }
+
+.formInput,
+.formSelect {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: var(--text-inverse);
+  font-size: 0.86rem;
+  padding: 8px 10px;
+  transition: border-color 150ms ease;
+  width: 100%;
+}
+.formInput::placeholder { color: rgba(248,246,242,0.22); }
+.formInput:focus,
+.formSelect:focus { border-color: rgba(255,255,255,0.25); outline: none; }
+.formSelect option { background: #2d3c37; }
+
+.formHint {
+  color: rgba(248,246,242,0.4);
+  font-size: 0.8rem;
+  margin: 0;
+  text-align: center;
+}
+
+/* Score unavailable placeholder */
+.scoreUnavailable {
+  align-items: center;
+  color: rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 40px 20px;
+  text-align: center;
+}
+.scoreUnavailable p { font-size: 0.88rem; line-height: 1.6; margin: 0; }
 
 .dropzone {
   align-items: center;
@@ -511,18 +592,18 @@
   align-items: center;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   margin: auto;
-  max-width: 360px;
+  max-width: 380px;
   padding: 80px 0;
   text-align: center;
 }
-.analyzeIcon  { font-size: 2.2rem; color: var(--hero-green); }
-.analyzeTitle { color: var(--text-inverse); font-family: "Iowan Old Style", Georgia, serif; font-size: 1.45rem; font-weight: 400; }
-.analyzeSub   { color: rgba(248,246,242,0.4); }
-.progressBar  { background: rgba(255,255,255,0.07); border-radius: 999px; height: 3px; overflow: hidden; width: 100%; }
-.progressFill { background: var(--hero-green); border-radius: 999px; height: 100%; transition: width 180ms ease; }
-.progressLabel { color: rgba(248,246,242,0.35); font-size: 0.8rem; }
+.analyzeIcon  { font-size: 2.4rem; color: var(--hero-green); }
+.analyzeTitle { color: var(--text-inverse); font-family: "Iowan Old Style", Georgia, serif; font-size: 1.5rem; font-weight: 400; letter-spacing: -0.02em; margin: 0; }
+.analyzeSub   { color: rgba(248,246,242,0.5); font-size: 0.88rem; line-height: 1.65; }
+.progressBar  { background: rgba(255,255,255,0.08); border-radius: 999px; height: 3px; overflow: hidden; width: 100%; }
+.progressFill { background: var(--hero-green); border-radius: 999px; height: 100%; transition: width 280ms ease; }
+.progressLabel { color: rgba(248,246,242,0.38); font-size: 0.78rem; }
 
 .errorBanner {
   align-items: center;
@@ -551,8 +632,8 @@
 
 /* ── Score Review ───────────────────────────────────────────── */
 .issueStrip { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
-.issueStripLabel { color: rgba(248,246,242,0.38); font-size: 0.8rem; }
-.issueStripHint  { color: rgba(248,246,242,0.25); font-size: 0.76rem; margin-left: 4px; }
+.issueStripLabel { color: rgba(248,246,242,0.45); font-size: 0.8rem; font-weight: 500; }
+.issueStripHint  { color: rgba(248,246,242,0.33); font-size: 0.76rem; margin-left: 4px; }
 
 .issueChip {
   background: rgba(225,134,118,0.08);
@@ -566,33 +647,39 @@
 .issueChip:hover  { background: rgba(225,134,118,0.15); }
 .issueChipActive  { background: rgba(225,134,118,0.18); border-color: rgba(225,134,118,0.45); font-weight: 600; }
 
-.reviewBody { display: grid; gap: 20px; grid-template-columns: 1fr 280px; flex: 1; }
+.reviewBody { display: grid; gap: 28px; grid-template-columns: 1fr 360px; flex: 1; align-items: start; }
 
 .scoreArea {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
   overflow-x: auto;
-  padding: 16px 20px 24px;
+  padding: 20px 20px 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .feedbackSidebar {
   border-left: 1px solid rgba(255,255,255,0.07);
-  padding: 0 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 0 0 24px;
 }
+
+.feedbackPanel { display: flex; flex-direction: column; }
 
 .feedbackIdle {
   align-items: center;
-  color: rgba(248,246,242,0.3);
+  color: rgba(248,246,242,0.32);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
   min-height: 180px;
   text-align: center;
 }
-.feedbackIdleIcon { font-size: 1.8rem; opacity: 0.35; }
-.feedbackIdle p   { font-size: 0.84rem; line-height: 1.65; max-width: 22ch; }
+.feedbackIdleIcon { font-size: 1.8rem; opacity: 0.3; }
+.feedbackIdle p   { font-size: 0.84rem; line-height: 1.7; max-width: 28ch; }
 
 .feedbackDetail { display: flex; flex-direction: column; gap: 0; }
 .detailTag {
@@ -611,10 +698,10 @@
   margin-bottom: 10px;
 }
 .detailBody {
-  color: rgba(248,246,242,0.5);
-  font-size: 0.86rem;
-  line-height: 1.72;
-  margin-bottom: 18px;
+  color: rgba(248,246,242,0.68);
+  font-size: 0.87rem;
+  line-height: 1.75;
+  margin-bottom: 20px;
 }
 .loopBtn {
   background: var(--hero-green);
@@ -630,13 +717,110 @@
 .loopBtn:hover { filter: brightness(1.1); }
 .dismissBtn {
   background: rgba(255,255,255,0.05);
-  border: 0;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 7px;
-  color: rgba(248,246,242,0.45);
+  color: rgba(248,246,242,0.5);
   font-size: 0.83rem;
   padding: 8px 14px;
+  transition: background 140ms ease, color 140ms ease;
   width: 100%;
 }
+.dismissBtn:hover { background: rgba(255,255,255,0.09); color: rgba(248,246,242,0.72); }
+
+/* ── Coach Chat ─────────────────────────────────────────────── */
+.chatSection {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 20px;
+}
+
+.chatLabel {
+  color: rgba(248,246,242,0.38);
+  font-size: 0.69rem;
+  letter-spacing: 0.13em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.chatMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.chatMessages::-webkit-scrollbar { display: none; }
+
+.chatEmpty {
+  color: rgba(248,246,242,0.28);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.chatMsgUser {
+  align-self: flex-end;
+  background: var(--hero-green);
+  border-radius: 10px 10px 2px 10px;
+  color: rgba(255,255,255,0.92);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  max-width: 88%;
+  padding: 8px 12px;
+}
+
+.chatMsgAI {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px 10px 10px 10px;
+  color: rgba(248,246,242,0.75);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  max-width: 92%;
+  padding: 8px 12px;
+}
+
+.chatTyping {
+  letter-spacing: 0.15em;
+  opacity: 0.5;
+}
+
+.chatInputRow {
+  display: flex;
+  gap: 6px;
+}
+
+.chatInput {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 8px;
+  color: var(--text-inverse);
+  flex: 1;
+  font-size: 0.84rem;
+  min-width: 0;
+  padding: 9px 12px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.chatInput::placeholder { color: rgba(248,246,242,0.3); }
+.chatInput:focus { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.24); outline: none; }
+.chatInput:disabled { opacity: 0.5; }
+
+.chatSend {
+  background: var(--hero-green);
+  border: 0;
+  border-radius: 7px;
+  color: white;
+  flex-shrink: 0;
+  font-size: 1rem;
+  height: 36px;
+  transition: filter 150ms ease;
+  width: 36px;
+}
+.chatSend:hover:not(:disabled) { filter: brightness(1.1); }
+.chatSend:disabled { opacity: 0.4; }
 
 /* ── Follow Along ───────────────────────────────────────────── */
 .playerCard {
