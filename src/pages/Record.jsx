@@ -178,7 +178,7 @@ export default function Record() {
 
       if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Analysis failed')
 
-      localStorage.setItem('mediant_last_take', JSON.stringify({
+      const takeRecord = {
         id:              result.takeId ?? `local-${Date.now()}`,
         piece_title:     pieceTitle.trim() || 'Untitled',
         piece_composer:  composer.trim() || 'Unknown',
@@ -187,7 +187,16 @@ export default function Record() {
         video_path:      filePath,
         video_mime_type: file.type || 'video/mp4',
         score_path:      scorePath,
-      }))
+        date:            new Date().toISOString(),
+      }
+
+      localStorage.setItem('mediant_last_take', JSON.stringify(takeRecord))
+
+      // Append to per-piece history so the library panel can show past sessions
+      try {
+        const existing = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        localStorage.setItem('mediant_takes', JSON.stringify([takeRecord, ...existing]))
+      } catch { /* ignore storage errors */ }
 
       setProgress(100)
       setTimeout(() => {
