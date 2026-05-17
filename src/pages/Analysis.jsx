@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
 // ── Hardcoded fallback (shown when no takeId in URL) ──────────────────────
@@ -59,16 +60,42 @@ export default function Analysis() {
   const [chatInput, setChatInput]       = useState('')
   const [chatLoading, setChatLoading]   = useState(false)
   const chatEndRef = useRef(null)
+  const takeId = searchParams.get('takeId')
 
-  // Load take from localStorage (DB disabled until migrations are run)
+  // Load take from Supabase when takeId is present; otherwise fall back to localStorage.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mediant_last_take')
-      setTake(stored ? JSON.parse(stored) : null)
-    } catch {
-      setTake(null)
+    let cancelled = false
+
+    async function loadTake() {
+      if (takeId) {
+        const { data, error } = await supabase
+          .from('takes')
+          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, created_at')
+          .eq('id', takeId)
+          .single()
+
+        if (!cancelled) {
+          if (error) {
+            console.error('Could not load take from Supabase:', error)
+            setTake(null)
+          } else {
+            setTake(data)
+          }
+        }
+        return
+      }
+
+      try {
+        const stored = localStorage.getItem('mediant_last_take')
+        if (!cancelled) setTake(stored ? JSON.parse(stored) : null)
+      } catch {
+        if (!cancelled) setTake(null)
+      }
     }
-  }, [])
+
+    loadTake()
+    return () => { cancelled = true }
+  }, [takeId])
 
   // Render score once take is resolved
   useEffect(() => {

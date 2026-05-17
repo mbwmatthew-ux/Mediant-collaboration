@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
 const INSTRUMENTS = [
@@ -11,6 +13,7 @@ const INSTRUMENTS = [
 
 export default function Record() {
   const nav  = useNavigate()
+  const { user } = useAuth()
 
   // Piece info form
   const [pieceTitle,  setPieceTitle]  = useState('')
@@ -43,6 +46,12 @@ export default function Record() {
 
   async function handleSubmit() {
     if (!readyToAnalyze) return
+    if (!user?.id) {
+      setErrorMsg('You must be logged in to analyze a recording.')
+      setPhase('error')
+      return
+    }
+
     setPhase('uploading')
     setProgress(0)
     setErrorMsg('')
@@ -59,34 +68,51 @@ export default function Record() {
         setProgress(p => Math.min(p + 3, 95))
       }, 600)
 
-      const res = await fetch('/api/analyze-performance', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pieceTitle: pieceTitle.trim(),
-          composer:   composer.trim(),
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+      const filePath = `${user.id}/${Date.now()}-${safeName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('recordings')
+        .upload(filePath, file, {
+          contentType: file.type || 'video/mp4',
+          upsert: false,
+        })
+
+      if (uploadError) throw new Error(uploadError.message || 'Upload failed')
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('analyze-performance', {
+        body: {
+          videoPath:     filePath,
+          videoMimeType: file.type || 'video/mp4',
+          pieceTitle:    pieceTitle.trim(),
+          composer:      composer.trim(),
           instrument,
-          part:       part.trim() || undefined,
-        }),
+          part:          part.trim() || undefined,
+          timeSig:       '4/4',
+        },
       })
 
       clearInterval(progressTick)
       clearInterval(analysisTick)
 
-      const result = await res.json()
-      if (!res.ok || result.error) throw new Error(result.error || 'Analysis failed')
+      if (fnError) throw new Error(fnError.message || 'Analysis failed')
+      if (!result || result.error) throw new Error(result?.error || 'Analysis failed')
 
       // Store result locally so Analysis page can read it without a DB
       localStorage.setItem('mediant_last_take', JSON.stringify({
-        id:             `local-${Date.now()}`,
+        id:             result.takeId ?? `local-${Date.now()}`,
         piece_title:    pieceTitle.trim(),
         piece_composer: composer.trim(),
         score:          result.score,
         flags:          result.flags,
+        video_path:     filePath,
+        video_mime_type:file.type || 'video/mp4',
       }))
 
       setProgress(100)
-      setTimeout(() => nav('/analysis'), 400)
+      setTimeout(() => {
+        nav(result.takeId ? `/analysis?takeId=${encodeURIComponent(result.takeId)}` : '/analysis')
+      }, 400)
 
     } catch (err) {
       setErrorMsg(err.message ?? 'Something went wrong. Please try again.')
