@@ -396,10 +396,11 @@ export default function Analysis() {
                 />
                 {(take?.flags ?? []).map((f, i) => {
                   if (!f.spot) return null
-                  const [y0, x0, y1, x1] = f.spot
-                  const angle = f.spot_angle ?? 0
                   const flagId = `flag_${i}`
                   const active = activeFlag === flagId
+                  if (!active) return null
+                  const [y0, x0, y1, x1] = f.spot
+                  const angle = f.spot_angle ?? 0
                   // Center the div at the midpoint, then rotate around that center
                   const cx = (x0 + x1) / 2 / 10
                   const cy = (y0 + y1) / 2 / 10
