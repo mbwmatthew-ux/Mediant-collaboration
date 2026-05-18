@@ -132,18 +132,24 @@ Return JSON only (no markdown):
   ]
 }`
 
-  const msg = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 8000,
-    messages: [{
-      role: 'user',
-      content: [
-        visionPart as { type: 'image' | 'document'; source: { type: 'base64'; media_type: string; data: string } },
-        { type: 'text', text: prompt },
-      ],
-    }],
-  })
-  const raw = (msg.content[0] as { type: string; text: string }).text ?? ''
+  let raw: string
+  try {
+    const msg = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 16000,
+      messages: [{
+        role: 'user',
+        content: [
+          visionPart as { type: 'image' | 'document'; source: { type: 'base64'; media_type: string; data: string } },
+          { type: 'text', text: prompt },
+        ],
+      }],
+    })
+    raw = (msg.content[0] as { type: string; text: string }).text ?? ''
+  } catch (err) {
+    console.error('[readScoreNotes] Claude API error:', (err as Error).message)
+    return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
+  }
   const parsed = extractJsonObject(raw) as ScoreReading | null
   if (!parsed) {
     console.error('[readScoreNotes] no JSON in response:', raw.slice(0, 500))
@@ -426,12 +432,18 @@ Return JSON only (no markdown):
   ]
 }`
 
-  const msg = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    messages: [{ role: 'user', content: prompt }],
-  })
-  const raw = (msg.content[0] as { type: string; text: string }).text ?? ''
+  let raw: string
+  try {
+    const msg = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    raw = (msg.content[0] as { type: string; text: string }).text ?? ''
+  } catch (err) {
+    console.error('[compareAndCoach] Claude API error:', (err as Error).message)
+    return []
+  }
   const parsed = extractJsonObject(raw) as { flags?: Array<Partial<CoachingFlag> & { beat?: number }> } | null
   if (!parsed) {
     console.error('[compareAndCoach] no JSON in response:', raw.slice(0, 500))
@@ -510,14 +522,32 @@ serve(async (req) => {
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
 
     // Upload video to Gemini (sequential with file processing)
-    const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+    console.log('[analyze-performance] uploading video to Gemini, bytes:', videoBytes.length, 'mime:', videoMimeType)
+    let videoFileUri: string
+    try {
+      videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+    } catch (err) {
+      console.error('[analyze-performance] video upload failed:', (err as Error).message)
+      throw new Error(`Video upload to Gemini failed: ${(err as Error).message}`)
+    }
+    console.log('[analyze-performance] video uploaded:', videoFileUri)
 
-    // Step 1 + Step 2 in parallel
+    // Step 1 + Step 2 in parallel — each function is internally error-resilient
+    // so a single failure doesn't cancel the other.
+    console.log('[analyze-performance] starting parallel score-read + audio-transcribe. scoreBytes?', !!scoreBytes, 'mime:', resolvedScoreMime)
     const [score, audio] = await Promise.all([
       scoreBytes && resolvedScoreMime
         ? readScoreNotes(scoreBytes, resolvedScoreMime, safeStart, instrument ?? 'instrument', timeSig ?? '4/4')
+            .catch(err => {
+              console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
+              return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
+            })
         : Promise.resolve({ key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading),
-      transcribeAudio(videoFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey),
+      transcribeAudio(videoFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
+        .catch(err => {
+          console.error('[analyze-performance] transcribeAudio threw:', (err as Error).message)
+          return { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null } as AudioTranscription
+        }),
     ])
     console.log('[analyze-performance] score measures:', score.measures.length, 'starting at', score.measures[0]?.number ?? '?')
     console.log('[analyze-performance] audio events (high-conf):', audio.events.length, 'duration:', audio.audio_duration_sec, 'tempo:', audio.tempo_estimate_bpm)
