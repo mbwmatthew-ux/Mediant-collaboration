@@ -454,21 +454,23 @@ serve(async (req) => {
     const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
     // Pre-pass: read measure numbers + detect staff tilt angle in parallel.
-    // Both capped at 10 s so a slow image never blocks the main analysis.
+    // 30 s timeout — Gemini 2.5 Pro image-only calls typically take 15-25 s.
     const [anchoredMeasures, staffAngle] = await Promise.all([
       scoreFileUri && scoreGeminiMime
         ? Promise.race([
             extractMeasureNumbers(scoreFileUri, scoreGeminiMime, googleApiKey),
-            new Promise<number[]>(resolve => setTimeout(() => resolve([]), 10_000)),
+            new Promise<number[]>(resolve => setTimeout(() => resolve([]), 30_000)),
           ])
         : Promise.resolve([] as number[]),
       scoreFileUri && scoreGeminiMime
         ? Promise.race([
             detectStaffAngle(scoreFileUri, scoreGeminiMime, googleApiKey),
-            new Promise<number>(resolve => setTimeout(() => resolve(0), 10_000)),
+            new Promise<number>(resolve => setTimeout(() => resolve(0), 30_000)),
           ])
         : Promise.resolve(0),
     ])
+    console.log('[analyze-performance] anchoredMeasures:', anchoredMeasures)
+    console.log('[analyze-performance] staffAngle:', staffAngle)
 
     const smInt = startMeasure ? parseInt(startMeasure, 10) : null
     const commonArgs = [
@@ -488,15 +490,18 @@ serve(async (req) => {
       buildTranscriptionPrompt(...commonArgs),
       googleApiKey, scoreFileUri, scoreGeminiMime,
     )
+    console.log('[analyze-performance] Pass 1 transcription (first 500 chars):', transcription.slice(0, 500))
 
     // Pass 2 — Gemini re-listens and flags issues grounded in the transcription
     const analysisPrompt = buildAnalysisPrompt(...commonArgs, transcription)
     const { score, flags: allRawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, analysisPrompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
+    console.log('[analyze-performance] Pass 2 raw flags:', JSON.stringify(allRawFlags))
 
     // Drop flags Gemini itself isn't confident about
     const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 70)
+    console.log('[analyze-performance] flags after confidence filter:', JSON.stringify(rawFlags))
 
     // Generate coaching text + refine spot in parallel for each flag
     const flags = await Promise.all(
