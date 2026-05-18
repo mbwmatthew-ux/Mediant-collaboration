@@ -36,16 +36,35 @@ serve(async (req) => {
       measures?: Array<{ number: number; content: string }>
     } | null
 
-    const layoutMeasures = layout?.measures ?? []
-    const firstMeasure   = layoutMeasures[0]?.number
-    const lastMeasure    = layoutMeasures[layoutMeasures.length - 1]?.number
+    const alignment = (context.audioAlignment as Array<{ measure: number; start: number; end: number }> | null) ?? []
+    const alignmentMap = new Map<number, { start: number; end: number }>()
+    for (const a of alignment) alignmentMap.set(a.measure, { start: a.start, end: a.end })
 
+    const layoutMeasures = layout?.measures ?? []
+    // The student actually played the measures present in the alignment.
+    // If alignment is missing, fall back to layout's visible range.
+    const playedMeasures = alignment.length > 0
+      ? alignment.map(a => a.measure).sort((a, b) => a - b)
+      : layoutMeasures.map(m => m.number)
+    const firstMeasure = playedMeasures[0]
+    const lastMeasure  = playedMeasures[playedMeasures.length - 1]
+
+    const totalDuration = alignment.length > 0
+      ? Math.max(...alignment.map(a => a.end))
+      : null
+
+    // Per-measure index combining notation content with the audio window
+    // where it was played, so the coach can answer "what was happening at 0:14?"
     const scoreIndex = layoutMeasures.length > 0
-      ? layoutMeasures.map(m => `  ${m.number}: ${m.content}`).join('\n')
+      ? layoutMeasures.map(m => {
+          const ts = alignmentMap.get(m.number)
+          const tsStr = ts ? ` [played ${ts.start.toFixed(1)}s–${ts.end.toFixed(1)}s]` : ' [not played]'
+          return `  ${m.number}${tsStr}: ${m.content}`
+        }).join('\n')
       : '(score layout not available for this take)'
 
     const rangeLine = (firstMeasure != null && lastMeasure != null)
-      ? `The student's recording covers the score from measure ${firstMeasure} to measure ${lastMeasure} (inclusive). That is the exact range played — do not claim they played outside this range.`
+      ? `The student played measures ${firstMeasure}–${lastMeasure}${totalDuration != null ? ` over ${totalDuration.toFixed(1)} seconds of recording` : ''}. That is the exact range — do not claim they played outside it.`
       : 'The exact measure range played is not known.'
 
     const flagSummary = flags.length === 0

@@ -64,19 +64,24 @@ RULES:
 - For INTONATION: name sharp or flat, which register.
 - For VOICING: name which voice/string is too loud and why it muddies the texture.
 
-For timestamps: listen to the recording and note the wall-clock time in the video (in seconds from 0:00) where each flagged measure begins and ends. A single measure at a typical tempo spans 2–5 seconds. timestamp_end must be at least 2 seconds after timestamp_start.
+FIRST, follow along with the score while listening. Build an ALIGNMENT: for every measure in the MEASURE INDEX above, note when in the recording (in seconds from 0:00) the student plays the first note of that measure and when they finish the last note. A measure at typical tempo spans 2–5 seconds. Go measure-by-measure in order. If the student stops before the end of the score, only include measures they actually played.
+
+THEN identify flagged issues. For each flag, the timestamp_start and timestamp_end MUST match the alignment entry for that measure — do not invent separate timestamps. timestamp_end must be at least 2 seconds after timestamp_start.
 
 Return ONLY valid JSON, no markdown:
 {
   "score": <integer 0–100>,
+  "alignment": [
+    { "measure": <integer>, "start": <seconds>, "end": <seconds> }
+  ],
   "flags": [
     {
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
       "confidence": <integer 70–100>,
       "title": "<6–10 word specific problem title>",
-      "timestamp_start": <seconds into the video where this measure begins>,
-      "timestamp_end": <seconds into the video where this measure ends, at least 2s after start>,
+      "timestamp_start": <seconds — must equal this measure's alignment.start>,
+      "timestamp_end": <seconds — must equal this measure's alignment.end>,
       "raw_detail": "<3 sentences: what you heard · which beat/note · why it matters>"
     }
   ]
@@ -189,7 +194,11 @@ async function analyzeWithGemini(
   const start = stripped.indexOf('{')
   const end   = stripped.lastIndexOf('}')
   if (start === -1 || end === -1) throw new Error('Gemini did not return valid JSON in Pass 2')
-  return JSON.parse(stripped.slice(start, end + 1)) as { score: number; flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
+  return JSON.parse(stripped.slice(start, end + 1)) as {
+    score: number;
+    alignment?: Array<{ measure: number; start: number; end: number }>;
+    flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }>;
+  }
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -475,10 +484,21 @@ serve(async (req) => {
       measureRange,
     )
 
-    const { score, flags: allRawFlags } = await analyzeWithGemini(
+    const { score, alignment: rawAlignment, flags: allRawFlags } = await analyzeWithGemini(
       videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
     console.log('[analyze-performance] raw flags:', JSON.stringify(allRawFlags))
+
+    // Build alignment map: measure number → {start, end} from the recording.
+    // Sanitize: must be finite, ordered, non-overlapping after sort.
+    const alignmentList = (rawAlignment ?? [])
+      .filter(a => typeof a?.measure === 'number' && typeof a?.start === 'number' && typeof a?.end === 'number')
+      .filter(a => Number.isFinite(a.start) && Number.isFinite(a.end) && a.end > a.start)
+      .map(a => ({ measure: Math.round(a.measure), start: a.start, end: a.end }))
+      .sort((a, b) => a.start - b.start)
+    const alignmentMap = new Map<number, { start: number; end: number }>()
+    for (const a of alignmentList) alignmentMap.set(a.measure, { start: a.start, end: a.end })
+    console.log('[analyze-performance] alignment entries:', alignmentList.length)
 
     // Drop flags Gemini isn't confident about, AND drop any flag whose measure
     // isn't in the layout (means Gemini hallucinated a measure outside the page).
@@ -515,9 +535,11 @@ serve(async (req) => {
           bboxPromise,
         ])
 
-        // Validate timestamps — must be positive, ordered, and span at least 1.5 s
-        const tsStart = f.timestamp_start ?? null
-        const tsEnd   = f.timestamp_end   ?? null
+        // Prefer the alignment map (ground truth from the score-follow pass)
+        // over per-flag timestamps. Fall back to flag timestamps if missing.
+        const aligned = alignmentMap.get(f.measure)
+        const tsStart = aligned?.start ?? f.timestamp_start ?? null
+        const tsEnd   = aligned?.end   ?? f.timestamp_end   ?? null
         const validTs = tsStart !== null && tsEnd !== null
           && tsStart >= 0 && tsEnd > tsStart && (tsEnd - tsStart) >= 1.5
         return {
@@ -546,6 +568,7 @@ serve(async (req) => {
         score:           Math.round(score),
         flags,
         measure_layout:  layout.measures.length > 0 ? layout : null,
+        audio_alignment: alignmentList.length > 0 ? alignmentList : null,
       })
       .select('id')
       .single()
