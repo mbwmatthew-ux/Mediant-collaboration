@@ -11,68 +11,94 @@ const CORS = {
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
-function buildGeminiPrompt(
+function measureContext(
+  anchoredMeasures: number[],
+  startMeasure: number | null,
+  totalMeasures: number | null,
+): string {
+  if (anchoredMeasures.length > 0) {
+    const first = anchoredMeasures[0]
+    const last  = anchoredMeasures[anchoredMeasures.length - 1]
+    return `The sheet music shows measures ${anchoredMeasures.join(', ')}. The recording covers exactly this range (${first}–${last}). Use ONLY these printed numbers — never count or guess.`
+  }
+  if (startMeasure !== null && totalMeasures !== null)
+    return `The student plays measures ${startMeasure}–${totalMeasures}. Use ${startMeasure} as your anchor — do not count from 1.`
+  if (startMeasure !== null)
+    return `The recording starts at measure ${startMeasure}. Use this as your anchor — do not count from 1.`
+  if (totalMeasures !== null)
+    return `The score has ${totalMeasures} measures total.`
+  return `Count measures carefully from the start using the time signature.`
+}
+
+// Pass 1 — transcription: Gemini listens without judgment and describes what it hears.
+function buildTranscriptionPrompt(
   pieceTitle: string,
   composer: string,
   timeSig: string,
   instrument: string,
+  anchoredMeasures: number[],
+  startMeasure: number | null,
   totalMeasures: number | null,
   hasVisualScore: boolean,
-  startMeasure: number | null,
-  anchoredMeasures: number[],
 ): string {
-  let measureLine: string
-  if (anchoredMeasures.length > 0) {
-    const first = anchoredMeasures[0]
-    const last  = anchoredMeasures[anchoredMeasures.length - 1]
-    measureLine = `The sheet music image shows measures ${anchoredMeasures.join(', ')}. The recording covers this exact range (${first}–${last}). You MUST use only these printed numbers — never count or guess. Every flagged measure must appear in this list.`
-  } else if (startMeasure !== null && totalMeasures !== null) {
-    measureLine = `The student is playing measures ${startMeasure} through ${totalMeasures}. The recording starts at measure ${startMeasure} — use this as your anchor. All flagged measures must be within this range.`
-  } else if (startMeasure !== null) {
-    measureLine = `The recording starts at measure ${startMeasure}. Use this as your anchor — do not start counting from measure 1.`
-  } else if (totalMeasures !== null) {
-    measureLine = `The score has ${totalMeasures} measures total.`
-  } else {
-    measureLine = `Count measures carefully from the start of the recording using the time signature.`
-  }
+  return `You are a professional ${instrument} player and music teacher. A student is playing "${pieceTitle}" by ${composer} (time signature: ${timeSig}).
+${measureContext(anchoredMeasures, startMeasure, totalMeasures)}
+${hasVisualScore ? 'The sheet music image is provided for reference.' : ''}
 
-  const bboxField = hasVisualScore
-    ? `- bbox: tight bounding box around ONLY the single flagged measure bar as [y_min, x_min, y_max, x_max] where each value is 0–1000 (0=top/left, 1000=bottom/right). The box must start at the barline opening the measure and end at the barline closing it — do not include adjacent measures, do not span an entire system row. A single measure typically spans 10–25% of the image width.`
-    : ''
+Listen to the ENTIRE recording from start to finish. Your task right now is ONLY to observe and describe — do not judge or flag issues yet.
 
+Write a detailed listening report covering:
+1. Tempo: is it steady, rushing, dragging? Note specific timestamps where the pulse shifts.
+2. Timing: any rhythmic inaccuracies — rushed notes, held too long, early/late entrances. Give timestamps (e.g. "at 0:23").
+3. Intonation: any notes or passages that sound sharp or flat. Name the register (e.g. "upper register shift around 0:45").
+4. Dynamics: does the phrasing shape match what you'd expect? Where does it peak too early, fall off too soon, or stay flat?
+5. Articulation: are notes properly separated or connected? Any bow pressure, tongue, or finger issues?
+6. Tone quality: anywhere the sound becomes thin, pressed, scratchy, or changes character unexpectedly?
+
+Be specific and honest. If something sounds genuinely good, say so. If a section is clean, say it is clean — do not invent problems.`
+}
+
+// Pass 2 — analysis: given the transcription, identify specific flaggable issues with full JSON output.
+function buildAnalysisPrompt(
+  pieceTitle: string,
+  composer: string,
+  timeSig: string,
+  instrument: string,
+  anchoredMeasures: number[],
+  startMeasure: number | null,
+  totalMeasures: number | null,
+  hasVisualScore: boolean,
+  transcription: string,
+): string {
   const bboxJson = hasVisualScore
     ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
     : ''
+  const bboxField = hasVisualScore
+    ? `- bbox: bounding box of the affected region as [y_min, x_min, y_max, x_max], values 0–1000. Cover exactly the problematic note(s) or passage — not the whole row.`
+    : ''
 
-  return `You are an expert music teacher and professional ${instrument} player analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
-Time signature: ${timeSig}.
-${measureLine}
-${hasVisualScore ? 'The sheet music image is shown first. Read every printed measure number carefully before listening. Use ONLY those printed numbers — never invent or estimate a measure number.' : ''}
+  return `You are an expert ${instrument} teacher analyzing a student's recording of "${pieceTitle}" by ${composer} (time signature: ${timeSig}).
+${measureContext(anchoredMeasures, startMeasure, totalMeasures)}
+${hasVisualScore ? 'The sheet music image is provided. Use ONLY the printed measure numbers you can see — never invent or estimate.' : ''}
 
-Listen to the ENTIRE recording carefully. Your job is to flag ONLY issues you can clearly and specifically hear — not issues you assume might be there.
+A detailed listening report from Pass 1 is provided below. Use it as your primary evidence. Re-listen to confirm anything you are not sure about.
 
-IMPORTANT RULES:
-- Quality over quantity: return 1–4 flags. Fewer accurate flags are far better than more invented ones.
-- If you are not at least 70% confident an issue is real, do not include it. Return zero flags rather than guess.
-- Only flag measures the student actually plays. Do not invent or assume issues.
-- Be precise: name the exact beat, note, or passage within the measure where the issue happens.
-- For TIMING issues: describe whether it rushes, drags, or loses pulse, and on which beat.
-- For DYNAMICS issues: describe whether a phrase peaks too early/late, or a note is too loud/soft relative to its musical role.
-- For ARTICULATION issues: describe which notes are too short, too long, or missing bow/tongue separation.
-- For INTONATION issues: name whether the pitch is sharp or flat, and in which register or shift.
-- For VOICING issues: describe which voice or string is overpowering the others and why it muddies the texture.
+LISTENING REPORT:
+${transcription}
 
-For each issue provide:
-- measure: the exact printed measure number where the issue occurs
-- type: one of: timing, dynamics, voicing, articulation, intonation
-- confidence: integer 0–100 — how certain you are this is a real, clearly audible issue (only include flags where this is ≥ 70)
-- title: 6–10 words naming the specific problem (e.g. "Bow rushes through dotted rhythm in m.217")
-- timestamp_start: time in seconds from the start of the video where this measure begins (e.g. 45.2)
-- timestamp_end: time in seconds from the start of the video where this measure ends (e.g. 48.8)
-- raw_detail: 3 sentences — (1) exactly what you heard, (2) which beat/note it occurs on, (3) why it matters for this passage
+Now identify the specific performance issues that deserve coaching attention. Return ONLY issues that are clearly supported by the listening report above — do not add new ones you did not hear.
+
+RULES:
+- Quality over quantity: 1–4 flags. Fewer accurate flags are far better than invented ones.
+- confidence ≥ 70 required. Do not include a flag if you are unsure.
+- For each issue name the exact beat or note, not just the measure.
+- For TIMING: which beat rushes or drags.
+- For DYNAMICS: where the line peaks or falls relative to the phrase shape.
+- For ARTICULATION: which notes are too short/long or missing separation.
+- For INTONATION: sharp or flat, which register.
+- For VOICING: which voice/string is too loud and why it muddies the texture.
 ${bboxField}
-
-Return ONLY valid JSON — no markdown, no explanation:
+Return ONLY valid JSON, no markdown:
 {
   "score": <integer 0–100>,
   "flags": [
@@ -80,10 +106,10 @@ Return ONLY valid JSON — no markdown, no explanation:
       "measure": <integer>,
       "type": "<timing|dynamics|voicing|articulation|intonation>",
       "confidence": <integer 70–100>,
-      "title": "<specific issue>",
-      "timestamp_start": <number>,
-      "timestamp_end": <number>,${bboxJson}
-      "raw_detail": "<what you heard · which beat/note · why it matters>"
+      "title": "<6–10 word specific problem title>",
+      "timestamp_start": <seconds from video start>,
+      "timestamp_end": <seconds from video start>,${bboxJson}
+      "raw_detail": "<3 sentences: what you heard · which beat/note · why it matters>"
     }
   ]
 }`
@@ -147,6 +173,53 @@ async function uploadVideoToGemini(videoBytes: Uint8Array, mimeType: string, api
   return file.uri as string
 }
 
+const GEMINI_MODEL = 'gemini-2.5-pro'
+
+async function geminiGenerate(parts: unknown[], apiKey: string, temperature = 0.1): Promise<string> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { temperature },
+      }),
+    }
+  )
+  if (!res.ok) throw new Error(`Gemini generateContent failed: ${await res.text()}`)
+  const data = await res.json()
+  return data.candidates[0].content.parts[0].text as string
+}
+
+function buildParts(
+  videoFileUri: string,
+  videoMimeType: string,
+  prompt: string,
+  scoreFileUri?: string,
+  scoreMimeType?: string,
+): unknown[] {
+  const parts: unknown[] = []
+  if (scoreFileUri && scoreMimeType)
+    parts.push({ fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } })
+  parts.push({ fileData: { mimeType: videoMimeType, fileUri: videoFileUri } })
+  parts.push({ text: prompt })
+  return parts
+}
+
+// Pass 1: transcription — returns free-text description of what Gemini heard
+async function transcribePerformance(
+  videoFileUri: string,
+  videoMimeType: string,
+  prompt: string,
+  apiKey: string,
+  scoreFileUri?: string,
+  scoreMimeType?: string,
+): Promise<string> {
+  return geminiGenerate(buildParts(videoFileUri, videoMimeType, prompt, scoreFileUri, scoreMimeType), apiKey, 0.2)
+}
+
+// Pass 2: analysis — returns structured JSON flags grounded in the transcription
 async function analyzeWithGemini(
   videoFileUri: string,
   videoMimeType: string,
@@ -155,29 +228,7 @@ async function analyzeWithGemini(
   scoreFileUri?: string,
   scoreMimeType?: string,
 ) {
-  // Score image first so Gemini anchors to the printed measure numbers before listening
-  const parts: unknown[] = []
-  if (scoreFileUri && scoreMimeType) {
-    parts.push({ fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } })
-  }
-  parts.push({ fileData: { mimeType: videoMimeType, fileUri: videoFileUri } })
-  parts.push({ text: prompt })
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { temperature: 0.1 },
-      }),
-    }
-  )
-  if (!res.ok) throw new Error(`Gemini generateContent failed: ${await res.text()}`)
-
-  const data = await res.json()
-  const raw = data.candidates[0].content.parts[0].text as string
+  const raw = await geminiGenerate(buildParts(videoFileUri, videoMimeType, prompt, scoreFileUri, scoreMimeType), apiKey, 0.1)
   const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
   return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
 }
@@ -189,7 +240,7 @@ const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'im
 async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number[]> {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,7 +272,7 @@ async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string
 async function detectStaffAngle(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number> {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -262,7 +313,7 @@ async function refineSpot(
   const maxMeasureWidth = visibleMeasureCount > 0 ? Math.round(1000 / visibleMeasureCount) : 150
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -414,19 +465,29 @@ serve(async (req) => {
         : Promise.resolve(0),
     ])
 
-    // Analyze with Gemini (video + optional visual score)
-    const prompt = buildGeminiPrompt(
-      pieceTitle   ?? 'this piece',
-      composer     ?? 'unknown composer',
-      timeSig      ?? '4/4',
-      instrument   ?? 'Piano',
+    const smInt = startMeasure ? parseInt(startMeasure, 10) : null
+    const commonArgs = [
+      pieceTitle  ?? 'this piece',
+      composer    ?? 'unknown composer',
+      timeSig     ?? '4/4',
+      instrument  ?? 'Piano',
+      anchoredMeasures,
+      smInt,
       totalMeasures,
       !!scoreFileUri,
-      startMeasure ? parseInt(startMeasure, 10) : null,
-      anchoredMeasures,
+    ] as const
+
+    // Pass 1 — Gemini listens and describes everything it hears (no judgment yet)
+    const transcription = await transcribePerformance(
+      videoFileUri, videoMimeType,
+      buildTranscriptionPrompt(...commonArgs),
+      googleApiKey, scoreFileUri, scoreGeminiMime,
     )
+
+    // Pass 2 — Gemini re-listens and flags issues grounded in the transcription
+    const analysisPrompt = buildAnalysisPrompt(...commonArgs, transcription)
     const { score, flags: allRawFlags } = await analyzeWithGemini(
-      videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
+      videoFileUri, videoMimeType, analysisPrompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
 
     // Drop flags Gemini itself isn't confident about
