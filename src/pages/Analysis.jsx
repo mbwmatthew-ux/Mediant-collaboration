@@ -265,7 +265,10 @@ export default function Analysis() {
     }
   }
 
-  // Derive FLAGS map and chips
+  // Derive FLAGS map and chips.
+  // Only fall back to mock data when take itself is null/undefined (no real take loaded).
+  // If take loaded but flags is empty, show an empty list — not fake data.
+  const hasRealTake = take !== null && take !== undefined
   const flagsMap = take?.flags?.length
     ? Object.fromEntries(
         take.flags.map((f, i) => [
@@ -273,11 +276,11 @@ export default function Analysis() {
           { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.body },
         ])
       )
-    : MOCK_FLAGS
+    : (hasRealTake ? {} : MOCK_FLAGS)
 
   const chips = take?.flags?.length
     ? take.flags.map((f, i) => ({ flag: `flag_${i}`, label: `m.${f.measure} · ${capitalize(f.type)}` }))
-    : MOCK_CHIPS
+    : (hasRealTake ? [] : MOCK_CHIPS)
 
   const pieceTitle    = take?.piece_title    ?? 'Clair de Lune'
   const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
@@ -322,16 +325,21 @@ export default function Analysis() {
 
       <div className={styles.issueStrip}>
         <span className={styles.issueStripLabel}>Issues:</span>
-        {chips.map(({ flag, label }) => (
-          <button
-            key={flag}
-            className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
-            onClick={() => setActiveFlag(activeFlag === flag ? null : flag)}
-          >
-            {label}
-          </button>
-        ))}
-        <span className={styles.issueStripHint}>Click a highlighted measure or issue to read feedback.</span>
+        {hasRealTake && chips.length === 0
+          ? <span className={styles.issueStripHint}>No issues detected — performance looks clean.</span>
+          : <>
+              {chips.map(({ flag, label }) => (
+                <button
+                  key={flag}
+                  className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
+                  onClick={() => setActiveFlag(activeFlag === flag ? null : flag)}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className={styles.issueStripHint}>Click a highlighted measure or issue to read feedback.</span>
+            </>
+        }
       </div>
 
       <div className={styles.reviewBody}>

@@ -98,6 +98,7 @@ RULES:
 - For INTONATION: sharp or flat, which register.
 - For VOICING: which voice/string is too loud and why it muddies the texture.
 ${bboxField}
+
 Return ONLY valid JSON, no markdown:
 {
   "score": <integer 0–100>,
@@ -229,8 +230,12 @@ async function analyzeWithGemini(
   scoreMimeType?: string,
 ) {
   const raw = await geminiGenerate(buildParts(videoFileUri, videoMimeType, prompt, scoreFileUri, scoreMimeType), apiKey, 0.1)
-  const json = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-  return JSON.parse(json) as { score: number; flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
+  // Strip markdown code fences if present, then extract the outermost JSON object
+  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  const start = stripped.indexOf('{')
+  const end   = stripped.lastIndexOf('}')
+  if (start === -1 || end === -1) throw new Error('Gemini did not return valid JSON in Pass 2')
+  return JSON.parse(stripped.slice(start, end + 1)) as { score: number; flags: Array<{ measure: number; type: string; title: string; confidence?: number; raw_detail: string; timestamp_start?: number; timestamp_end?: number; bbox?: [number, number, number, number] }> }
 }
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -497,7 +502,7 @@ serve(async (req) => {
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
         const [body, spotBbox] = await Promise.all([
-          generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'instrument'),
+          generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'musician'),
           scoreFileUri && scoreGeminiMime
             ? refineSpot(f.measure, f.type, f.raw_detail, anchoredMeasures.length, scoreFileUri, scoreGeminiMime, googleApiKey)
             : Promise.resolve(null),
