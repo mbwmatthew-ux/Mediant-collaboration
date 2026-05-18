@@ -156,13 +156,22 @@ async function geminiGenerate(parts: unknown[], apiKey: string, temperature = 0.
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature },
+        generationConfig: {
+          temperature,
+          responseMimeType: 'application/json',
+          maxOutputTokens: 16384,
+        },
       }),
     }
   )
   if (!res.ok) throw new Error(`Gemini generateContent failed: ${await res.text()}`)
   const data = await res.json()
-  return data.candidates[0].content.parts[0].text as string
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined
+  if (!text) {
+    console.error('[geminiGenerate] empty/blocked response:', JSON.stringify(data).slice(0, 800))
+    throw new Error('Gemini returned no text — likely truncated or blocked')
+  }
+  return text
 }
 
 function buildParts(
