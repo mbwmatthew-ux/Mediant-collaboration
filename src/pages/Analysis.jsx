@@ -126,24 +126,37 @@ export default function Analysis() {
     const video = videoRef.current
     if (!video || !isLooping || !loopRef.current) return
     const { start, end } = loopRef.current
-    video.currentTime = start
-    video.play().catch(() => {})
+
+    function seekAndPlay() {
+      try { video.currentTime = start } catch { /* ignore */ }
+      video.play().catch(() => {})
+    }
+
+    if (video.readyState >= 1) {
+      seekAndPlay()
+    } else {
+      video.addEventListener('loadedmetadata', seekAndPlay, { once: true })
+    }
 
     function onTimeUpdate() {
       if (videoRef.current && videoRef.current.currentTime >= end) {
-        videoRef.current.currentTime = start
+        try { videoRef.current.currentTime = start } catch { /* ignore */ }
       }
     }
     video.addEventListener('timeupdate', onTimeUpdate)
     return () => {
       video.removeEventListener('timeupdate', onTimeUpdate)
+      video.removeEventListener('loadedmetadata', seekAndPlay)
       video.pause()
     }
   }, [isLooping])
 
   const startLoop = useCallback((flag) => {
-    if (!flag?.timestamp_start || !flag?.timestamp_end) return
-    loopRef.current = { start: flag.timestamp_start, end: flag.timestamp_end }
+    if (flag?.timestamp_start == null || flag?.timestamp_end == null) return
+    const start = Number(flag.timestamp_start)
+    const end   = Number(flag.timestamp_end)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return
+    loopRef.current = { start, end }
     setIsLooping(true)
   }, [])
 

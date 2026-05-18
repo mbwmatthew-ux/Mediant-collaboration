@@ -26,7 +26,19 @@ function buildGeminiPrompt(
   if (anchoredMeasures.length > 0) {
     const first = anchoredMeasures[0]
     const last  = anchoredMeasures[anchoredMeasures.length - 1]
-    measureLine = `The sheet music image shows measures ${anchoredMeasures.join(', ')}. The recording covers exactly this range (${first}–${last}). You MUST use ONLY these printed measure numbers — never count or guess. Every flagged measure must appear in this list: [${anchoredMeasures.join(', ')}].`
+    // Most engraved scores only print a measure number at the start of each
+    // system, so the printed list is sparse. Derive a continuous range and
+    // estimate the system gap so the model can interpolate inner measures.
+    let gap = 1
+    if (anchoredMeasures.length >= 2) {
+      const diffs: number[] = []
+      for (let i = 1; i < anchoredMeasures.length; i++) {
+        diffs.push(anchoredMeasures[i] - anchoredMeasures[i - 1])
+      }
+      gap = Math.max(1, Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length))
+    }
+    const rangeEnd = last + Math.max(0, gap - 1)
+    measureLine = `Printed measure numbers visible on the score: [${anchoredMeasures.join(', ')}]. These are anchor points — engraved scores typically only label the first measure of each system (about every ${gap} measures), so measures BETWEEN these numbers are also valid (e.g. if you see "${first}" and "${first + gap}" printed, then ${first + 1}, ${first + 2}, … are real measures too). The student plays measures ${first}–${rangeEnd}. Every flagged measure number MUST be within ${first}–${rangeEnd}. Never use a measure number outside this range, and never count starting from 1.`
   } else if (startMeasure !== null && totalMeasures !== null) {
     measureLine = `The student plays measures ${startMeasure}–${totalMeasures}. Use ${startMeasure} as your anchor — do not count from 1.`
   } else if (startMeasure !== null) {
@@ -56,15 +68,24 @@ ${scoreContext}
 Listen to the ENTIRE recording carefully. Your job is to identify ONLY issues you can clearly and specifically hear.
 
 RULES:
-- Quality over quantity: 1–4 flags. Fewer accurate flags are far better than invented ones.
-- If you are not at least 70% confident an issue is real, do not include it.
+- Quality over quantity: 0–4 flags. Returning an empty flags array is correct and expected when the performance is clean — DO NOT invent issues to fill space.
+- If you are not at least 80% confident an issue is real AND that you have the correct measure number, do not include it.
+- Before flagging, ask yourself: "Can I name the exact beat and note where this happened?" If not, drop the flag.
 - Only flag measures the student actually plays. Do not invent or assume issues.
+- Do not flag the same problem in multiple consecutive measures unless you can hear it distinctly recurring in each.
 - Name the exact beat, note, or passage where the issue happens.
-- For TIMING: which beat rushes or drags.
-- For DYNAMICS: where the line peaks or falls relative to the phrase shape.
-- For ARTICULATION: which notes are too short/long or missing separation.
-- For INTONATION: sharp or flat, which register.
-- For VOICING: which voice/string is too loud and why it muddies the texture.
+- Choose the type that matches the PRIMARY symptom you hear. Use this decision order:
+  1. INTONATION → only if a pitch is clearly sharp or flat against the harmony (string/wind/voice; never piano).
+  2. TIMING → only if a beat is measurably rushed or dragged relative to surrounding pulse.
+  3. ARTICULATION → only if note length / attack / separation is wrong (staccato vs legato, missing accent, blurred ties).
+  4. DYNAMICS → only if loudness shape is wrong relative to the phrase (peak in wrong place, no contrast).
+  5. VOICING → only if one voice/string/hand dominates and muddies the texture.
+- Do NOT label something "timing" just because it sounds off — pick the actual symptom. If two symptoms coexist, flag the more severe one and mention the other in raw_detail.
+- For TIMING: name which beat rushes or drags.
+- For DYNAMICS: name where the line peaks or falls relative to the phrase shape.
+- For ARTICULATION: name which notes are too short/long or missing separation.
+- For INTONATION: name sharp or flat, which register.
+- For VOICING: name which voice/string is too loud and why it muddies the texture.
 ${bboxField}
 
 For timestamps: listen to the recording and note the wall-clock time in the video (in seconds from 0:00) where each flagged measure begins and ends. A single measure at a typical tempo spans 2–5 seconds. timestamp_end must be at least 2 seconds after timestamp_start.
@@ -491,7 +512,7 @@ serve(async (req) => {
     console.log('[analyze-performance] raw flags:', JSON.stringify(allRawFlags))
 
     // Drop flags Gemini itself isn't confident about
-    const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 70)
+    const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 80)
     console.log('[analyze-performance] flags after confidence filter:', JSON.stringify(rawFlags))
 
     // Generate coaching text + refine spot in parallel for each flag
