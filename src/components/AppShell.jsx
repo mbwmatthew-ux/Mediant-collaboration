@@ -371,6 +371,28 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom nav — hidden on desktop via CSS */}
+      <nav className={styles.mobileNav}>
+        {[
+          { to: '/home',     label: 'Home',     icon: HomeIcon   },
+          { to: '/search',   label: 'Library',  icon: SearchIcon },
+          { to: '/record',   label: 'Record',   icon: UploadIcon },
+          { to: '/analysis', label: 'Review',   icon: ScoreIcon  },
+          { to: '/takes',    label: 'Takes',    icon: SavedIcon  },
+        ].map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `${styles.mobileNavItem} ${isActive ? styles.mobileNavItemActive : ''}`
+            }
+          >
+            <Icon />
+            <span className={styles.mobileNavLabel}>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

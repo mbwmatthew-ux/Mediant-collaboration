@@ -1019,7 +1019,47 @@
   overflow-x: hidden;
 }
 
+/* ── Mobile bottom nav ──────────────────────────────────── */
+.mobileNav {
+  display: none;
+}
+
 @media (max-width: 700px) {
   .body { grid-template-columns: 1fr; }
   .sidebar { display: none; }
+
+  .main { padding-bottom: 64px; }
+
+  .mobileNav {
+    background: var(--bg-deep);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    bottom: 0;
+    display: flex;
+    justify-content: space-around;
+    left: 0;
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 200;
+  }
+
+  .mobileNavItem {
+    align-items: center;
+    color: rgba(248,246,242,0.38);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 3px;
+    padding: 6px 0;
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+  .mobileNavItem:hover { color: rgba(248,246,242,0.72); }
+  .mobileNavItemActive  { color: var(--gold); }
+
+  .mobileNavLabel {
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
 }

@@ -1212,3 +1212,42 @@
 .resultCard  { display: none; }
 .resultTitle { color: var(--text-inverse); font-size: 0.95rem; font-weight: 500; margin: 0; }
 .resultCardTop { display: none; }
+
+/* ── Responsive: tablet + mobile (≤768px) ───────────────────── */
+@media (max-width: 768px) {
+  .page { gap: 20px; padding: 20px 16px 36px; }
+
+  /* Header: stack title + action button vertically */
+  .header { flex-direction: column; gap: 12px; }
+  .headerActions { padding-top: 0; }
+
+  /* Record page: single column (form on top, status cards below) */
+  .recordLayout { grid-template-columns: 1fr; }
+
+  /* Form rows: single column on small screens */
+  .formRow { grid-template-columns: 1fr; }
+
+  /* Record right-column cards: side by side → stacked */
+  .captureGrid { grid-template-columns: 1fr; }
+
+  /* Analysis: score on top, feedback panel below */
+  .reviewBody { grid-template-columns: 1fr; }
+  .feedbackSidebar {
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding: 20px 0 0;
+  }
+
+  /* Issue strip: scroll horizontally instead of wrapping */
+  .issueStrip { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .issueStrip::-webkit-scrollbar { display: none; }
+
+  /* Sheet music PDF: flexible height on small screens */
+  .scorePdf { height: 60vh; }
+
+  /* Analyze loading screen: tighter padding */
+  .analyzeScreen { padding: 40px 20px; }
+
+  /* Submit button on Record: full width */
+  .submitBtn { width: 100%; }
+}

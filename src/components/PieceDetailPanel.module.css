@@ -220,3 +220,22 @@
   font-size: 0.84rem;
   line-height: 1.4;
 }
+
+/* ── Responsive: tablet + mobile (≤768px) ───────────────────── */
+@media (max-width: 768px) {
+  .panel { width: 100%; }
+
+  .header { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
+  .headerMeta { min-width: 0; width: 100%; }
+  .pieceTitle { font-size: 1.2rem; }
+  .recordBtn { width: 100%; text-align: center; }
+
+  /* Stack score + sessions vertically */
+  .body { grid-template-columns: 1fr; }
+  .scoreSection {
+    border-right: none;
+    border-bottom: 1px solid rgba(88,121,101,0.1);
+    padding: 20px 16px;
+  }
+  .sessionsSection { padding: 20px 16px; }
+}
