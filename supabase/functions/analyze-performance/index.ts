@@ -163,6 +163,11 @@ Return JSON only (no markdown):
     console.warn('[readScoreNotes] renumbering: first measure was', measures[0].number, 'expected', startMeasure)
     for (let i = 0; i < measures.length; i++) measures[i].number = startMeasure + i
   }
+  const totalNotes = measures.reduce((acc, m) => acc + m.notes.length, 0)
+  console.log('[readScoreNotes] parsed', measures.length, 'measures with', totalNotes, 'total notes')
+  if (measures.length > 0) {
+    console.log('[readScoreNotes] sample first measure:', JSON.stringify(measures[0]).slice(0, 400))
+  }
 
   return {
     key_signature:  parsed.key_signature  ?? null,
@@ -262,10 +267,12 @@ Return JSON only (no markdown):
   const parsed = extractJsonObject(text) as Partial<AudioTranscription> | null
   if (!parsed) throw new Error('transcribeAudio: could not parse JSON')
 
-  // Filter to confidence >= 80, sort by time
-  const events = (parsed.events ?? [])
+  const rawEvents = parsed.events ?? []
+  // Loosened threshold: 70+ (still high-confidence but more inclusive). Sparse
+  // events leave compareAndCoach with nothing to compare.
+  const events = rawEvents
     .filter(e => typeof e?.time_sec === 'number' && Array.isArray(e.pitches) && e.pitches.length > 0)
-    .filter(e => (e.confidence ?? 100) >= 80)
+    .filter(e => (e.confidence ?? 100) >= 70)
     .map(e => ({
       time_sec: e.time_sec!,
       pitches: e.pitches!.map(String),
@@ -273,6 +280,11 @@ Return JSON only (no markdown):
       loudness: (e as AudioEvent).loudness ?? null,
     }))
     .sort((a, b) => a.time_sec - b.time_sec)
+  console.log('[transcribeAudio] raw events:', rawEvents.length, 'after filter:', events.length, 'tempo:', parsed.tempo_estimate_bpm)
+  if (events.length > 0) {
+    console.log('[transcribeAudio] first 3 events:', JSON.stringify(events.slice(0, 3)))
+    console.log('[transcribeAudio] last event time:', events[events.length - 1]?.time_sec)
+  }
 
   return {
     audio_duration_sec: parsed.audio_duration_sec ?? (events[events.length - 1]?.time_sec ?? 0) + 2,
@@ -398,9 +410,9 @@ async function compareAndCoach(
 
   const validMeasuresList = Array.from(validMeasures).sort((a, b) => a - b)
 
-  const prompt = `You are a master ${instrument} teacher giving specific, grounded feedback to a student on "${pieceTitle}" by ${composer}.
+  const prompt = `You are a master ${instrument} teacher giving feedback to a student on "${pieceTitle}" by ${composer}.
 
-Below is a measure-by-measure comparison of WRITTEN notation (from the score) and HEARD audio events (transcribed from the student's recording). Use ONLY this data — do not invent details that aren't here.
+Below is a measure-by-measure record of what is WRITTEN in the score and what was HEARD in the student's recording. Use this data to identify issues. Audio transcription is imperfect — sparse "heard" lines mean some notes weren't transcribed, not that nothing was played.
 
 ${measureBlocks}
 
@@ -408,25 +420,29 @@ Tempo: ${tempo.bpm ?? '?'} BPM, ${tempo.steadiness ?? '?'}.
 Key: ${score.key_signature ?? '?'}. Time signature: ${score.time_signature ?? '?'}.
 
 YOUR TASK:
-Identify 0–4 SPECIFIC issues that are clearly evident in the comparison above. For each issue, you MUST cite the specific note(s) — like "written B♭3 on beat 1, heard B♮3 (sharp by a half-step)" or "written staccato eighth notes, heard legato".
+Identify 1–4 issues that are reasonably supported by the data above. Order of preference for what to flag:
+1. **Specific pitch mismatch** (e.g. written B♭3 on beat 1, heard B♮3 — sharp by a half-step). When you can cite this, do so.
+2. **Rhythm/timing patterns** (e.g. tempo is "wavering", or events spaced unevenly relative to written rhythm).
+3. **Coverage / position** (e.g. the student missed beats in a measure, or notes were ambiguous enough that they may not have been clean).
+4. **Tempo issues overall** (e.g. tempo too slow/fast given the marking).
 
 HARD RULES:
 - Every "measure" field MUST be one of: [${validMeasuresList.join(', ')}].
-- If you cannot cite a specific note-level comparison from the data, DROP that flag.
-- Returning {"flags": []} is correct for a clean performance. Do NOT invent issues to fill space.
-- Use confidence 80+ only.
+- If the recording sounds genuinely clean and you have NO basis for concern, return fewer or zero flags.
+- For an amateur student practice recording, returning zero flags is usually WRONG — find what you can. Don't be timid.
 - "type" must be one of: intonation, timing, rhythm, articulation, dynamics, voicing.
+- raw_detail should cite the evidence (which note/beat/measure and what's off). If the evidence is rhythm-based or tempo-based rather than a specific pitch, say so clearly.
 
 Return JSON only (no markdown):
 {
   "flags": [
     {
       "measure": <int from the allowed list>,
-      "beat": <number, 1-based>,
+      "beat": <number, 1-based, or null if measure-level>,
       "type": "<intonation|timing|rhythm|articulation|dynamics|voicing>",
-      "confidence": <80-100>,
-      "title": "<6–10 word specific title naming the note/beat>",
-      "raw_detail": "<one sentence citing exactly what was written vs what was heard>",
+      "confidence": <70-100>,
+      "title": "<6–10 word specific title>",
+      "raw_detail": "<one sentence: the evidence>",
       "body": "<3-sentence warm coaching paragraph: what happened, why it matters, one specific practice technique>"
     }
   ]
@@ -457,7 +473,7 @@ Return JSON only (no markdown):
       console.warn('[compareAndCoach] dropping flag with invalid measure:', f.measure)
       continue
     }
-    if ((f.confidence ?? 100) < 80) continue
+    if ((f.confidence ?? 100) < 70) continue
     if (!f.type || !f.title || !f.raw_detail || !f.body) continue
 
     const range = rangeMap.get(f.measure)
