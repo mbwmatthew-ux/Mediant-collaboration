@@ -220,11 +220,11 @@ async function transcribeAudio(
 ): Promise<AudioTranscription> {
   const prompt = `Listen carefully to this ${instrument} performance. Your job is to transcribe the audio into a list of pitch events with timestamps.
 
-STRICT RULES:
-- Report ONLY events where you are 80%+ confident of the pitch you heard. Skip ambiguous moments entirely — better to skip than to guess.
+RULES:
+- Report events where you are 60%+ confident of the pitch. Include borderline events with lower confidence (60–79) rather than omitting them — the caller will filter. Better to over-report than under-report.
 - For each event: time_sec (when in the recording it occurred, seconds from 0:00), pitches (an array of scientific-pitch-notation strings like "D3" or "F#4"; usually 1 pitch for monophonic instruments, occasionally 2+ for double-stops/chords), and confidence (your 0-100 confidence).
 - Use scientific pitch notation: middle C = "C4". Cello open strings: C2, G2, D3, A3. Violin open strings: G3, D4, A4, E5.
-- Cover the WHOLE recording from 0:00 to the end — do not stop after the first few seconds.
+- Cover the WHOLE recording from 0:00 to the end — do not stop after the first few seconds. Report events every 0.5–2 seconds throughout.
 - Also estimate the overall tempo in BPM (beats per minute) and whether tempo is "steady" or "wavering".
 
 Return JSON only (no markdown):
@@ -268,11 +268,9 @@ Return JSON only (no markdown):
   if (!parsed) throw new Error('transcribeAudio: could not parse JSON')
 
   const rawEvents = parsed.events ?? []
-  // Loosened threshold: 70+ (still high-confidence but more inclusive). Sparse
-  // events leave compareAndCoach with nothing to compare.
   const events = rawEvents
     .filter(e => typeof e?.time_sec === 'number' && Array.isArray(e.pitches) && e.pitches.length > 0)
-    .filter(e => (e.confidence ?? 100) >= 70)
+    .filter(e => (e.confidence ?? 100) >= 55)
     .map(e => ({
       time_sec: e.time_sec!,
       pitches: e.pitches!.map(String),
@@ -335,12 +333,28 @@ function anchorAndAlign(
   // Clamp to sane range
   secPerMeasure = Math.max(1.0, Math.min(15.0, secPerMeasure))
 
-  // Bucket events to measures
+  // Bucket events to measures — clamp to valid range rather than dropping.
+  // This keeps events even when secPerMeasure is slightly off.
   const validMeasures = new Set(score.measures.map(m => m.number))
+  const lastMeasure = score.measures[score.measures.length - 1].number
   const aligned: AlignedEvent[] = []
   for (const ev of audio.events) {
-    const m = startMeasure + Math.round((ev.time_sec - tAnchor) / secPerMeasure)
+    const mRaw = startMeasure + Math.round((ev.time_sec - tAnchor) / secPerMeasure)
+    const m = Math.max(startMeasure, Math.min(lastMeasure, mRaw))
     if (validMeasures.has(m)) aligned.push({ ...ev, measure: m })
+  }
+
+  // Fallback: if anchor/tempo math produced nothing, distribute events proportionally
+  // across visible measures so compareAndCoach always has something to work with.
+  if (aligned.length === 0 && audio.events.length > 0) {
+    console.warn('[anchorAndAlign] tempo anchor failed — using proportional fallback')
+    const totalDur = Math.max(1, audio.audio_duration_sec)
+    const measureNums = score.measures.map(m => m.number)
+    for (const ev of audio.events) {
+      const fraction = Math.min(1, ev.time_sec / totalDur)
+      const idx = Math.min(score.measures.length - 1, Math.floor(fraction * score.measures.length))
+      aligned.push({ ...ev, measure: measureNums[idx] })
+    }
   }
 
   // Build measure → time range map for the coach
@@ -388,14 +402,15 @@ async function compareAndCoach(
   const validMeasures = new Set(score.measures.map(m => m.number))
   const playedMeasures = score.measures.filter(m => eventsByMeasure.has(m.number))
 
+  // If still nothing (score.measures empty), generate tempo-only flags from raw audio
   if (playedMeasures.length === 0) {
-    console.warn('[compareAndCoach] no measures aligned with audio')
+    console.warn('[compareAndCoach] no score measures with aligned events')
     return []
   }
 
   const measureBlocks = playedMeasures.map(m => {
     const written = m.notes.length === 0
-      ? '(no notes parsed)'
+      ? '(score notes not parsed for this measure — give rhythm/tempo feedback based on heard events)'
       : m.notes.map(n => {
           const parts = [`${n.pitch ?? 'rest'} @ beat ${n.beat} (${n.duration_beats}b)`]
           if (n.articulation) parts.push(n.articulation)
@@ -473,7 +488,7 @@ Return JSON only (no markdown):
       console.warn('[compareAndCoach] dropping flag with invalid measure:', f.measure)
       continue
     }
-    if ((f.confidence ?? 100) < 70) continue
+    if ((f.confidence ?? 100) < 60) continue
     if (!f.type || !f.title || !f.raw_detail || !f.body) continue
 
     const range = rangeMap.get(f.measure)
