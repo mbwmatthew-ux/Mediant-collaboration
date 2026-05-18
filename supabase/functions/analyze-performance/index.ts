@@ -17,28 +17,13 @@ function buildGeminiPrompt(
   timeSig: string,
   instrument: string,
   totalMeasures: number | null,
-  hasVisualScore: boolean,
   startMeasure: number | null,
-  anchoredMeasures: number[],
-  scoreDescription: string,
+  measureIndex: string,
+  measureRange: { first: number; last: number } | null,
 ): string {
   let measureLine: string
-  if (anchoredMeasures.length > 0) {
-    const first = anchoredMeasures[0]
-    const last  = anchoredMeasures[anchoredMeasures.length - 1]
-    // Most engraved scores only print a measure number at the start of each
-    // system, so the printed list is sparse. Derive a continuous range and
-    // estimate the system gap so the model can interpolate inner measures.
-    let gap = 1
-    if (anchoredMeasures.length >= 2) {
-      const diffs: number[] = []
-      for (let i = 1; i < anchoredMeasures.length; i++) {
-        diffs.push(anchoredMeasures[i] - anchoredMeasures[i - 1])
-      }
-      gap = Math.max(1, Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length))
-    }
-    const rangeEnd = last + Math.max(0, gap - 1)
-    measureLine = `Printed measure numbers visible on the score: [${anchoredMeasures.join(', ')}]. These are anchor points — engraved scores typically only label the first measure of each system (about every ${gap} measures), so measures BETWEEN these numbers are also valid (e.g. if you see "${first}" and "${first + gap}" printed, then ${first + 1}, ${first + 2}, … are real measures too). The student plays measures ${first}–${rangeEnd}. Every flagged measure number MUST be within ${first}–${rangeEnd}. Never use a measure number outside this range, and never count starting from 1.`
+  if (measureRange) {
+    measureLine = `The student plays measures ${measureRange.first}–${measureRange.last}. Every flagged measure number MUST be within ${measureRange.first}–${measureRange.last}. Never use a measure number outside this range, and never count starting from 1.`
   } else if (startMeasure !== null && totalMeasures !== null) {
     measureLine = `The student plays measures ${startMeasure}–${totalMeasures}. Use ${startMeasure} as your anchor — do not count from 1.`
   } else if (startMeasure !== null) {
@@ -49,22 +34,14 @@ function buildGeminiPrompt(
     measureLine = `Count measures carefully from the start using the time signature.`
   }
 
-  const bboxJson = hasVisualScore
-    ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
-    : ''
-  const bboxField = hasVisualScore
-    ? `- bbox: bounding box of the affected region as [y_min, x_min, y_max, x_max], values 0–1000. Cover exactly the problematic note(s) or passage — not the whole row.`
-    : ''
-
-  const scoreContext = scoreDescription
-    ? `\nSCORE READING (what is written in the score):\n${scoreDescription}\n\nUse the score reading above as ground truth for what should be played. Compare it against what you actually hear.`
+  const indexBlock = measureIndex
+    ? `\nMEASURE INDEX — what is written in each visible measure (use this to match audio events to the correct measure number, do NOT count from the start):\n${measureIndex}\n\nWhen you hear an event in the recording, FIRST identify what musical content you heard (e.g. "descending arpeggio in eighth notes", "ascending scale to a high note"), THEN find the matching entry in the index above, THEN use that entry's measure number. Never report a measure number that is not in the index.\n`
     : ''
 
   return `You are an expert music teacher and professional ${instrument} player analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
 Time signature: ${timeSig}.
 ${measureLine}
-${hasVisualScore ? 'The sheet music image is shown first. Read every printed measure number carefully before listening. Use ONLY the printed numbers — never invent or estimate a measure number.' : ''}
-${scoreContext}
+${indexBlock}
 Listen to the ENTIRE recording carefully. Your job is to identify ONLY issues you can clearly and specifically hear.
 
 RULES:
@@ -86,7 +63,6 @@ RULES:
 - For ARTICULATION: name which notes are too short/long or missing separation.
 - For INTONATION: name sharp or flat, which register.
 - For VOICING: name which voice/string is too loud and why it muddies the texture.
-${bboxField}
 
 For timestamps: listen to the recording and note the wall-clock time in the video (in seconds from 0:00) where each flagged measure begins and ends. A single measure at a typical tempo spans 2–5 seconds. timestamp_end must be at least 2 seconds after timestamp_start.
 
@@ -100,7 +76,7 @@ Return ONLY valid JSON, no markdown:
       "confidence": <integer 70–100>,
       "title": "<6–10 word specific problem title>",
       "timestamp_start": <seconds into the video where this measure begins>,
-      "timestamp_end": <seconds into the video where this measure ends, at least 2s after start>,${bboxJson}
+      "timestamp_end": <seconds into the video where this measure ends, at least 2s after start>,
       "raw_detail": "<3 sentences: what you heard · which beat/note · why it matters>"
     }
   ]
@@ -218,9 +194,59 @@ async function analyzeWithGemini(
 
 const VISUAL_SCORE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
-// Pre-pass: ask Gemini to read the printed measure numbers off the score image.
-// Returns them sorted ascending. Falls back to [] on any error.
-async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number[]> {
+// Per-measure entry returned by extractMeasureLayout.
+interface LayoutMeasure {
+  number: number
+  bbox: [number, number, number, number]   // [y0, x0, y1, x1] in 0–1000 units
+  content: string                            // one-sentence factual description
+}
+interface ScoreLayout {
+  staff_angle: number
+  measures: LayoutMeasure[]
+}
+
+// Single rich pre-pass: ask Gemini to map out every visible measure on the
+// score — number, bbox, and a one-sentence factual description of what's
+// written. This index is the foundation for both correct measure labeling
+// (audio-to-content matching) and accurate highlight boxes (lookup, not guess).
+async function extractMeasureLayout(
+  scoreFileUri: string,
+  scoreMimeType: string,
+  apiKey: string,
+): Promise<ScoreLayout> {
+  const layoutSchema = {
+    type: 'object',
+    properties: {
+      staff_angle: { type: 'number' },
+      measures: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            number:  { type: 'integer' },
+            bbox:    { type: 'array', items: { type: 'integer' } },
+            content: { type: 'string' },
+          },
+          required: ['number', 'bbox', 'content'],
+        },
+      },
+    },
+    required: ['staff_angle', 'measures'],
+  }
+
+  const prompt = `You are a professional music engraver building a structured layout map of a sheet music photo. Look at every measure visible in this image and return a JSON object describing them all.
+
+For staff_angle:
+- Estimate the clockwise rotation of the horizontal staff lines in degrees.
+- Positive = right side lower than left. Negative = right side higher. A level photo = 0. Clamp to [-15, 15].
+
+For measures, walk the page in reading order (top system left → right, then next system left → right):
+- number: the printed measure number when shown. When a measure is NOT printed, infer it from the nearest printed anchor and the time signature (each system adds measures consecutively). Never output 0; never reset to 1 mid-page.
+- bbox: a 4-integer array [y_min, x_min, y_max, x_max] in 0–1000 units (0 = top-left of the image, 1000 = bottom-right). The box must cover the FULL staff height for this measure (from the top staff line to the bottom staff line at this horizontal position, including ledger lines for high/low notes) AND the horizontal span from the opening barline to the closing barline of this single measure. Do NOT span multiple measures in one box.
+- content: ONE short factual sentence describing what is written in this measure — the dominant rhythm or note pattern, plus any dynamic, tempo, articulation, or expression marking. Examples: "Descending F# minor arpeggio in eighth notes, p marking." / "Half note then two staccato quarters, crescendo to f." / "Rising chromatic run, sixteenth notes, no dynamic change."
+
+List every measure you can see. Be exhaustive — do not skip any.`
+
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
@@ -231,69 +257,65 @@ async function extractMeasureNumbers(scoreFileUri: string, scoreMimeType: string
           contents: [{
             parts: [
               { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
-              { text: 'Look at this sheet music image. Find every measure number that is printed at the start of a measure or system. List them all in ascending order. Return ONLY a JSON array of integers with no other text, e.g. [212, 213, 214, 215, 216, 217, 218, 219, 220]. If no numbers are visible return [].' },
+              { text: prompt },
             ],
           }],
-          generationConfig: { temperature: 0 },
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: 'application/json',
+            responseSchema: layoutSchema,
+          },
         }),
       }
     )
-    if (!res.ok) return []
+    if (!res.ok) return { staff_angle: 0, measures: [] }
     const data = await res.json()
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text as string ?? ''
-    const match = raw.match(/\[[\d,\s]*\]/)
-    if (!match) return []
-    const nums = JSON.parse(match[0]) as number[]
-    return nums.filter((n): n is number => typeof n === 'number' && !isNaN(n)).sort((a, b) => a - b)
+    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
+    let parsed: { staff_angle?: number; measures?: unknown[] }
+    try { parsed = JSON.parse(raw) } catch { return { staff_angle: 0, measures: [] } }
+    const staff_angle = typeof parsed.staff_angle === 'number'
+      ? Math.max(-15, Math.min(15, parsed.staff_angle))
+      : 0
+    const measures: LayoutMeasure[] = []
+    for (const m of (parsed.measures ?? [])) {
+      const obj = m as { number?: unknown; bbox?: unknown; content?: unknown }
+      if (typeof obj.number !== 'number' || !Number.isFinite(obj.number)) continue
+      if (!Array.isArray(obj.bbox) || obj.bbox.length !== 4) continue
+      const [y0, x0, y1, x1] = (obj.bbox as number[]).map(v => Math.max(0, Math.min(1000, Math.round(v))))
+      if (y1 <= y0 || x1 <= x0) continue
+      const content = typeof obj.content === 'string' ? obj.content.trim() : ''
+      measures.push({ number: Math.round(obj.number), bbox: [y0, x0, y1, x1], content })
+    }
+    return { staff_angle, measures }
   } catch {
-    return []
+    return { staff_angle: 0, measures: [] }
   }
 }
 
-// Pre-pass: detect the clockwise tilt angle of the staff lines in the score photo.
-// Called once per submission; the same angle is applied to all flag highlights.
-async function detectStaffAngle(scoreFileUri: string, scoreMimeType: string, apiKey: string): Promise<number> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
-              { text: 'Look at the horizontal staff lines in this sheet music photo. Estimate the clockwise rotation angle of the staff lines in degrees — positive means the right side is lower than the left, negative means the right side is higher. A perfectly level photo is 0. Most hand-held photos are between -10 and +10 degrees. Return ONLY a single number with up to one decimal place, e.g. 3.5 or -2.0. No other text.' },
-            ],
-          }],
-          generationConfig: { temperature: 0 },
-        }),
-      }
-    )
-    if (!res.ok) return 0
-    const data = await res.json()
-    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text as string ?? '').trim()
-    const angle = parseFloat(raw)
-    return isNaN(angle) ? 0 : Math.max(-15, Math.min(15, angle))
-  } catch {
-    return 0
-  }
-}
-
-// Dedicated spot pass: locate the specific note/passage for a flag in the score image.
-// staffAngle is detected separately; this call only returns the bbox.
-async function refineSpot(
-  measureNum: number,
-  issueType: string,
-  issueDetail: string,
-  visibleMeasureCount: number,
+// Narrow a whole-measure bbox to the specific note/beat referenced in the
+// flag's raw_detail. Only called when the detail clearly points at a single
+// spot in the measure. Returns the narrowed bbox or null (caller falls back
+// to the whole-measure bbox).
+async function refineToNote(
+  measureBbox: [number, number, number, number],
+  measureContent: string,
+  rawDetail: string,
   scoreFileUri: string,
   scoreMimeType: string,
   apiKey: string,
 ): Promise<[number, number, number, number] | null> {
-  // Estimate maximum reasonable width for the issue in 0-1000 units.
-  // visibleMeasureCount is how many measures fit across the full image width.
-  const maxMeasureWidth = visibleMeasureCount > 0 ? Math.round(1000 / visibleMeasureCount) : 150
+  const [y0, x0, y1, x1] = measureBbox
+  const prompt = `Below is a sheet music image. Inside it, ONE measure is at bounding box [y_min=${y0}, x_min=${x0}, y_max=${y1}, x_max=${x1}] (0–1000 coordinate space, 0 = top-left).
+
+That measure contains: ${measureContent}
+
+A performance issue occurred in this measure. The student's actual mistake was:
+"${rawDetail}"
+
+Locate the SPECIFIC note(s) or beat inside this measure where the issue happened. Return a narrower bounding box covering only that note or beat — it must lie entirely inside the measure box above, and should be at most about 40% as wide as the measure.
+
+Return ONLY JSON: {"bbox": [y_min, x_min, y_max, x_max]} with integers 0–1000. If you cannot pinpoint the spot inside this measure, return {"bbox": null}.`
+
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
@@ -304,23 +326,7 @@ async function refineSpot(
           contents: [{
             parts: [
               { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
-              { text: `This is a sheet music image. Locate a specific performance issue and return a bounding box for it.
-
-Measure: ${measureNum} — find its opening barline (the number "${measureNum}" is printed near it).
-Issue type: ${issueType}
-What happened: ${issueDetail}
-
-Instructions:
-1. Find measure ${measureNum}.
-2. Identify exactly which note(s), beat(s), or passage the issue spans. This could be a single note, a group of notes, one full measure, or multiple consecutive measures.
-3. Draw a bounding box covering only the affected region — not the whole staff row, not the whole line.
-   - Height: from top staff line to bottom staff line at that location (include ledger lines if used).
-   - Width: the actual horizontal extent of the affected note(s)/measure(s).
-   - IMPORTANT: this image has approximately ${visibleMeasureCount} measures visible. One measure is therefore roughly ${maxMeasureWidth} units wide (out of 1000 total). A single-note issue should be much narrower than that. Do NOT return a box wider than the actual extent of the problem.
-4. Return ONLY valid JSON with no other text:
-{"bbox": [<y_min>, <x_min>, <y_max>, <x_max>]}
-All values are integers 0–1000 (0 = top-left corner, 1000 = bottom-right corner).
-If you cannot find measure ${measureNum} with confidence, return {"bbox": null}.` },
+              { text: prompt },
             ],
           }],
           generationConfig: { temperature: 0 },
@@ -330,61 +336,25 @@ If you cannot find measure ${measureNum} with confidence, return {"bbox": null}.
     if (!res.ok) return null
     const data = await res.json()
     const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
-    // Robust JSON extraction — find the first {...} block regardless of field order
     const jsonMatch = raw.match(/\{[\s\S]*?\}/)
     if (!jsonMatch) return null
     let parsed: { bbox?: unknown }
     try { parsed = JSON.parse(jsonMatch[0]) } catch { return null }
     if (!parsed.bbox || !Array.isArray(parsed.bbox) || parsed.bbox.length !== 4) return null
-    const [y0, x0, y1, x1] = (parsed.bbox as number[]).map(v => Math.max(0, Math.min(1000, Math.round(v))))
-    if (y1 <= y0 || x1 <= x0) return null
-    return [y0, x0, y1, x1]
+    const [ny0, nx0, ny1, nx1] = (parsed.bbox as number[]).map(v => Math.max(0, Math.min(1000, Math.round(v))))
+    if (ny1 <= ny0 || nx1 <= nx0) return null
+    // Reject if it escapes the parent measure box (with a small slack).
+    const slack = 10
+    if (ny0 < y0 - slack || nx0 < x0 - slack || ny1 > y1 + slack || nx1 > x1 + slack) return null
+    return [ny0, nx0, ny1, nx1]
   } catch {
     return null
   }
 }
 
-// Pre-pass: Gemini reads the score image and describes what's written,
-// producing ground-truth notation context used during performance analysis.
-async function readScore(
-  scoreFileUri: string,
-  scoreMimeType: string,
-  apiKey: string,
-): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { fileData: { mimeType: scoreMimeType, fileUri: scoreFileUri } },
-              { text: `You are a professional music engraver reading sheet music. Look at this score image carefully and produce a structured description of what is written — not what a student played, but what the score says.
-
-For each measure visible, note:
-- Measure number (as printed)
-- Any tempo, dynamic, or expression markings (e.g. ff, p, cresc., rit.)
-- Notable rhythmic patterns (dotted rhythms, syncopation, fast runs)
-- Technical demands (large shifts, string crossings, wide intervals, high positions)
-- Slurs, accents, or articulation markings
-
-Also describe the overall: key signature, time signature, character/tempo marking, and the main technical challenges in this passage.
-
-Write in plain prose. Be factual and specific — this will be used to assess a student's performance against what is written.` },
-            ],
-          }],
-          generationConfig: { temperature: 0 },
-        }),
-      }
-    )
-    if (!res.ok) return ''
-    const data = await res.json()
-    return (data.candidates?.[0]?.content?.parts?.[0]?.text as string ?? '').trim()
-  } catch {
-    return ''
-  }
+// True when raw_detail mentions a specific note/beat worth zooming in on.
+function isNoteLevelIssue(rawDetail: string): boolean {
+  return /\bbeat\b|\bdownbeat\b|first note|last note|second note|third note|fourth note|high\s*[A-G][#b♯♭]?|low\s*[A-G][#b♯♭]?|\b[A-G][#b♯♭]?\d?\b/i.test(rawDetail)
 }
 
 // ── Claude Sonnet coaching text ────────────────────────────────────────────
@@ -474,24 +444,29 @@ serve(async (req) => {
     // Upload video to Gemini Files API
     const videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
 
-    // Pre-passes: run all three score image analyses in parallel (30 s timeout each).
+    // Single rich pre-pass: build the measure layout (number → bbox → content).
+    // 45 s timeout — this is heavier than the old per-pass calls.
     const timeout = <T>(p: Promise<T>, fallback: T) =>
-      Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), 30_000))])
+      Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), 45_000))])
 
-    const [anchoredMeasures, staffAngle, scoreDescription] = await Promise.all([
-      scoreFileUri && scoreGeminiMime
-        ? timeout(extractMeasureNumbers(scoreFileUri, scoreGeminiMime, googleApiKey), [] as number[])
-        : Promise.resolve([] as number[]),
-      scoreFileUri && scoreGeminiMime
-        ? timeout(detectStaffAngle(scoreFileUri, scoreGeminiMime, googleApiKey), 0)
-        : Promise.resolve(0),
-      scoreFileUri && scoreGeminiMime
-        ? timeout(readScore(scoreFileUri, scoreGeminiMime, googleApiKey), '')
-        : Promise.resolve(''),
-    ])
-    console.log('[analyze-performance] anchoredMeasures:', anchoredMeasures)
-    console.log('[analyze-performance] staffAngle:', staffAngle)
-    console.log('[analyze-performance] scoreDescription (first 300):', scoreDescription.slice(0, 300))
+    const layout: ScoreLayout = (scoreFileUri && scoreGeminiMime)
+      ? await timeout(
+          extractMeasureLayout(scoreFileUri, scoreGeminiMime, googleApiKey),
+          { staff_angle: 0, measures: [] } as ScoreLayout,
+        )
+      : { staff_angle: 0, measures: [] }
+
+    const layoutMap = new Map<number, LayoutMeasure>()
+    for (const m of layout.measures) layoutMap.set(m.number, m)
+
+    const measureIndex = layout.measures
+      .map(m => `${m.number} — ${m.content}`)
+      .join('\n')
+    const measureRange = layout.measures.length > 0
+      ? { first: layout.measures[0].number, last: layout.measures[layout.measures.length - 1].number }
+      : null
+    console.log('[analyze-performance] layout:', layout.measures.length, 'measures, angle:', layout.staff_angle)
+    console.log('[analyze-performance] measureIndex (first 500):', measureIndex.slice(0, 500))
 
     const smInt = startMeasure ? parseInt(startMeasure, 10) : null
     const prompt = buildGeminiPrompt(
@@ -500,10 +475,9 @@ serve(async (req) => {
       timeSig     ?? '4/4',
       instrument  ?? 'Piano',
       totalMeasures,
-      !!scoreFileUri,
       smInt,
-      anchoredMeasures,
-      scoreDescription,
+      measureIndex,
+      measureRange,
     )
 
     const { score, flags: allRawFlags } = await analyzeWithGemini(
@@ -511,19 +485,28 @@ serve(async (req) => {
     )
     console.log('[analyze-performance] raw flags:', JSON.stringify(allRawFlags))
 
-    // Drop flags Gemini itself isn't confident about
-    const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 80)
-    console.log('[analyze-performance] flags after confidence filter:', JSON.stringify(rawFlags))
+    // Drop flags Gemini isn't confident about, AND drop any flag whose measure
+    // isn't in the layout (means Gemini hallucinated a measure outside the page).
+    const rawFlags = allRawFlags
+      .filter(f => (f.confidence ?? 100) >= 80)
+      .filter(f => layoutMap.size === 0 || layoutMap.has(f.measure))
+    console.log('[analyze-performance] flags after filtering:', JSON.stringify(rawFlags))
 
-    // Generate coaching text + refine spot in parallel for each flag
+    // Coaching text + bbox lookup (with optional note-level zoom) per flag.
     const flags = await Promise.all(
       rawFlags.map(async (f) => {
-        const [body, spotBbox] = await Promise.all([
+        const measureEntry = layoutMap.get(f.measure)
+        const measureBbox  = measureEntry?.bbox ?? null
+
+        const noteZoom = (measureBbox && measureEntry && scoreFileUri && scoreGeminiMime && isNoteLevelIssue(f.raw_detail))
+          ? refineToNote(measureBbox, measureEntry.content, f.raw_detail, scoreFileUri, scoreGeminiMime, googleApiKey)
+          : Promise.resolve(null)
+
+        const [body, narrowed] = await Promise.all([
           generateCoachingText(f, pieceTitle ?? 'this piece', composer ?? 'the composer', instrument ?? 'musician'),
-          scoreFileUri && scoreGeminiMime
-            ? refineSpot(f.measure, f.type, f.raw_detail, anchoredMeasures.length, scoreFileUri, scoreGeminiMime, googleApiKey)
-            : Promise.resolve(null),
+          noteZoom,
         ])
+
         // Validate timestamps — must be positive, ordered, and span at least 1.5 s
         const tsStart = f.timestamp_start ?? null
         const tsEnd   = f.timestamp_end   ?? null
@@ -534,8 +517,8 @@ serve(async (req) => {
           type:            f.type,
           title:           f.title,
           body,
-          spot:            spotBbox ?? null,
-          spot_angle:      staffAngle,
+          spot:            narrowed ?? measureBbox ?? null,
+          spot_angle:      layout.staff_angle,
           timestamp_start: validTs ? tsStart : null,
           timestamp_end:   validTs ? tsEnd   : null,
         }
