@@ -11,65 +11,31 @@ const CORS = {
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
-function measureContext(
-  anchoredMeasures: number[],
-  startMeasure: number | null,
+function buildGeminiPrompt(
+  pieceTitle: string,
+  composer: string,
+  timeSig: string,
+  instrument: string,
   totalMeasures: number | null,
+  hasVisualScore: boolean,
+  startMeasure: number | null,
+  anchoredMeasures: number[],
 ): string {
+  let measureLine: string
   if (anchoredMeasures.length > 0) {
     const first = anchoredMeasures[0]
     const last  = anchoredMeasures[anchoredMeasures.length - 1]
-    return `The sheet music shows measures ${anchoredMeasures.join(', ')}. The recording covers exactly this range (${first}–${last}). Use ONLY these printed numbers — never count or guess.`
+    measureLine = `The sheet music image shows measures ${anchoredMeasures.join(', ')}. The recording covers exactly this range (${first}–${last}). You MUST use ONLY these printed measure numbers — never count or guess. Every flagged measure must appear in this list: [${anchoredMeasures.join(', ')}].`
+  } else if (startMeasure !== null && totalMeasures !== null) {
+    measureLine = `The student plays measures ${startMeasure}–${totalMeasures}. Use ${startMeasure} as your anchor — do not count from 1.`
+  } else if (startMeasure !== null) {
+    measureLine = `The recording starts at measure ${startMeasure}. Use this as your anchor — do not count from 1.`
+  } else if (totalMeasures !== null) {
+    measureLine = `The score has ${totalMeasures} measures total.`
+  } else {
+    measureLine = `Count measures carefully from the start using the time signature.`
   }
-  if (startMeasure !== null && totalMeasures !== null)
-    return `The student plays measures ${startMeasure}–${totalMeasures}. Use ${startMeasure} as your anchor — do not count from 1.`
-  if (startMeasure !== null)
-    return `The recording starts at measure ${startMeasure}. Use this as your anchor — do not count from 1.`
-  if (totalMeasures !== null)
-    return `The score has ${totalMeasures} measures total.`
-  return `Count measures carefully from the start using the time signature.`
-}
 
-// Pass 1 — transcription: Gemini listens without judgment and describes what it hears.
-function buildTranscriptionPrompt(
-  pieceTitle: string,
-  composer: string,
-  timeSig: string,
-  instrument: string,
-  anchoredMeasures: number[],
-  startMeasure: number | null,
-  totalMeasures: number | null,
-  hasVisualScore: boolean,
-): string {
-  return `You are a professional ${instrument} player and music teacher. A student is playing "${pieceTitle}" by ${composer} (time signature: ${timeSig}).
-${measureContext(anchoredMeasures, startMeasure, totalMeasures)}
-${hasVisualScore ? 'The sheet music image is provided for reference.' : ''}
-
-Listen to the ENTIRE recording from start to finish. Your task right now is ONLY to observe and describe — do not judge or flag issues yet.
-
-Write a detailed listening report covering:
-1. Tempo: is it steady, rushing, dragging? Note specific timestamps where the pulse shifts.
-2. Timing: any rhythmic inaccuracies — rushed notes, held too long, early/late entrances. Give timestamps (e.g. "at 0:23").
-3. Intonation: any notes or passages that sound sharp or flat. Name the register (e.g. "upper register shift around 0:45").
-4. Dynamics: does the phrasing shape match what you'd expect? Where does it peak too early, fall off too soon, or stay flat?
-5. Articulation: are notes properly separated or connected? Any bow pressure, tongue, or finger issues?
-6. Tone quality: anywhere the sound becomes thin, pressed, scratchy, or changes character unexpectedly?
-
-Be specific and honest. If something sounds genuinely good, say so. If a section is clean, say it is clean — do not invent problems.`
-}
-
-// Pass 2 — analysis: given the transcription, identify specific flaggable issues with full JSON output.
-function buildAnalysisPrompt(
-  pieceTitle: string,
-  composer: string,
-  timeSig: string,
-  instrument: string,
-  anchoredMeasures: number[],
-  startMeasure: number | null,
-  totalMeasures: number | null,
-  hasVisualScore: boolean,
-  transcription: string,
-): string {
   const bboxJson = hasVisualScore
     ? `\n      "bbox": [<y_min>, <x_min>, <y_max>, <x_max>],`
     : ''
@@ -77,27 +43,26 @@ function buildAnalysisPrompt(
     ? `- bbox: bounding box of the affected region as [y_min, x_min, y_max, x_max], values 0–1000. Cover exactly the problematic note(s) or passage — not the whole row.`
     : ''
 
-  return `You are an expert ${instrument} teacher analyzing a student's recording of "${pieceTitle}" by ${composer} (time signature: ${timeSig}).
-${measureContext(anchoredMeasures, startMeasure, totalMeasures)}
-${hasVisualScore ? 'The sheet music image is provided. Use ONLY the printed measure numbers you can see — never invent or estimate.' : ''}
+  return `You are an expert music teacher and professional ${instrument} player analyzing a student's practice recording of "${pieceTitle}" by ${composer}.
+Time signature: ${timeSig}.
+${measureLine}
+${hasVisualScore ? 'The sheet music image is shown first. Read every printed measure number carefully before listening. Use ONLY the printed numbers — never invent or estimate a measure number.' : ''}
 
-A detailed listening report from Pass 1 is provided below. Use it as your primary evidence. Re-listen to confirm anything you are not sure about.
-
-LISTENING REPORT:
-${transcription}
-
-Now identify the specific performance issues that deserve coaching attention. Return ONLY issues that are clearly supported by the listening report above — do not add new ones you did not hear.
+Listen to the ENTIRE recording carefully. Your job is to identify ONLY issues you can clearly and specifically hear.
 
 RULES:
 - Quality over quantity: 1–4 flags. Fewer accurate flags are far better than invented ones.
-- confidence ≥ 70 required. Do not include a flag if you are unsure.
-- For each issue name the exact beat or note, not just the measure.
+- If you are not at least 70% confident an issue is real, do not include it.
+- Only flag measures the student actually plays. Do not invent or assume issues.
+- Name the exact beat, note, or passage where the issue happens.
 - For TIMING: which beat rushes or drags.
 - For DYNAMICS: where the line peaks or falls relative to the phrase shape.
 - For ARTICULATION: which notes are too short/long or missing separation.
 - For INTONATION: sharp or flat, which register.
 - For VOICING: which voice/string is too loud and why it muddies the texture.
 ${bboxField}
+
+For timestamps: listen to the recording and note the wall-clock time in the video (in seconds from 0:00) where each flagged measure begins and ends. A single measure at a typical tempo spans 2–5 seconds. timestamp_end must be at least 2 seconds after timestamp_start.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -108,8 +73,8 @@ Return ONLY valid JSON, no markdown:
       "type": "<timing|dynamics|voicing|articulation|intonation>",
       "confidence": <integer 70–100>,
       "title": "<6–10 word specific problem title>",
-      "timestamp_start": <seconds from video start>,
-      "timestamp_end": <seconds from video start>,${bboxJson}
+      "timestamp_start": <seconds into the video where this measure begins>,
+      "timestamp_end": <seconds into the video where this measure ends, at least 2s after start>,${bboxJson}
       "raw_detail": "<3 sentences: what you heard · which beat/note · why it matters>"
     }
   ]
@@ -208,19 +173,6 @@ function buildParts(
   return parts
 }
 
-// Pass 1: transcription — returns free-text description of what Gemini heard
-async function transcribePerformance(
-  videoFileUri: string,
-  videoMimeType: string,
-  prompt: string,
-  apiKey: string,
-  scoreFileUri?: string,
-  scoreMimeType?: string,
-): Promise<string> {
-  return geminiGenerate(buildParts(videoFileUri, videoMimeType, prompt, scoreFileUri, scoreMimeType), apiKey, 0.2)
-}
-
-// Pass 2: analysis — returns structured JSON flags grounded in the transcription
 async function analyzeWithGemini(
   videoFileUri: string,
   videoMimeType: string,
@@ -473,31 +425,21 @@ serve(async (req) => {
     console.log('[analyze-performance] staffAngle:', staffAngle)
 
     const smInt = startMeasure ? parseInt(startMeasure, 10) : null
-    const commonArgs = [
+    const prompt = buildGeminiPrompt(
       pieceTitle  ?? 'this piece',
       composer    ?? 'unknown composer',
       timeSig     ?? '4/4',
       instrument  ?? 'Piano',
-      anchoredMeasures,
-      smInt,
       totalMeasures,
       !!scoreFileUri,
-    ] as const
-
-    // Pass 1 — Gemini listens and describes everything it hears (no judgment yet)
-    const transcription = await transcribePerformance(
-      videoFileUri, videoMimeType,
-      buildTranscriptionPrompt(...commonArgs),
-      googleApiKey, scoreFileUri, scoreGeminiMime,
+      smInt,
+      anchoredMeasures,
     )
-    console.log('[analyze-performance] Pass 1 transcription (first 500 chars):', transcription.slice(0, 500))
 
-    // Pass 2 — Gemini re-listens and flags issues grounded in the transcription
-    const analysisPrompt = buildAnalysisPrompt(...commonArgs, transcription)
     const { score, flags: allRawFlags } = await analyzeWithGemini(
-      videoFileUri, videoMimeType, analysisPrompt, googleApiKey, scoreFileUri, scoreGeminiMime,
+      videoFileUri, videoMimeType, prompt, googleApiKey, scoreFileUri, scoreGeminiMime,
     )
-    console.log('[analyze-performance] Pass 2 raw flags:', JSON.stringify(allRawFlags))
+    console.log('[analyze-performance] raw flags:', JSON.stringify(allRawFlags))
 
     // Drop flags Gemini itself isn't confident about
     const rawFlags = allRawFlags.filter(f => (f.confidence ?? 100) >= 70)
@@ -512,6 +454,11 @@ serve(async (req) => {
             ? refineSpot(f.measure, f.type, f.raw_detail, anchoredMeasures.length, scoreFileUri, scoreGeminiMime, googleApiKey)
             : Promise.resolve(null),
         ])
+        // Validate timestamps — must be positive, ordered, and span at least 1.5 s
+        const tsStart = f.timestamp_start ?? null
+        const tsEnd   = f.timestamp_end   ?? null
+        const validTs = tsStart !== null && tsEnd !== null
+          && tsStart >= 0 && tsEnd > tsStart && (tsEnd - tsStart) >= 1.5
         return {
           measure:         f.measure,
           type:            f.type,
@@ -519,8 +466,8 @@ serve(async (req) => {
           body,
           spot:            spotBbox ?? null,
           spot_angle:      staffAngle,
-          timestamp_start: f.timestamp_start ?? null,
-          timestamp_end:   f.timestamp_end   ?? null,
+          timestamp_start: validTs ? tsStart : null,
+          timestamp_end:   validTs ? tsEnd   : null,
         }
       })
     )
