@@ -21,7 +21,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
   const inputRef = useRef(null)
   const [file,       setFile]       = useState(null)
   const [drag,       setDrag]       = useState(false)
-  const [instrument, setInstrument] = useState('Piano')
+  const [instrument, setInstrument] = useState('')
   const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready
   const [form,       setForm]       = useState(null)     // AI-filled values
   const [error,      setError]      = useState(null)
@@ -150,6 +150,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             <div className={styles.formRow}>
               <label className={styles.formLabel}>Instrument <span className={styles.formRequired}>— select yours</span></label>
               <select className={styles.formSelect} value={instrument} onChange={e => setInstrument(e.target.value)}>
+                <option value="" disabled>Select instrument…</option>
                 {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
               </select>
             </div>
@@ -198,7 +199,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
           <button
             className={styles.uploadBtn}
             onClick={handleAdd}
-            disabled={phase !== 'ready'}
+            disabled={phase !== 'ready' || !instrument}
           >
             Add to library
           </button>

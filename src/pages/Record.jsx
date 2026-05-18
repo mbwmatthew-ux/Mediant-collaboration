@@ -27,7 +27,7 @@ export default function Record() {
   // Auto-filled piece info (from OCR, editable)
   const [pieceTitle,    setPieceTitle]    = useState('')
   const [composer,      setComposer]      = useState('')
-  const [instrument,    setInstrument]    = useState('Piano')
+  const [instrument,    setInstrument]    = useState('')
   const [part,          setPart]          = useState('')
   const [startMeasure,  setStartMeasure]  = useState('')
 
@@ -336,6 +336,7 @@ export default function Record() {
                   value={instrument}
                   onChange={e => setInstrument(e.target.value)}
                 >
+                  <option value="" disabled>Select instrument…</option>
                   {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
