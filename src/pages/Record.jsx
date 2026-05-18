@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { getFile } from '../lib/fileStore'
 import styles from './Page.module.css'
 
 const INSTRUMENTS = [
@@ -41,6 +42,26 @@ export default function Record() {
   const [errorMsg, setErrorMsg] = useState('')
 
   const readyToAnalyze = scoreFile && file && instrument && phase !== 'error'
+
+  // Pre-fill from library "Start Recording" click
+  useEffect(() => {
+    async function applyPrefill() {
+      try {
+        const raw = sessionStorage.getItem('mediant_prefill')
+        if (!raw) return
+        sessionStorage.removeItem('mediant_prefill')
+        const { pieceTitle: t, composer: c, instrument: ins, pieceId } = JSON.parse(raw)
+        if (t)   setPieceTitle(t)
+        if (c)   setComposer(c)
+        if (ins && INSTRUMENTS.includes(ins)) setInstrument(ins)
+        if (pieceId) {
+          const f = await getFile(pieceId)
+          if (f) setScoreFile(f)
+        }
+      } catch { /* ignore */ }
+    }
+    applyPrefill()
+  }, [])
 
   // ── OCR: auto-fill title/composer from sheet music photo ──────
 
@@ -157,7 +178,7 @@ export default function Record() {
 
       if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Analysis failed')
 
-      localStorage.setItem('mediant_last_take', JSON.stringify({
+      const takeRecord = {
         id:              result.takeId ?? `local-${Date.now()}`,
         piece_title:     pieceTitle.trim() || 'Untitled',
         piece_composer:  composer.trim() || 'Unknown',
@@ -166,7 +187,16 @@ export default function Record() {
         video_path:      filePath,
         video_mime_type: file.type || 'video/mp4',
         score_path:      scorePath,
-      }))
+        date:            new Date().toISOString(),
+      }
+
+      localStorage.setItem('mediant_last_take', JSON.stringify(takeRecord))
+
+      // Append to per-piece history so the library panel can show past sessions
+      try {
+        const existing = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        localStorage.setItem('mediant_takes', JSON.stringify([takeRecord, ...existing]))
+      } catch { /* ignore storage errors */ }
 
       setProgress(100)
       setTimeout(() => {
