@@ -76,7 +76,7 @@ export default function Analysis() {
       if (takeId) {
         const { data, error } = await supabase
           .from('takes')
-          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, score_path, created_at')
+          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, score_path, measure_layout, created_at')
           .eq('id', takeId)
           .single()
 
@@ -260,10 +260,11 @@ export default function Analysis() {
         body: JSON.stringify({
           message: msg,
           context: {
-            pieceTitle:    take?.piece_title    ?? 'Clair de Lune',
-            pieceComposer: take?.piece_composer ?? 'Claude Debussy',
-            score:         take?.score,
-            flags:         take?.flags ?? [],
+            pieceTitle:     take?.piece_title    ?? 'Clair de Lune',
+            pieceComposer:  take?.piece_composer ?? 'Claude Debussy',
+            score:          take?.score,
+            flags:          take?.flags ?? [],
+            measureLayout:  take?.measure_layout ?? null,
           },
           history: chatMessages,
         }),

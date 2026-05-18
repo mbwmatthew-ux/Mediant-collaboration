@@ -545,6 +545,7 @@ serve(async (req) => {
         score_path:      scorePath ?? null,
         score:           Math.round(score),
         flags,
+        measure_layout:  layout.measures.length > 0 ? layout : null,
       })
       .select('id')
       .single()

@@ -31,8 +31,25 @@ serve(async (req) => {
       timestamp_start?: number | null; timestamp_end?: number | null;
     }>
 
+    const layout = context.measureLayout as {
+      staff_angle?: number;
+      measures?: Array<{ number: number; content: string }>
+    } | null
+
+    const layoutMeasures = layout?.measures ?? []
+    const firstMeasure   = layoutMeasures[0]?.number
+    const lastMeasure    = layoutMeasures[layoutMeasures.length - 1]?.number
+
+    const scoreIndex = layoutMeasures.length > 0
+      ? layoutMeasures.map(m => `  ${m.number}: ${m.content}`).join('\n')
+      : '(score layout not available for this take)'
+
+    const rangeLine = (firstMeasure != null && lastMeasure != null)
+      ? `The student's recording covers the score from measure ${firstMeasure} to measure ${lastMeasure} (inclusive). That is the exact range played — do not claim they played outside this range.`
+      : 'The exact measure range played is not known.'
+
     const flagSummary = flags.length === 0
-      ? '(no specific issues were flagged in this take)'
+      ? '(no specific issues were flagged in this take — the performance was clean)'
       : flags.map((f, i) => {
           const ts = (f.timestamp_start != null && f.timestamp_end != null)
             ? ` [audio ${f.timestamp_start.toFixed(1)}s–${f.timestamp_end.toFixed(1)}s]`
@@ -43,26 +60,25 @@ serve(async (req) => {
   Coaching given to student: ${f.body ?? '(not recorded)'}`
         }).join('\n\n')
 
-    const measuresFlagged = flags.map(f => f.measure)
-    const measureRangeLine = measuresFlagged.length > 0
-      ? `Measures with flagged issues: ${measuresFlagged.join(', ')}.`
-      : ''
-
     const system = `You are a warm, expert music coach helping a student improve their performance.
 
 The student just performed "${context.pieceTitle ?? 'a piece'}" by ${context.pieceComposer ?? 'unknown composer'}.
 Overall score: ${context.score != null ? `${context.score}/100` : 'not scored'}.
 
-${measureRangeLine}
+RANGE PLAYED:
+${rangeLine}
 
-DETAILED ISSUE LIST (this is the ONLY information you have about this take):
+SCORE CONTENT (the notation that was visible in the score image; use this to answer "what's in measure N?" type questions accurately):
+${scoreIndex}
+
+FLAGGED ISSUES (what the AI heard go wrong during this take):
 ${flagSummary}
 
-GROUNDING RULES — read carefully:
-- The list above is your ENTIRE knowledge of this take. You did NOT hear the recording yourself.
-- You do NOT know how far through the piece the student played, what tempo they took, or anything beyond what's in the list above.
-- If the student asks about anything not covered above (e.g. "did I play measure 55?", "how was my tempo overall?"), say honestly that you don't have that information — never guess or invent measure numbers, dynamics, or events.
-- When referencing an issue, cite the measure number EXACTLY as listed above. Do not refer to measures that are not in the list.
+GROUNDING RULES:
+- The information above is your ground truth. Cite measure numbers EXACTLY as they appear in SCORE CONTENT or FLAGGED ISSUES. Never invent a measure number outside the range played.
+- If the student asks about a measure that's outside the played range, tell them so — e.g. "you only played measures ${firstMeasure ?? '?'}–${lastMeasure ?? '?'}, so measure X wasn't part of this take."
+- You did not hear the recording yourself, but you DO know exactly which measures were played and what notation is in each. Use that when answering specific questions about what was on the page.
+- If asked about something not in your ground truth (overall tempo feel, posture, etc.), be honest that it wasn't captured in the analysis.
 - Be encouraging but accurate. Keep responses to 2–4 sentences unless asked for more detail.`
 
     const messages = [
