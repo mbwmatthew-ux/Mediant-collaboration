@@ -364,15 +364,17 @@ function anchorAndAlign(
   }
 
   // Fallback: if anchor/tempo math produced nothing, distribute events proportionally
-  // across visible measures so compareAndCoach always has something to work with.
+  // across the PLAYED range (not all visible measures).
   if (aligned.length === 0 && audio.events.length > 0) {
     console.warn('[anchorAndAlign] tempo anchor failed — using proportional fallback')
     const totalDur = Math.max(1, audio.audio_duration_sec)
-    const measureNums = score.measures.map(m => m.number)
-    for (const ev of audio.events) {
-      const fraction = Math.min(1, ev.time_sec / totalDur)
-      const idx = Math.min(score.measures.length - 1, Math.floor(fraction * score.measures.length))
-      aligned.push({ ...ev, measure: measureNums[idx] })
+    const playedMeasureNums = score.measures.filter(m => validMeasures.has(m.number)).map(m => m.number)
+    if (playedMeasureNums.length > 0) {
+      for (const ev of audio.events) {
+        const fraction = Math.min(1, ev.time_sec / totalDur)
+        const idx = Math.min(playedMeasureNums.length - 1, Math.floor(fraction * playedMeasureNums.length))
+        aligned.push({ ...ev, measure: playedMeasureNums[idx] })
+      }
     }
   }
 
