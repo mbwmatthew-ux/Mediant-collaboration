@@ -86,7 +86,7 @@ export default function Analysis() {
       if (takeId) {
         const { data, error } = await supabase
           .from('takes')
-          .select('id, piece_title, piece_composer, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, created_at')
+          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, created_at')
           .eq('id', takeId)
           .single()
 
@@ -316,6 +316,7 @@ export default function Analysis() {
 
   const pieceTitle    = take?.piece_title    ?? 'Clair de Lune'
   const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
+  const instrument    = take?.instrument     ?? null
   const issueCount    = chips.length
   const score         = take?.score
   const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
@@ -345,7 +346,7 @@ export default function Analysis() {
           <p className={styles.label}>Score Review</p>
           <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
           <p className={styles.sub}>
-            {pieceComposer} · Solo Piano · {issueCount} issue{issueCount !== 1 ? 's' : ''} found
+            {pieceComposer}{instrument ? ` · ${instrument}` : ''} · {issueCount} issue{issueCount !== 1 ? 's' : ''} found
             {score != null && <> · <span style={{ color: scoreColor(score) }}>{score}/100</span></>}
             {timeAgo(take?.created_at ?? take?.date) && (
               <> · <span style={{ color: 'rgba(248,246,242,0.35)' }}>Analyzed {timeAgo(take?.created_at ?? take?.date)}</span></>

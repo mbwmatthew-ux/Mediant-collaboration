@@ -602,7 +602,7 @@ serve(async (req) => {
     // Step 1 + Step 2 in parallel — each function is internally error-resilient
     // so a single failure doesn't cancel the other.
     console.log('[analyze-performance] starting parallel score-read + audio-transcribe. scoreBytes?', !!scoreBytes, 'mime:', resolvedScoreMime)
-    const [score, audio] = await Promise.all([
+    let [score, audio] = await Promise.all([
       scoreBytes && resolvedScoreMime
         ? readScoreNotes(scoreBytes, resolvedScoreMime, safeStart, instrument ?? 'instrument', timeSig ?? '4/4')
             .catch(err => {
@@ -618,6 +618,24 @@ serve(async (req) => {
     ])
     console.log('[analyze-performance] score measures:', score.measures.length, 'starting at', score.measures[0]?.number ?? '?')
     console.log('[analyze-performance] audio events (high-conf):', audio.events.length, 'duration:', audio.audio_duration_sec, 'tempo:', audio.tempo_estimate_bpm)
+
+    // If score reading returned no measures (cluttered/unreadable score), synthesize
+    // a skeleton so anchorAndAlign and compareAndCoach can still run on the audio.
+    if (score.measures.length === 0 && audio.events.length > 0) {
+      console.warn('[analyze-performance] score parse returned 0 measures — synthesizing skeleton')
+      const bpm = audio.tempo_estimate_bpm ?? 60
+      // Estimate secPerMeasure from tempo (assume 4/4 if time_sig unknown)
+      const syntheticSecPerMeasure = Math.max(1, Math.min(15, 4 * (60 / bpm)))
+      const measuresEstimate = Math.min(40, Math.ceil(audio.audio_duration_sec / syntheticSecPerMeasure))
+      score = {
+        ...score,
+        measures: Array.from({ length: measuresEstimate }, (_, i) => ({
+          number: safeStart + i,
+          notes: [],
+        })),
+      }
+      console.log('[analyze-performance] synthesized', score.measures.length, 'measures starting at', safeStart)
+    }
 
     // Step 3: anchor & align
     const { aligned, secPerMeasure, alignmentRanges } = anchorAndAlign(score, audio, safeStart)
@@ -645,6 +663,7 @@ serve(async (req) => {
         user_id:         user.id,
         piece_title:     pieceTitle ?? 'Untitled',
         piece_composer:  composer   ?? 'Unknown',
+        instrument:      instrument ?? null,
         video_path:      videoPath,
         video_mime_type: videoMimeType,
         score_path:      scorePath ?? null,
