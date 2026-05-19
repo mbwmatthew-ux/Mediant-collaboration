@@ -1,13 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import styles from './Page.module.css'
-
-const RECENT_SESSIONS = [
-  { id: 1, piece: 'Bach Invention No. 8', date: 'Today',     score: 84, flags: 2, duration: '18 min' },
-  { id: 2, piece: 'Clair de Lune',        date: 'Yesterday', score: 76, flags: 4, duration: '24 min' },
-  { id: 3, piece: 'Gymnopédie No. 1',     date: 'May 13',    score: 91, flags: 1, duration: '12 min' },
-  { id: 4, piece: 'Moonlight Sonata',     date: 'May 11',    score: 68, flags: 6, duration: '31 min' },
-]
 
 function scoreColor(n) {
   if (n >= 88) return '#8fbe9f'
@@ -21,9 +15,37 @@ function greet(name) {
   return `Good ${part}, ${name?.split(' ')[0] || 'there'}`
 }
 
+function formatDate(iso) {
+  try {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffDays = Math.floor((now - d) / 86400000)
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+
 export default function Home() {
   const nav = useNavigate()
   const { user } = useAuth()
+
+  const [recentSessions, setRecentSessions] = useState([])
+  const [pieceCount, setPieceCount]         = useState(0)
+
+  useEffect(() => {
+    try {
+      const takes = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+      setRecentSessions(takes.slice(0, 5))
+    } catch { setRecentSessions([]) }
+
+    try {
+      const pieces = JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]')
+      setPieceCount(pieces.length)
+    } catch { setPieceCount(0) }
+  }, [])
+
+  const lastTake = recentSessions[0] ?? null
 
   return (
     <div className={styles.page}>
@@ -32,31 +54,41 @@ export default function Home() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>{greet(user?.name)}</h1>
-          <p className={styles.sub}>Let&apos;s keep your momentum going.</p>
+          <p className={styles.sub}>
+            {recentSessions.length > 0
+              ? "Let's keep your momentum going."
+              : 'Upload a recording to get started.'}
+          </p>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.ghostBtn} onClick={() => nav('/record')}>Upload take</button>
-          <button className={styles.primaryBtn} onClick={() => nav('/follow')}>▶  Start practice</button>
+          <button className={styles.ghostBtn} onClick={() => nav('/search')}>My library</button>
+          <button className={styles.primaryBtn} onClick={() => nav('/record')}>Upload take →</button>
         </div>
       </div>
 
-      {/* Continue practicing */}
-      <button className={styles.continueCard} onClick={() => nav('/follow')}>
-        <div className={styles.continueCardLeft}>
-          <span className={styles.continueEyebrow}>Continue today&apos;s practice</span>
-          <strong className={styles.continueName}>Bach Invention No. 8</strong>
-          <span className={styles.continueMeta}>12 min remaining · 2 measures to review</span>
-        </div>
-        <div className={styles.continueArrow}>→</div>
-      </button>
+      {/* Continue card — only shown when there's a real last take */}
+      {lastTake && (
+        <button className={styles.continueCard} onClick={() => nav('/analysis')}>
+          <div className={styles.continueCardLeft}>
+            <span className={styles.continueEyebrow}>Last session</span>
+            <strong className={styles.continueName}>{lastTake.piece_title || 'Untitled'}</strong>
+            <span className={styles.continueMeta}>
+              {lastTake.piece_composer || 'Unknown'}
+              {lastTake.score != null && ` · ${lastTake.score}/100`}
+              {lastTake.flags?.length > 0 && ` · ${lastTake.flags.length} flag${lastTake.flags.length !== 1 ? 's' : ''}`}
+            </span>
+          </div>
+          <div className={styles.continueArrow}>→</div>
+        </button>
+      )}
 
-      {/* Quick actions — one unified 4-cell strip */}
+      {/* Quick actions */}
       <div className={styles.actionStrip}>
         {[
-          { label: 'Find Music',   sub: '12 pieces available',  to: '/search'   },
-          { label: 'Upload Take',  sub: 'Add a recording',       to: '/record'   },
-          { label: 'Score Review', sub: '3 flags to review',     to: '/analysis' },
-          { label: 'Follow Along', sub: 'Live score guidance',   to: '/follow'   },
+          { label: 'My Library',   sub: pieceCount > 0 ? `${pieceCount} piece${pieceCount !== 1 ? 's' : ''}` : 'Add your sheet music', to: '/search'   },
+          { label: 'Upload Take',  sub: 'Submit a recording',   to: '/record'   },
+          { label: 'Score Review', sub: recentSessions.length > 0 ? 'View last analysis' : 'No sessions yet', to: '/analysis' },
+          { label: 'Follow Along', sub: 'Live score guidance',  to: '/follow'   },
         ].map(({ label, sub, to }) => (
           <button key={to} className={styles.actionTile} onClick={() => nav(to)}>
             <strong className={styles.actionTileLabel}>{label}</strong>
@@ -69,30 +101,43 @@ export default function Home() {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <span className={styles.sectionHeaderTitle}>Recent Sessions</span>
-          <button className={styles.sectionHeaderAction} onClick={() => nav('/takes')}>View all →</button>
+          {recentSessions.length > 0 && (
+            <button className={styles.sectionHeaderAction} onClick={() => nav('/takes')}>View all →</button>
+          )}
         </div>
-        <table className={styles.table}>
-          <thead className={styles.tableHead}>
-            <tr>
-              <th className={styles.th}>Piece</th>
-              <th className={styles.th}>Date</th>
-              <th className={styles.th}>Duration</th>
-              <th className={styles.th}>Flags</th>
-              <th className={styles.th}>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {RECENT_SESSIONS.map(s => (
-              <tr key={s.id} className={styles.tableRow} onClick={() => nav('/analysis')}>
-                <td className={styles.td}>{s.piece}</td>
-                <td className={styles.tdSoft}>{s.date}</td>
-                <td className={styles.tdSoft}>{s.duration}</td>
-                <td className={styles.tdSoft}>{s.flags} flag{s.flags !== 1 ? 's' : ''}</td>
-                <td className={styles.td} style={{ color: scoreColor(s.score), fontWeight: 600 }}>{s.score}</td>
+
+        {recentSessions.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateTitle}>No sessions yet</p>
+            <p className={styles.emptyStateSub}>
+              Upload your first recording and Mediant will analyze your performance.
+            </p>
+            <button className={styles.primaryBtn} onClick={() => nav('/record')}>Upload a take →</button>
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead className={styles.tableHead}>
+              <tr>
+                <th className={styles.th}>Piece</th>
+                <th className={styles.th}>Date</th>
+                <th className={styles.th}>Flags</th>
+                <th className={styles.th}>Score</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {recentSessions.map((s, i) => (
+                <tr key={s.id || i} className={styles.tableRow} onClick={() => nav('/analysis')}>
+                  <td className={styles.td}>{s.piece_title || 'Untitled'}</td>
+                  <td className={styles.tdSoft}>{formatDate(s.date)}</td>
+                  <td className={styles.tdSoft}>{s.flags?.length ?? 0} flag{(s.flags?.length ?? 0) !== 1 ? 's' : ''}</td>
+                  <td className={styles.td} style={{ color: s.score != null ? scoreColor(s.score) : 'var(--text-soft)', fontWeight: 600 }}>
+                    {s.score != null ? s.score : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
     </div>
