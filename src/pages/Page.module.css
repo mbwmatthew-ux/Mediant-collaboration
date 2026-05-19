@@ -159,6 +159,23 @@
 .statCard { flex: 1; }
 .statValue { color: var(--text-inverse); font-size: 1.4rem; font-family: "Iowan Old Style", Georgia, serif; }
 
+/* ── Tuner trigger button ───────────────────────────────────── */
+.tunerBtn {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid rgba(88, 121, 101, 0.22);
+  border-radius: 999px;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 9px 20px;
+  transition: background 140ms ease, color 140ms ease;
+}
+.tunerBtn:hover {
+  background: rgba(88, 121, 101, 0.08);
+  color: var(--text);
+}
+
 /* ── Continue card ──────────────────────────────────────────── */
 .continueCard {
   align-items: center;

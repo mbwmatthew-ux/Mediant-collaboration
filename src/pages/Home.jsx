@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import Tuner from '../components/Tuner'
+import TunerModal from '../components/Tuner'
 import styles from './Page.module.css'
 
 function scoreColor(n) {
@@ -33,6 +33,7 @@ export default function Home() {
 
   const [recentSessions, setRecentSessions] = useState([])
   const [pieceCount, setPieceCount]         = useState(0)
+  const [showTuner, setShowTuner]           = useState(false)
 
   useEffect(() => {
     try {
@@ -98,8 +99,12 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Tuner */}
-      <Tuner />
+      {/* Tuner trigger */}
+      <button className={styles.tunerBtn} onClick={() => setShowTuner(true)}>
+        ♩ Tune your instrument
+      </button>
+
+      {showTuner && <TunerModal onClose={() => setShowTuner(false)} />}
 
       {/* Recent sessions */}
       <div className={styles.section}>
