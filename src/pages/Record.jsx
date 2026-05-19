@@ -178,7 +178,17 @@ export default function Record() {
 
       clearInterval(analysisTick)
 
-      if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Analysis failed')
+      if (fnError || result?.error) {
+        // Try to extract the real error body from the Edge Function response
+        let realError = result?.error || fnError?.message || 'Analysis failed'
+        try {
+          if (fnError?.context) {
+            const body = await fnError.context.json()
+            if (body?.error) realError = body.error
+          }
+        } catch { /* ignore */ }
+        throw new Error(realError)
+      }
 
       const takeRecord = {
         id:              result.takeId ?? `local-${Date.now()}`,

@@ -720,57 +720,76 @@ serve(async (req) => {
     let secPerMeasure = 4.0
     let usedModal = false
 
-    // ── Path A: Modal worker (Basic Pitch + librosa + optional music21) ────
+    // ── Pre-fetch score bytes (needed for Claude vision; fetch once, use in parallel) ─
+    let scoreBytesForClaude: Uint8Array | null = null
+    if (isVisualScore && scorePath) {
+      const { data: sBlob } = await admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
+      if (sBlob) scoreBytesForClaude = new Uint8Array(await sBlob.arrayBuffer())
+    }
+
+    // ── Path A: Modal audio + Claude score reading IN PARALLEL ────────────
     if (modalUrl && videoSignedUrl) {
-      console.log('[analyze-performance] calling Modal worker')
-      try {
-        const workerResult = await callModalWorker(modalUrl, {
-          video_url:     videoSignedUrl,
-          score_url:     isXmlScore && scoreSignedUrl ? scoreSignedUrl : undefined,
-          score_mime:    scoreMimeType ?? undefined,
-          instrument:    instrument ?? 'instrument',
-          start_measure: safeStart,
-          time_sig:      tSig,
-        })
+      console.log('[analyze-performance] starting Modal + Claude score read in parallel')
 
-        if (workerResult.error) {
-          throw new Error(`Modal worker error: ${workerResult.error}`)
+      // Claude reads the visual score while Modal processes audio
+      const scorePromise: Promise<ScoreReading> = scoreBytesForClaude
+        ? readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
+            .catch(err => {
+              console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
+              return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
+            })
+        : Promise.resolve({ key_signature: null, time_signature: null, tempo_marking: null, measures: [] })
+
+      const modalPromise = callModalWorker(modalUrl, {
+        video_url:     videoSignedUrl,
+        score_url:     isXmlScore && scoreSignedUrl ? scoreSignedUrl : undefined,
+        score_mime:    scoreMimeType ?? undefined,
+        instrument:    instrument ?? 'instrument',
+        start_measure: safeStart,
+        time_sig:      tSig,
+      }).catch(err => {
+        console.error('[analyze-performance] Modal worker threw:', (err as Error).message)
+        return null
+      })
+
+      const [workerResult, scoreResult] = await Promise.all([modalPromise, scorePromise])
+
+      // Apply Claude score result (if Modal didn't parse score from music21)
+      if (scoreResult.measures.length > 0) {
+        score = scoreResult
+        console.log('[analyze-performance] Claude score read:', score.measures.length, 'measures')
+      }
+
+      if (workerResult && !workerResult.error && workerResult.audio) {
+        const wa = workerResult.audio
+        const rawEvents: AudioEvent[] = wa.events.map(e => ({
+          time_sec:     e.time_sec,
+          pitches:      e.pitches,
+          confidence:   e.confidence,
+          loudness:     e.loudness ?? null,
+          articulation: null,
+        }))
+
+        audio = {
+          audio_duration_sec: wa.audio_duration_sec,
+          events:             rawEvents,
+          tempo_estimate_bpm: wa.tempo_estimate_bpm,
+          tempo_steadiness:   wa.tempo_steadiness,
         }
 
-        if (workerResult.audio) {
-          const wa = workerResult.audio
-          // Normalise events — Modal adds measure from beat alignment, but we redo it below
-          const rawEvents: AudioEvent[] = wa.events.map(e => ({
-            time_sec:    e.time_sec,
-            pitches:     e.pitches,
-            confidence:  e.confidence,
-            loudness:    e.loudness ?? null,
-            articulation: null,
-          }))
-
-          audio = {
-            audio_duration_sec: wa.audio_duration_sec,
-            events:             rawEvents,
-            tempo_estimate_bpm: wa.tempo_estimate_bpm,
-            tempo_steadiness:   wa.tempo_steadiness,
+        const beatTimes = wa.beat_times ?? []
+        if (beatTimes.length > 0) {
+          aligned = alignWithBeats(rawEvents, beatTimes, beatsPerMeasure, safeStart, safeEnd)
+          if (beatTimes.length >= 2) {
+            const avgBeatSec = (beatTimes[beatTimes.length - 1] - beatTimes[0]) / (beatTimes.length - 1)
+            secPerMeasure = avgBeatSec * beatsPerMeasure
           }
-
-          // Beat-level alignment
-          const beatTimes = wa.beat_times ?? []
-          if (beatTimes.length > 0) {
-            aligned = alignWithBeats(rawEvents, beatTimes, beatsPerMeasure, safeStart, safeEnd)
-            // Estimate secPerMeasure from beat spacing (average of adjacent beat times)
-            if (beatTimes.length >= 2) {
-              const avgBeatSec = (beatTimes[beatTimes.length - 1] - beatTimes[0]) / (beatTimes.length - 1)
-              secPerMeasure = avgBeatSec * beatsPerMeasure
-            }
-            alignmentRanges = buildAlignmentRanges(aligned, secPerMeasure)
-            console.log('[analyze-performance] Modal beat alignment: aligned', aligned.length, 'events, secPerMeasure', secPerMeasure.toFixed(2))
-          }
-          usedModal = true
+          alignmentRanges = buildAlignmentRanges(aligned, secPerMeasure)
+          console.log('[analyze-performance] Modal beat alignment: aligned', aligned.length, 'events, secPerMeasure', secPerMeasure.toFixed(2))
         }
+        usedModal = true
 
-        // Use music21 score if worker returned one
+        // Override with music21 score if Modal parsed one (XML upload path)
         if (workerResult.score && !workerResult.score.error && (workerResult.score.measures?.length ?? 0) > 0) {
           score = {
             key_signature:  workerResult.score.key_signature,
@@ -780,14 +799,27 @@ serve(async (req) => {
           }
           console.log('[analyze-performance] Modal music21 score:', score.measures.length, 'measures')
         }
-
-      } catch (modalErr) {
-        console.error('[analyze-performance] Modal worker failed, falling back to Gemini:', (modalErr as Error).message)
+      } else {
+        if (workerResult?.error) {
+          console.error('[analyze-performance] Modal returned error:', workerResult.error)
+        }
+        console.log('[analyze-performance] Modal failed or timed out — falling back to Gemini')
       }
     }
 
     // ── Path B: Gemini audio (if Modal skipped or failed) ─────────────────
     if (!usedModal) {
+      // Score reading already happened in parallel above (if applicable).
+      // If score is still empty and we haven't read it yet (non-Modal path), read it now.
+      if (score.measures.length === 0 && scoreBytesForClaude && isVisualScore) {
+        try {
+          score = await readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
+          console.log('[analyze-performance] Claude score read (Gemini path):', score.measures.length, 'measures')
+        } catch (err) {
+          console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
+        }
+      }
+
       const { data: videoBlob, error: vErr } = await admin.storage.from('recordings').download(videoPath)
       if (vErr || !videoBlob) throw new Error(`Video download failed: ${vErr?.message}`)
       const videoBytes = new Uint8Array(await videoBlob.arrayBuffer())
@@ -808,20 +840,6 @@ serve(async (req) => {
         })
 
       console.log('[analyze-performance] Gemini events:', audio.events.length, 'tempo:', audio.tempo_estimate_bpm)
-    }
-
-    // ── Score reading (visual path: Claude; only if score not yet parsed) ──
-    if (score.measures.length === 0 && isVisualScore && scorePath) {
-      try {
-        const { data: sBlob } = await admin.storage.from('sheet-music').download(scorePath)
-        if (sBlob) {
-          const scoreBytes = new Uint8Array(await sBlob.arrayBuffer())
-          score = await readScoreNotes(scoreBytes, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
-          console.log('[analyze-performance] Claude score read:', score.measures.length, 'measures')
-        }
-      } catch (err) {
-        console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
-      }
     }
 
     console.log('[analyze-performance] score measures:', score.measures.length, '| audio events:', audio.events.length, '| tempo:', audio.tempo_estimate_bpm)
