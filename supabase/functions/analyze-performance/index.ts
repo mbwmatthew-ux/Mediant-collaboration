@@ -544,6 +544,105 @@ Return JSON only (no markdown):
   return flags
 }
 
+// ── Beat-level alignment (used when Modal worker returns beat_times) ─────────
+
+function alignWithBeats(
+  events: AudioEvent[],
+  beatTimes: number[],
+  beatsPerMeasure: number,
+  startMeasure: number,
+  endMeasure: number | null,
+): AlignedEvent[] {
+  if (!beatTimes.length || !events.length) return []
+  const maxMeasure = endMeasure ?? Infinity
+
+  const aligned: AlignedEvent[] = []
+  for (const ev of events) {
+    const t = ev.time_sec
+    // Find the last beat that started at or before this event
+    let beatIdx = 0
+    for (let i = 0; i < beatTimes.length; i++) {
+      if (beatTimes[i] <= t) beatIdx = i
+      else break
+    }
+    const measureOffset = Math.floor(beatIdx / beatsPerMeasure)
+    const measure = startMeasure + measureOffset
+    if (measure > maxMeasure) continue
+    aligned.push({ ...ev, measure })
+  }
+  return aligned
+}
+
+function buildAlignmentRanges(
+  aligned: AlignedEvent[],
+  secPerMeasure: number,
+): Array<{ measure: number; start: number; end: number }> {
+  const map = new Map<number, { start: number; end: number }>()
+  for (const ev of aligned) {
+    const existing = map.get(ev.measure)
+    if (existing) {
+      map.set(ev.measure, {
+        start: Math.min(existing.start, ev.time_sec),
+        end:   Math.max(existing.end,   ev.time_sec),
+      })
+    } else {
+      map.set(ev.measure, { start: ev.time_sec, end: ev.time_sec })
+    }
+  }
+  return Array.from(map.entries())
+    .map(([measure, r]) => ({
+      measure,
+      start: r.start,
+      end:   Math.max(r.end, r.start + Math.max(0.5, secPerMeasure * 0.9)),
+    }))
+    .sort((a, b) => a.measure - b.measure)
+}
+
+// ── Modal worker call ─────────────────────────────────────────────────────
+
+interface ModalAudioResult {
+  audio_duration_sec: number
+  events: Array<AudioEvent & { measure?: number; end_sec?: number; midi?: number; source?: string }>
+  tempo_estimate_bpm: number | null
+  tempo_steadiness: string | null
+  beat_times: number[]
+  onset_times: number[]
+  source: string
+}
+
+interface ModalScoreResult {
+  key_signature: string | null
+  time_signature: string | null
+  tempo_marking: string | null
+  measures: ScoreMeasure[]
+  source: string
+  error?: string
+}
+
+interface ModalWorkerResult {
+  audio?: ModalAudioResult
+  score?: ModalScoreResult
+  beats?: { tempo_bpm: number; beat_times: number[]; onset_times: number[]; duration_sec: number }
+  error?: string
+}
+
+async function callModalWorker(
+  workerUrl: string,
+  payload: Record<string, unknown>,
+): Promise<ModalWorkerResult> {
+  const res = await fetch(workerUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(290_000),  // just under Modal's 300s
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '(no body)')
+    throw new Error(`Modal worker HTTP ${res.status}: ${text.slice(0, 300)}`)
+  }
+  return res.json() as Promise<ModalWorkerResult>
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -559,102 +658,221 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
-    const { videoPath, videoMimeType, scorePath, scoreMimeType, pieceTitle, composer, timeSig, instrument, startMeasure } = await req.json()
+    const {
+      videoPath, videoMimeType,
+      scorePath, scoreMimeType,
+      pieceTitle, composer,
+      timeSig, instrument,
+      startMeasure, endMeasure,
+    } = await req.json()
     if (!videoPath || !videoMimeType) throw new Error('videoPath and videoMimeType are required')
 
-    const startMeasureNum = startMeasure ? parseInt(startMeasure, 10) : 1
+    const startMeasureNum = startMeasure ? parseInt(String(startMeasure), 10) : 1
     const safeStart = Number.isFinite(startMeasureNum) && startMeasureNum >= 1 ? startMeasureNum : 1
+    const safeEnd: number | null = endMeasure ? Math.max(safeStart, parseInt(String(endMeasure), 10)) : null
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Download video
-    const { data: videoBlob, error: vErr } = await admin.storage.from('recordings').download(videoPath)
-    if (vErr || !videoBlob) throw new Error(`Video download failed: ${vErr?.message}`)
-    const videoBytes = new Uint8Array(await videoBlob.arrayBuffer())
+    // Compute beats_per_measure for alignment
+    const tSig = (timeSig ?? '4/4').toString()
+    let beatsPerMeasure = 4
+    try {
+      const [num, denom] = tSig.split('/').map(Number)
+      const isCompound = num % 3 === 0 && num / 3 >= 2 && denom >= 8
+      beatsPerMeasure = isCompound ? Math.round(num / 3) : num
+    } catch { /* keep 4 */ }
 
-    // Download score (if visual)
-    let scoreBytes: Uint8Array | null = null
-    let resolvedScoreMime: string | null = null
-    if (scorePath && scoreMimeType && VISUAL_SCORE_TYPES.has(scoreMimeType)) {
-      const { data: sBlob } = await admin.storage.from('sheet-music').download(scorePath)
-      if (sBlob) {
-        scoreBytes = new Uint8Array(await sBlob.arrayBuffer())
-        resolvedScoreMime = scoreMimeType
+    // Determine score type
+    const XML_MIMES = new Set(['application/vnd.recordare.musicxml+xml', 'application/vnd.recordare.musicxml', 'text/xml', 'application/xml'])
+    const isXmlScore = scoreMimeType && (
+      XML_MIMES.has(scoreMimeType) ||
+      scoreMimeType === 'application/octet-stream' && (
+        scorePath?.endsWith('.xml') || scorePath?.endsWith('.musicxml') || scorePath?.endsWith('.mxl')
+      )
+    )
+    const isVisualScore = scoreMimeType && VISUAL_SCORE_TYPES.has(scoreMimeType)
+
+    const modalUrl = Deno.env.get('MODAL_WORKER_URL')
+    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
+
+    // Generate signed URLs for Modal worker
+    let videoSignedUrl: string | null = null
+    let scoreSignedUrl: string | null = null
+    if (modalUrl) {
+      const { data: vSigned } = await admin.storage.from('recordings')
+        .createSignedUrl(videoPath, 3600)
+      videoSignedUrl = vSigned?.signedUrl ?? null
+
+      if (scorePath) {
+        const { data: sSigned } = await admin.storage.from('sheet-music')
+          .createSignedUrl(scorePath, 3600)
+        scoreSignedUrl = sSigned?.signedUrl ?? null
       }
     }
 
-    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
+    let score: ScoreReading = { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
+    let audio: AudioTranscription = { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null }
+    let aligned: AlignedEvent[] = []
+    let alignmentRanges: Array<{ measure: number; start: number; end: number }> = []
+    let secPerMeasure = 4.0
+    let usedModal = false
 
-    // Upload video to Gemini (sequential with file processing)
-    console.log('[analyze-performance] uploading video to Gemini, bytes:', videoBytes.length, 'mime:', videoMimeType)
-    let videoFileUri: string
-    try {
-      videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-    } catch (err) {
-      console.error('[analyze-performance] video upload failed:', (err as Error).message)
-      throw new Error(`Video upload to Gemini failed: ${(err as Error).message}`)
+    // ── Path A: Modal worker (Basic Pitch + librosa + optional music21) ────
+    if (modalUrl && videoSignedUrl) {
+      console.log('[analyze-performance] calling Modal worker')
+      try {
+        const workerResult = await callModalWorker(modalUrl, {
+          video_url:     videoSignedUrl,
+          score_url:     isXmlScore && scoreSignedUrl ? scoreSignedUrl : undefined,
+          score_mime:    scoreMimeType ?? undefined,
+          instrument:    instrument ?? 'instrument',
+          start_measure: safeStart,
+          time_sig:      tSig,
+        })
+
+        if (workerResult.error) {
+          throw new Error(`Modal worker error: ${workerResult.error}`)
+        }
+
+        if (workerResult.audio) {
+          const wa = workerResult.audio
+          // Normalise events — Modal adds measure from beat alignment, but we redo it below
+          const rawEvents: AudioEvent[] = wa.events.map(e => ({
+            time_sec:    e.time_sec,
+            pitches:     e.pitches,
+            confidence:  e.confidence,
+            loudness:    e.loudness ?? null,
+            articulation: null,
+          }))
+
+          audio = {
+            audio_duration_sec: wa.audio_duration_sec,
+            events:             rawEvents,
+            tempo_estimate_bpm: wa.tempo_estimate_bpm,
+            tempo_steadiness:   wa.tempo_steadiness,
+          }
+
+          // Beat-level alignment
+          const beatTimes = wa.beat_times ?? []
+          if (beatTimes.length > 0) {
+            aligned = alignWithBeats(rawEvents, beatTimes, beatsPerMeasure, safeStart, safeEnd)
+            // Estimate secPerMeasure from beat spacing (average of adjacent beat times)
+            if (beatTimes.length >= 2) {
+              const avgBeatSec = (beatTimes[beatTimes.length - 1] - beatTimes[0]) / (beatTimes.length - 1)
+              secPerMeasure = avgBeatSec * beatsPerMeasure
+            }
+            alignmentRanges = buildAlignmentRanges(aligned, secPerMeasure)
+            console.log('[analyze-performance] Modal beat alignment: aligned', aligned.length, 'events, secPerMeasure', secPerMeasure.toFixed(2))
+          }
+          usedModal = true
+        }
+
+        // Use music21 score if worker returned one
+        if (workerResult.score && !workerResult.score.error && (workerResult.score.measures?.length ?? 0) > 0) {
+          score = {
+            key_signature:  workerResult.score.key_signature,
+            time_signature: workerResult.score.time_signature,
+            tempo_marking:  workerResult.score.tempo_marking,
+            measures:       workerResult.score.measures,
+          }
+          console.log('[analyze-performance] Modal music21 score:', score.measures.length, 'measures')
+        }
+
+      } catch (modalErr) {
+        console.error('[analyze-performance] Modal worker failed, falling back to Gemini:', (modalErr as Error).message)
+      }
     }
-    console.log('[analyze-performance] video uploaded:', videoFileUri)
 
-    // Step 1 + Step 2 in parallel — each function is internally error-resilient
-    // so a single failure doesn't cancel the other.
-    console.log('[analyze-performance] starting parallel score-read + audio-transcribe. scoreBytes?', !!scoreBytes, 'mime:', resolvedScoreMime)
-    let [score, audio] = await Promise.all([
-      scoreBytes && resolvedScoreMime
-        ? readScoreNotes(scoreBytes, resolvedScoreMime, safeStart, instrument ?? 'instrument', timeSig ?? '4/4')
-            .catch(err => {
-              console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
-              return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
-            })
-        : Promise.resolve({ key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading),
-      transcribeAudio(videoFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
+    // ── Path B: Gemini audio (if Modal skipped or failed) ─────────────────
+    if (!usedModal) {
+      const { data: videoBlob, error: vErr } = await admin.storage.from('recordings').download(videoPath)
+      if (vErr || !videoBlob) throw new Error(`Video download failed: ${vErr?.message}`)
+      const videoBytes = new Uint8Array(await videoBlob.arrayBuffer())
+
+      console.log('[analyze-performance] uploading video to Gemini, bytes:', videoBytes.length)
+      let videoFileUri: string
+      try {
+        videoFileUri = await uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+      } catch (err) {
+        throw new Error(`Video upload to Gemini failed: ${(err as Error).message}`)
+      }
+      console.log('[analyze-performance] video uploaded:', videoFileUri)
+
+      audio = await transcribeAudio(videoFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
         .catch(err => {
           console.error('[analyze-performance] transcribeAudio threw:', (err as Error).message)
           return { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null } as AudioTranscription
-        }),
-    ])
-    console.log('[analyze-performance] score measures:', score.measures.length, 'starting at', score.measures[0]?.number ?? '?')
-    console.log('[analyze-performance] audio events (high-conf):', audio.events.length, 'duration:', audio.audio_duration_sec, 'tempo:', audio.tempo_estimate_bpm)
+        })
 
-    // If score reading returned no measures (cluttered/unreadable score), synthesize
-    // a skeleton so anchorAndAlign and compareAndCoach can still run on the audio.
-    if (score.measures.length === 0 && audio.events.length > 0) {
-      console.warn('[analyze-performance] score parse returned 0 measures — synthesizing skeleton')
-      const bpm = audio.tempo_estimate_bpm ?? 60
-      // Estimate secPerMeasure from tempo (assume 4/4 if time_sig unknown)
-      const syntheticSecPerMeasure = Math.max(1, Math.min(15, 4 * (60 / bpm)))
-      const measuresEstimate = Math.min(40, Math.ceil(audio.audio_duration_sec / syntheticSecPerMeasure))
-      score = {
-        ...score,
-        measures: Array.from({ length: measuresEstimate }, (_, i) => ({
-          number: safeStart + i,
-          notes: [],
-        })),
-      }
-      console.log('[analyze-performance] synthesized', score.measures.length, 'measures starting at', safeStart)
+      console.log('[analyze-performance] Gemini events:', audio.events.length, 'tempo:', audio.tempo_estimate_bpm)
     }
 
-    // Step 3: anchor & align
-    const { aligned, secPerMeasure, alignmentRanges } = anchorAndAlign(score, audio, safeStart)
+    // ── Score reading (visual path: Claude; only if score not yet parsed) ──
+    if (score.measures.length === 0 && isVisualScore && scorePath) {
+      try {
+        const { data: sBlob } = await admin.storage.from('sheet-music').download(scorePath)
+        if (sBlob) {
+          const scoreBytes = new Uint8Array(await sBlob.arrayBuffer())
+          score = await readScoreNotes(scoreBytes, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
+          console.log('[analyze-performance] Claude score read:', score.measures.length, 'measures')
+        }
+      } catch (err) {
+        console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
+      }
+    }
+
+    console.log('[analyze-performance] score measures:', score.measures.length, '| audio events:', audio.events.length, '| tempo:', audio.tempo_estimate_bpm)
+
+    // ── Skeleton synthesis when score is empty ─────────────────────────────
+    if (score.measures.length === 0 && audio.events.length > 0) {
+      console.warn('[analyze-performance] synthesizing score skeleton from audio duration')
+      const bpm = audio.tempo_estimate_bpm ?? 60
+      const synthSec = Math.max(1, Math.min(15, beatsPerMeasure * (60 / bpm)))
+      const endMeasureGuess = safeEnd ?? (safeStart + Math.min(40, Math.ceil(audio.audio_duration_sec / synthSec)) - 1)
+      const count = endMeasureGuess - safeStart + 1
+      score = {
+        ...score,
+        measures: Array.from({ length: count }, (_, i) => ({ number: safeStart + i, notes: [] })),
+      }
+      console.log('[analyze-performance] synthesized', count, 'skeleton measures')
+    }
+
+    // ── Anchor & align (used when Modal beat alignment didn't run) ─────────
+    if (aligned.length === 0 && audio.events.length > 0) {
+      const result = anchorAndAlign(score, audio, safeStart)
+      aligned         = result.aligned
+      secPerMeasure   = result.secPerMeasure || secPerMeasure
+      alignmentRanges = result.alignmentRanges
+    }
+
+    // Apply endMeasure cap: drop any aligned events beyond the specified last measure
+    if (safeEnd !== null) {
+      const before = aligned.length
+      aligned         = aligned.filter(ev => ev.measure <= safeEnd!)
+      alignmentRanges = alignmentRanges.filter(r => r.measure <= safeEnd!)
+      if (aligned.length < before) {
+        console.log(`[analyze-performance] endMeasure cap (${safeEnd}): dropped ${before - aligned.length} events beyond last measure`)
+      }
+    }
+
     console.log('[analyze-performance] aligned events:', aligned.length, 'sec/measure:', secPerMeasure.toFixed(2))
     console.log('[analyze-performance] measures with audio:', alignmentRanges.map(r => r.measure))
 
-    // Step 4: compare & coach
+    // ── Step 4: compare & coach ────────────────────────────────────────────
     const flags = await compareAndCoach(
       score,
       aligned,
       alignmentRanges,
       { bpm: audio.tempo_estimate_bpm, steadiness: audio.tempo_steadiness },
       pieceTitle ?? 'this piece',
-      composer  ?? 'the composer',
+      composer   ?? 'the composer',
       instrument ?? 'musician',
     )
     console.log('[analyze-performance] coaching flags:', flags.map(f => `m.${f.measure} (${f.type})`))
 
-    // Overall score: simple inverse-flag heuristic, capped 50–98
     const baseScore = Math.max(50, Math.min(98, 95 - flags.length * 6))
 
     const { data: take, error: insertError } = await admin

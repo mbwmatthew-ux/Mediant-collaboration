@@ -30,6 +30,7 @@ export default function Record() {
   const [instrument,    setInstrument]    = useState('')
   const [part,          setPart]          = useState('')
   const [startMeasure,  setStartMeasure]  = useState('')
+  const [endMeasure,    setEndMeasure]    = useState('')
 
   // Video recording (required)
   const [file,      setFile]      = useState(null)
@@ -171,6 +172,7 @@ export default function Record() {
           part:           part.trim() || undefined,
           timeSig:        '4/4',
           startMeasure:   startMeasure || undefined,
+          endMeasure:     endMeasure || undefined,
         },
       })
 
@@ -355,9 +357,7 @@ export default function Record() {
 
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Starting measure
-                </label>
+                <label className={styles.formLabel}>Starting measure</label>
                 <input
                   className={styles.formInput}
                   type="number"
@@ -367,10 +367,25 @@ export default function Record() {
                   placeholder="1"
                 />
                 <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  What measure does the recording begin on? This anchors the AI to the right place in the score.
+                  What measure does the recording begin on?
                 </span>
               </div>
-              <div className={styles.formGroup} />
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Ending measure <span className={styles.formOptional}>(optional)</span>
+                </label>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  value={endMeasure}
+                  onChange={e => setEndMeasure(e.target.value)}
+                  placeholder="auto"
+                />
+                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
+                  Last measure played. Prevents false flags beyond your excerpt.
+                </span>
+              </div>
             </div>
           </div>
 
