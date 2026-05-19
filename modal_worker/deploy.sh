@@ -23,9 +23,9 @@ $MODAL_BIN deploy modal_worker/worker.py
 # ── 3. Get the deployed URL ────────────────────────────────────────────────
 echo ""
 echo "==> Deployed. Get the endpoint URL from the Modal dashboard:"
-echo "    https://modal.com/apps/mediant-worker"
+echo "    https://modal.com/apps/mbwmatthew-ux/main/deployed/mediant-worker"
 echo ""
-echo "    The URL looks like: https://<workspace>--mediant-worker-analyze.modal.run"
+echo "    Current URL: https://mbwmatthew-ux--mediant-worker-analyze.modal.run"
 echo ""
 
 # ── 4. Set the URL as a Supabase secret ───────────────────────────────────

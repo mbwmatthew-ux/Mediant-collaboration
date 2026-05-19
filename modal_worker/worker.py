@@ -33,11 +33,9 @@ image = (
     .apt_install(
         "ffmpeg",
         "libsndfile1",
-        "libsoundfile1",
     )
     .pip_install(
-        # Audio processing
-        "basic-pitch==0.3.2",
+        # Audio processing — pure librosa (no C extensions to compile)
         "librosa==0.10.2",
         "soundfile==0.12.1",
         "numpy>=1.24,<2.0",
@@ -45,6 +43,7 @@ image = (
         # Score parsing
         "music21==9.1.0",
         # Utilities
+        "fastapi[standard]",
         "requests==2.31.0",
         "httpx==0.27.0",
     )
@@ -112,47 +111,93 @@ def extract_audio_from_video(video_bytes: bytes, target_sr: int = 22050) -> tupl
             os.unlink(out_path)
 
 
-def run_basic_pitch(wav_bytes: bytes, confidence_threshold: float = 0.4) -> list[dict]:
+def run_pitch_tracking(wav_bytes: bytes) -> list[dict]:
     """
-    Run Basic Pitch on WAV bytes.
+    Detect note events using librosa pyin (pitch) + librosa onset detection.
     Returns list of AudioEvent dicts sorted by time.
+
+    Strategy:
+      1. librosa.onset.onset_detect → note start times
+      2. librosa.pyin → per-frame pitch (Hz) + voicing probability
+      3. At each onset, sample the pyin pitch in a short look-ahead window
+      4. Emit one event per onset that has a confident voiced pitch
     """
-    import tempfile, os, soundfile as sf, numpy as np
+    import tempfile, os
+    import numpy as np
+    import librosa
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         f.write(wav_bytes)
         wav_path = f.name
 
     try:
-        from basic_pitch.inference import predict
-        from basic_pitch import ICASSP_2022_MODEL_PATH
+        SR = 22050
+        HOP = 512
 
-        model_output, midi_data, note_events = predict(
-            wav_path,
-            model_or_model_path=ICASSP_2022_MODEL_PATH,
-            onset_threshold=confidence_threshold,
-            frame_threshold=confidence_threshold * 0.5,
-            minimum_note_length=50,   # ms
-            minimum_frequency=65.0,   # ~C2 — covers cello
-            maximum_frequency=2100.0, # ~C7 — covers violin
+        y, sr = librosa.load(wav_path, sr=SR, mono=True)
+        duration = librosa.get_duration(y=y, sr=SR)
+
+        # ── pyin pitch tracking ────────────────────────────────────────────
+        f0, voiced_flag, voiced_prob = librosa.pyin(
+            y, sr=SR,
+            fmin=librosa.note_to_hz("C2"),   # 65 Hz — covers cello C string
+            fmax=librosa.note_to_hz("C7"),   # 2093 Hz — covers violin E string
+            hop_length=HOP,
         )
+        frame_times = librosa.frames_to_time(np.arange(len(f0)), sr=SR, hop_length=HOP)
 
+        # ── Onset detection ────────────────────────────────────────────────
+        onset_frames = librosa.onset.onset_detect(
+            y=y, sr=SR, hop_length=HOP,
+            backtrack=True,        # snap onset to local energy minimum
+            units="frames",
+        )
+        onset_times = librosa.frames_to_time(onset_frames, sr=SR, hop_length=HOP).tolist()
+
+        if not onset_times:
+            onset_times = np.arange(0, duration, 0.5).tolist()
+
+        # ── Assign pitch to each onset ─────────────────────────────────────
         events: list[dict] = []
-        for start_s, end_s, pitch_midi, amplitude, _ in note_events:
-            pitch_name = midi_to_scientific(int(pitch_midi))
-            confidence = min(100, int(amplitude * 140))  # amplitude ~0.0–0.7 → 0–100
+        for i, onset_t in enumerate(onset_times):
+            next_t = onset_times[i + 1] if i + 1 < len(onset_times) else onset_t + 1.0
+            # Sample pitch in the first 200ms of the note (or until next onset)
+            window_end = min(onset_t + 0.20, next_t - 0.02)
+
+            mask = (frame_times >= onset_t) & (frame_times < window_end) & voiced_flag
+            if not mask.any():
+                # Try wider window
+                mask = (frame_times >= onset_t) & (frame_times < onset_t + 0.15)
+                mask &= voiced_flag
+            if not mask.any():
+                continue
+
+            freqs = f0[mask]
+            probs = voiced_prob[mask]
+            dominant_hz = float(np.average(freqs[freqs > 0], weights=probs[freqs > 0] + 1e-6))
+            midi = int(np.round(librosa.hz_to_midi(dominant_hz)))
+            midi = max(36, min(96, midi))  # C2–C7
+
+            # RMS in a short window around onset → loudness
+            s = int(onset_t * SR)
+            e = min(len(y), s + SR // 10)
+            rms = float(np.sqrt(np.mean(y[s:e] ** 2))) if e > s else 0.0
+            loudness = "loud" if rms > 0.15 else "medium" if rms > 0.04 else "soft"
+
+            confidence = int(min(100, float(np.mean(probs[mask])) * 100))
+
             events.append({
-                "time_sec": float(start_s),
-                "end_sec": float(end_s),
-                "pitches": [pitch_name],
-                "midi": int(pitch_midi),
+                "time_sec": float(onset_t),
+                "end_sec": float(next_t),
+                "pitches": [midi_to_scientific(midi)],
+                "midi": midi,
                 "confidence": confidence,
-                "loudness": None,  # Basic Pitch doesn't give loudness label
-                "source": "basic_pitch",
+                "loudness": loudness,
+                "source": "pyin+librosa",
             })
 
         events.sort(key=lambda e: e["time_sec"])
-        print(f"[basic_pitch] {len(note_events)} raw notes → {len(events)} events (threshold={confidence_threshold})")
+        print(f"[pitch_tracking] {len(onset_times)} onsets → {len(events)} voiced events, duration={duration:.1f}s")
         return events
 
     finally:
@@ -340,11 +385,10 @@ def assign_events_to_measures(
 
 @app.function(
     image=image,
-    gpu="A10G",
     timeout=300,
     memory=4096,
 )
-@modal.web_endpoint(method="POST", docs=True)
+@modal.fastapi_endpoint(method="POST", docs=True)
 def analyze(body: dict) -> dict:
     """
     Main analysis endpoint.
@@ -388,8 +432,8 @@ def analyze(body: dict) -> dict:
         beats = run_beat_tracking(wav_bytes)
         estimated_bpm = beats["tempo_bpm"]
 
-        # Basic Pitch transcription
-        raw_events = run_basic_pitch(wav_bytes, confidence_threshold=0.4)
+        # pyin + aubio pitch/onset transcription (no ML model deps)
+        raw_events = run_pitch_tracking(wav_bytes)
 
         # Assign events to measures using beat times
         beat_times = beats["beat_times"]
