@@ -235,7 +235,7 @@ RULES:
 - For each event: time_sec (when in the recording it occurred, seconds from 0:00), pitches (an array of scientific-pitch-notation strings like "D3" or "F#4"; usually 1 pitch for monophonic instruments, occasionally 2+ for double-stops/chords), and confidence (your 0-100 confidence).
 - Use scientific pitch notation: middle C = "C4". Cello open strings: C2, G2, D3, A3. Violin open strings: G3, D4, A4, E5.
 - Cover the WHOLE recording from 0:00 to the end — do not stop after the first few seconds. Report events every 0.5–2 seconds throughout.
-- Also estimate the overall tempo in BPM (beats per minute) and whether tempo is "steady" or "wavering".
+- Also estimate the overall tempo. Report BPM as the **conductor's beat rate** — the pulse you feel most naturally. For compound meters like 12/8 or 6/8, that is the dotted-quarter pulse (not the eighth note). For simple meters like 4/4 or 3/4, it is the quarter-note pulse. Also report whether tempo is "steady" or "wavering".
 
 Return JSON only (no markdown):
 {
@@ -327,11 +327,18 @@ function anchorAndAlign(
     const bpm = audio.tempo_estimate_bpm
     const [num, denom] = score.time_signature.split('/').map(s => parseInt(s, 10))
     if (num && denom) {
-      // bpm = quarter-note BPM (standard). measure_seconds = (num/denom) * 4 * (60/bpm)
-      const tempoBased = (num / denom) * (60 / bpm) * 4
+      // Beats per measure depends on whether the meter is compound or simple.
+      // Compound: 6/8, 9/8, 12/8 — beat unit is the dotted quarter (3 eighth notes).
+      // Simple:   2/4, 3/4, 4/4, 2/2 — beat unit is the quarter (or half for cut time).
+      const isCompound = num % 3 === 0 && num / 3 >= 2 && denom >= 8
+      const beatsPerMeasure = isCompound ? num / 3 : num
+      // Gemini reports the perceived pulse rate. For compound meters this is the
+      // dotted-quarter rate; for simple it is the quarter rate.
+      // secPerMeasure = beats_per_measure × seconds_per_beat
+      const tempoBased = beatsPerMeasure * (60 / bpm)
       if (tempoBased >= 1.0 && tempoBased <= 30.0) {
         secPerMeasure = tempoBased
-        secPerMeasureSource = 'tempo'
+        secPerMeasureSource = `tempo(${isCompound ? 'compound' : 'simple'},${beatsPerMeasure}beats)`
       }
     }
   }
