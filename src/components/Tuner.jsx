@@ -170,7 +170,7 @@ export default function TunerModal({ onClose }) {
         {!error && (
           <div className={styles.display}>
             <div className={styles.noteWrap}>
-              <span className={styles.noteName} style={{ color }}>
+              <span className={styles.noteName}>
                 {note ? note.name : '—'}
               </span>
               {note && <sup className={styles.noteOctave}>{note.octave}</sup>}
