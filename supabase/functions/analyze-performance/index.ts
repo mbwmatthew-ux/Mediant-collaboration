@@ -35,6 +35,8 @@ interface AudioEvent {
   confidence: number
   loudness?: string | null     // "soft" | "medium" | "loud"
   articulation?: string | null // optional shape hint
+  pitch_hz?: number | null     // raw Hz from CREPE (sub-semitone precision)
+  cents_offset?: number | null // deviation from nearest semitone, -50..+50 ¢
 }
 interface AudioTranscription {
   audio_duration_sec: number
@@ -455,7 +457,11 @@ async function compareAndCoach(
     const heard = (eventsByMeasure.get(m.number) ?? [])
       .map(e => {
         const offsetSec = (e.time_sec - mStart).toFixed(2)
-        return `${e.pitches.join('/')} @ +${offsetSec}s${e.loudness ? ' [' + e.loudness + ']' : ''}`
+        // Append cents only when the deviation is musically meaningful (≥5¢)
+        const centsStr = (e.cents_offset != null && Math.abs(e.cents_offset) >= 5)
+          ? ` (${e.cents_offset > 0 ? '+' : ''}${e.cents_offset}¢)`
+          : ''
+        return `${e.pitches.join('/')}${centsStr} @ +${offsetSec}s${e.loudness ? ' [' + e.loudness + ']' : ''}`
       })
       .join(', ')
     return `Measure ${m.number}:\n  WRITTEN: ${written}\n  HEARD:   ${heard || '(no events)'}`
@@ -474,12 +480,19 @@ ${measureBlocks}
 Tempo: ${tempo.bpm ?? '?'} BPM, ${tempo.steadiness ?? '?'}.
 Key: ${score.key_signature ?? '?'}. Time signature: ${score.time_signature ?? '?'}.
 
+CENTS NOTATION: Numbers like "(+32¢)" or "(-18¢)" after a pitch mean the student's pitch deviated from the nearest semitone by that many cents. 100¢ = 1 semitone.
+- ±5–15¢: imperceptible to most listeners
+- ±15–30¢: noticeable, worth mentioning
+- ±30–45¢: clearly out of tune, significant issue
+- ±45–50¢: borderline between two semitones — may be a wrong note entirely
+
 YOUR TASK:
 Identify 1–4 issues that are reasonably supported by the data above. Order of preference for what to flag:
-1. **Specific pitch mismatch** (e.g. written B♭3 on beat 1, heard B♮3 — sharp by a half-step). When you can cite this, do so.
-2. **Rhythm/timing patterns** — look at the HEARD event offsets within each measure. Events should be evenly spaced relative to the time signature. Uneven gaps (e.g., first note rushed, or long silence) = timing flag. Cite the specific +Ns offset that looks off.
-3. **Coverage gaps** — a measure that says "(no events)" or has very few events may indicate hesitation, dropped notes, or a stop-and-restart.
-4. **Tempo issues overall** (e.g. tempo too slow/fast, steadiness "wavering").
+1. **Specific intonation issue** — if a pitch shows a cents deviation ≥15¢, flag it by name. E.g. "D3 was +38¢ (sharp) on beat 2 of measure 9". If deviation is ≥30¢, this is your top priority flag.
+2. **Pitch mismatch** (e.g. written B♭3 on beat 1, heard B♮3 — sharp by a half-step). When you can cite this, do so.
+3. **Rhythm/timing patterns** — look at the HEARD event offsets within each measure. Events should be evenly spaced relative to the time signature. Uneven gaps (e.g., first note rushed, or long silence) = timing flag. Cite the specific +Ns offset that looks off.
+4. **Coverage gaps** — a measure that says "(no events)" or has very few events may indicate hesitation, dropped notes, or a stop-and-restart.
+5. **Tempo issues overall** (e.g. tempo too slow/fast, steadiness "wavering").
 
 HARD RULES:
 - Every "measure" field MUST be one of: [${validMeasuresList.join(', ')}].
@@ -606,7 +619,7 @@ function buildAlignmentRanges(
 
 interface ModalAudioResult {
   audio_duration_sec: number
-  events: Array<AudioEvent & { measure?: number; end_sec?: number; midi?: number; source?: string }>
+  events: Array<AudioEvent & { measure?: number; end_sec?: number; midi?: number; pitch_hz?: number; cents_offset?: number; source?: string }>
   tempo_estimate_bpm: number | null
   tempo_steadiness: string | null
   beat_times: number[]
@@ -772,6 +785,8 @@ serve(async (req) => {
           confidence:   e.confidence,
           loudness:     e.loudness ?? null,
           articulation: null,
+          pitch_hz:     e.pitch_hz    ?? null,
+          cents_offset: e.cents_offset ?? null,
         }))
 
         audio = {
