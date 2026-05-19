@@ -314,33 +314,48 @@ function anchorAndAlign(
   }
 
   // Anchor: student recordings start when they start playing, so events[0] ≈ startMeasure.
-  // Pitch-matching is fragile (notes may be empty); just use the first event.
   const tAnchor = audio.events[0].time_sec
 
-  // secPerMeasure: primary = audio duration / measure count (reliable for practice recordings).
-  // Only override with tempo-based estimate if duration/count gives an unreasonable value.
+  // secPerMeasure: tempo-based is PRIMARY — the score's marked tempo tells us how long
+  // each measure lasts and is more reliable than duration/visible_count, because the score
+  // photo shows the whole page even though the student only played a portion of it.
   const playedDuration = Math.max(1, audio.audio_duration_sec - tAnchor)
-  const visibleCount   = score.measures.length
-  let secPerMeasure    = playedDuration / visibleCount
+  let secPerMeasure: number
+  let secPerMeasureSource = 'fallback'
 
   if (audio.tempo_estimate_bpm && score.time_signature) {
     const bpm = audio.tempo_estimate_bpm
     const [num, denom] = score.time_signature.split('/').map(s => parseInt(s, 10))
     if (num && denom) {
+      // bpm = quarter-note BPM (standard). measure_seconds = (num/denom) * 4 * (60/bpm)
       const tempoBased = (num / denom) * (60 / bpm) * 4
-      // Prefer tempo only when duration/count is pathological and tempo is sane
-      if ((secPerMeasure < 1.0 || secPerMeasure > 20.0) && tempoBased >= 1.0 && tempoBased <= 20.0) {
+      if (tempoBased >= 1.0 && tempoBased <= 30.0) {
         secPerMeasure = tempoBased
+        secPerMeasureSource = 'tempo'
       }
     }
   }
-  secPerMeasure = Math.max(1.0, Math.min(20.0, secPerMeasure))
-  console.log('[anchorAndAlign] duration/count secPerMeasure:', (playedDuration / visibleCount).toFixed(2), 'tempoEstimate:', audio.tempo_estimate_bpm, 'using:', secPerMeasure.toFixed(2))
 
-  // Bucket events to measures — clamp to valid range rather than dropping.
-  // This keeps events even when secPerMeasure is slightly off.
-  const validMeasures = new Set(score.measures.map(m => m.number))
-  const lastMeasure = score.measures[score.measures.length - 1].number
+  // Fallback: only when tempo unavailable. Use a generous per-measure default (4s) rather
+  // than dividing by visible_count — the score photo may show many more measures than played.
+  if (!secPerMeasure!) {
+    // Prefer 4s if no tempo; clamp to sane range based on duration
+    secPerMeasure = Math.min(playedDuration / 2, 4.0)
+    secPerMeasureSource = 'default-4s'
+  }
+  secPerMeasure = Math.max(1.0, Math.min(30.0, secPerMeasure))
+
+  // KEY FIX: estimate how many measures the student actually played and cap validMeasures
+  // to that range. The score photo may show 40+ measures but the student played 8.
+  const estimatedMeasuresPlayed = Math.ceil(playedDuration / secPerMeasure)
+  const lastPlayedMeasureNum    = Math.min(
+    startMeasure + estimatedMeasuresPlayed - 1,
+    score.measures[score.measures.length - 1].number,
+  )
+  console.log('[anchorAndAlign] secPerMeasure:', secPerMeasure.toFixed(2), 'source:', secPerMeasureSource, '| tempoEstimate:', audio.tempo_estimate_bpm, '| estimatedMeasures:', estimatedMeasuresPlayed, '| lastPlayed:', lastPlayedMeasureNum)
+
+  const validMeasures = new Set(score.measures.filter(m => m.number <= lastPlayedMeasureNum).map(m => m.number))
+  const lastMeasure   = lastPlayedMeasureNum
   const aligned: AlignedEvent[] = []
   for (const ev of audio.events) {
     const mRaw = startMeasure + Math.round((ev.time_sec - tAnchor) / secPerMeasure)
