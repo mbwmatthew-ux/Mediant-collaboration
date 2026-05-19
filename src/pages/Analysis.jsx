@@ -4,32 +4,6 @@ import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
-// ── Hardcoded fallback (shown when no takeId in URL) ──────────────────────
-
-const MOCK_FLAGS = {
-  timing: {
-    tag: 'Measure 16 · Timing',
-    title: 'Left hand enters early',
-    body: 'The left hand arrives just ahead of the beat here. Slow this entrance down and count aloud before bringing it back up to tempo. Try isolating the left hand through measures 14–17 until the arrival feels natural and unhurried.',
-  },
-  dynamics: {
-    tag: 'Measure 28 · Dynamics',
-    title: 'Phrase settles too early',
-    body: 'The dynamic line softens before the phrase actually ends. Keep the line moving through the final note — the resolution should arrive at the cadence, not before it. Think of this as a long exhale, not a quick release.',
-  },
-  voicing: {
-    tag: 'Measure 33 · Voicing',
-    title: 'Inner voices too prominent',
-    body: 'The middle voices are slightly louder than the melody, which blurs the harmonic texture. Bring the top line forward and let the inner voices recede — try exaggerated melody weight until the balance becomes instinctive.',
-  },
-}
-
-const MOCK_CHIPS = [
-  { flag: 'timing',   label: 'm.16 · Timing' },
-  { flag: 'dynamics', label: 'm.28 · Dynamics' },
-  { flag: 'voicing',  label: 'm.33 · Voicing' },
-]
-
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
 function timeAgo(iso) {
@@ -191,7 +165,7 @@ export default function Analysis() {
     if (scoreReady) return
     if (isVisualScore) { setScoreReady(true); return }
 
-    const pieceTitle = take?.piece_title ?? 'Clair de Lune'
+    const pieceTitle = take?.piece_title ?? ''
     const scoreFile  = scoreUrl ?? scoreFileForPiece(pieceTitle)
 
     if (!scoreFile) {
@@ -201,7 +175,7 @@ export default function Analysis() {
 
     const flagMeasures = take?.flags?.length
       ? new Map(take.flags.map((f, i) => [f.measure, `flag_${i}`]))
-      : new Map([[16, 'timing'], [28, 'dynamics'], [33, 'voicing']])
+      : new Map()
 
     const osmd = new OpenSheetMusicDisplay(scoreEl.current, {
       autoResize: true,
@@ -276,8 +250,8 @@ export default function Analysis() {
         body: JSON.stringify({
           message: msg,
           context: {
-            pieceTitle:      take?.piece_title    ?? 'Clair de Lune',
-            pieceComposer:   take?.piece_composer ?? 'Claude Debussy',
+            pieceTitle:      take?.piece_title    ?? '',
+            pieceComposer:   take?.piece_composer ?? '',
             score:           take?.score,
             flags:           take?.flags ?? [],
             activeFlag:      flagContext ?? null,
@@ -297,10 +271,6 @@ export default function Analysis() {
     }
   }
 
-  // Derive FLAGS map and chips.
-  // Only fall back to mock data when take itself is null/undefined (no real take loaded).
-  // If take loaded but flags is empty, show an empty list — not fake data.
-  const hasRealTake = take !== null && take !== undefined
   const flagsMap = take?.flags?.length
     ? Object.fromEntries(
         take.flags.map((f, i) => [
@@ -308,14 +278,14 @@ export default function Analysis() {
           { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.body },
         ])
       )
-    : (hasRealTake ? {} : MOCK_FLAGS)
+    : {}
 
   const chips = take?.flags?.length
     ? take.flags.map((f, i) => ({ flag: `flag_${i}`, label: `m.${f.measure} · ${capitalize(f.type)}` }))
-    : (hasRealTake ? [] : MOCK_CHIPS)
+    : []
 
-  const pieceTitle    = take?.piece_title    ?? 'Clair de Lune'
-  const pieceComposer = take?.piece_composer ?? 'Claude Debussy'
+  const pieceTitle    = take?.piece_title    ?? ''
+  const pieceComposer = take?.piece_composer ?? ''
   const instrument    = take?.instrument     ?? null
   const issueCount    = chips.length
   const score         = take?.score
@@ -334,6 +304,21 @@ export default function Analysis() {
         <div className={styles.analyzeScreen}>
           <div className={styles.analyzeIcon}>♩</div>
           <p className={styles.analyzeSub}>Loading your analysis…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (take === null) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.analyzeScreen}>
+          <div className={styles.analyzeIcon}>♩</div>
+          <p className={styles.analyzeTitle}>No recording yet</p>
+          <p className={styles.analyzeSub}>Upload a recording to see your score review here.</p>
+          <button className={styles.primaryBtn} style={{ marginTop: 16 }} onClick={() => nav('/record')}>
+            Upload a recording →
+          </button>
         </div>
       </div>
     )
@@ -361,7 +346,7 @@ export default function Analysis() {
 
       <div className={styles.issueStrip}>
         <span className={styles.issueStripLabel}>Issues:</span>
-        {hasRealTake && chips.length === 0
+        {chips.length === 0
           ? <span className={styles.issueStripHint}>No issues detected — performance looks clean.</span>
           : <>
               {chips.map(({ flag, label }) => (
@@ -438,7 +423,7 @@ export default function Analysis() {
               {!hasScore && scoreReady && (
                 <div className={styles.scoreUnavailable}>
                   <p>Score not available for <em>{pieceTitle}</em> yet.</p>
-                  <p>Coaching feedback above is based on the AI's audio analysis.</p>
+                  <p>Coaching feedback above is based on the audio analysis.</p>
                 </div>
               )}
               <div style={{ position: 'relative' }}>
