@@ -634,7 +634,7 @@ async function callModalWorker(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(290_000),  // just under Modal's 300s
+    signal: AbortSignal.timeout(90_000),  // 90s: cold start + processing; fallback to Gemini if slow
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '(no body)')

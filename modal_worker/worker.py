@@ -173,8 +173,11 @@ def run_pitch_tracking(wav_bytes: bytes) -> list[dict]:
                 continue
 
             freqs = f0[mask]
-            probs = voiced_prob[mask]
-            dominant_hz = float(np.average(freqs[freqs > 0], weights=probs[freqs > 0] + 1e-6))
+            probs = voiced_prob[mask]  # already filtered — do NOT re-apply mask
+            valid = freqs > 0
+            if not valid.any():
+                continue
+            dominant_hz = float(np.average(freqs[valid], weights=probs[valid] + 1e-6))
             midi = int(np.round(librosa.hz_to_midi(dominant_hz)))
             midi = max(36, min(96, midi))  # C2–C7
 
@@ -184,7 +187,7 @@ def run_pitch_tracking(wav_bytes: bytes) -> list[dict]:
             rms = float(np.sqrt(np.mean(y[s:e] ** 2))) if e > s else 0.0
             loudness = "loud" if rms > 0.15 else "medium" if rms > 0.04 else "soft"
 
-            confidence = int(min(100, float(np.mean(probs[mask])) * 100))
+            confidence = int(min(100, float(np.mean(probs)) * 100))
 
             events.append({
                 "time_sec": float(onset_t),
