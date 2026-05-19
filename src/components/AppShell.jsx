@@ -3,12 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useState, useEffect, useRef } from 'react'
 import styles from './AppShell.module.css'
 
-const NOTIFICATIONS = [
-  { id: 1, title: 'Score review ready', body: 'Clair de Lune analysis is complete — 3 issues found.', time: '2m ago', unread: true,  icon: '◫' },
-  { id: 2, title: 'Practice streak: 7 days!', body: 'You\'ve practiced every day this week. Keep it up.', time: '1h ago', unread: true,  icon: '🔥' },
-  { id: 3, title: 'New feedback available', body: 'Bach Invention No. 8 · Timing in measures 4–6.', time: 'Yesterday', unread: false, icon: '♩' },
-  { id: 4, title: 'Session saved', body: 'Gymnopédie No. 1 · 12 min · Score 91/100', time: 'May 13', unread: false, icon: '✓' },
-]
+const NOTIFICATIONS = []
 
 
 const NAV = [
@@ -301,19 +296,27 @@ export default function AppShell() {
                     )}
                   </div>
                   <div className={styles.dropdownList}>
-                    {notifications.map(n => (
-                      <div key={n.id} className={`${styles.notifRow} ${n.unread ? styles.notifUnread : ''}`}>
-                        <span className={styles.notifIcon}>{n.icon}</span>
-                        <div className={styles.notifBody}>
-                          <strong className={styles.notifTitle}>{n.title}</strong>
-                          <p className={styles.notifText}>{n.body}</p>
-                          <span className={styles.notifTime}>{n.time}</span>
-                        </div>
-                        {n.unread && <span className={styles.unreadPip} />}
+                    {notifications.length === 0 ? (
+                      <div className={styles.dropdownFooter} style={{ padding: '20px 16px', textAlign: 'center' }}>
+                        No notifications yet
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className={`${styles.notifRow} ${n.unread ? styles.notifUnread : ''}`}>
+                          <span className={styles.notifIcon}>{n.icon}</span>
+                          <div className={styles.notifBody}>
+                            <strong className={styles.notifTitle}>{n.title}</strong>
+                            <p className={styles.notifText}>{n.body}</p>
+                            <span className={styles.notifTime}>{n.time}</span>
+                          </div>
+                          {n.unread && <span className={styles.unreadPip} />}
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <div className={styles.dropdownFooter}>Only showing the last 30 days</div>
+                  {notifications.length > 0 && (
+                    <div className={styles.dropdownFooter}>Only showing the last 30 days</div>
+                  )}
                 </div>
               )}
             </div>
