@@ -162,15 +162,16 @@ def run_pitch_tracking(wav_bytes: bytes, guide_times: list[float] | None = None)
         y16 = librosa.resample(y, orig_sr=SR, target_sr=CREPE_SR)
         audio_tensor = torch.from_numpy(y16).unsqueeze(0).float()  # (1, N)
 
-        # Use the full model for higher fidelity. This is slower than "tiny" but
-        # much better aligned with Mediant's "fewer misses, higher trust" goal.
+        # Dense event sampling already improved coverage substantially. Use the
+        # smaller CREPE model here so ~1 minute takes finish reliably in
+        # production instead of timing out mid-analysis.
         pitch, periodicity = torchcrepe.predict(
             audio_tensor,
             CREPE_SR,
             CREPE_HOP,
             fmin=32.70,    # C1 — well below cello low C
             fmax=2093.0,   # C7 — covers violin high E
-            model="full",
+            model="small",
             batch_size=256,
             device="cpu",
             decoder=torchcrepe.decode.weighted_argmax,
