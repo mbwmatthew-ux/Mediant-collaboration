@@ -186,12 +186,19 @@ export default function Record() {
         let realDetails = []
         try {
           if (fnError?.context) {
-            const body = await fnError.context.json()
-            if (body?.error) realError = body.error
-            if (Array.isArray(body?.analysisQuality?.reasons)) {
-              realDetails = body.analysisQuality.reasons
-            } else if (Array.isArray(body?.suggestions)) {
-              realDetails = body.suggestions
+            const rawText = await fnError.context.text()
+            if (rawText) {
+              try {
+                const body = JSON.parse(rawText)
+                if (body?.error) realError = body.error
+                if (Array.isArray(body?.analysisQuality?.reasons)) {
+                  realDetails = body.analysisQuality.reasons
+                } else if (Array.isArray(body?.suggestions)) {
+                  realDetails = body.suggestions
+                }
+              } catch {
+                realError = rawText
+              }
             }
           }
         } catch { /* ignore */ }
