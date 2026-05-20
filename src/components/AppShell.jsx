@@ -11,7 +11,6 @@ const NAV = [
   { to: '/search',   label: 'Find Music',       icon: SearchIcon },
   { to: '/record',   label: 'Upload Take',      icon: UploadIcon },
   { to: '/analysis', label: 'Score Review',     icon: ScoreIcon },
-  { to: '/follow',   label: 'Follow Along',     icon: PlayIcon },
   { to: '/summary',  label: 'Session Summary',  icon: SummaryIcon },
   { to: '/takes',    label: 'Saved Takes',      icon: SavedIcon },
 ]
@@ -212,18 +211,6 @@ export default function AppShell() {
                     ))}
                   </div>
                 )}
-
-                <button
-                  className={styles.acctRow}
-                  onClick={() => { setPanel(null); nav('/follow') }}
-                >
-                  <span className={`${styles.acctRowIcon} ${styles.iconMuted}`}>▶</span>
-                  <div className={styles.acctRowText}>
-                    <span className={styles.acctRowLabel}>Follow-along guide</span>
-                    <span className={styles.acctRowSub}>Open the practice loop feature</span>
-                  </div>
-                  <span className={styles.acctRowChevron}>›</span>
-                </button>
 
                 <a
                   className={styles.acctRow}

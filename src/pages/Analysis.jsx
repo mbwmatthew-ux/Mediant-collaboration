@@ -355,7 +355,6 @@ export default function Analysis() {
         </div>
         <div className={styles.headerActions}>
           <button className={styles.ghostBtn} onClick={() => nav('/record')}>Re-upload</button>
-          <button className={styles.primaryBtn} onClick={() => nav('/follow')}>Follow Along ▶</button>
         </div>
       </div>
 
@@ -523,11 +522,6 @@ export default function Analysis() {
                       </span>
                     </div>
                   </div>
-                )}
-
-                {/* Fallback when no timestamps yet */}
-                {(!videoUrl || !hasTimestamps) && (
-                  <button className={styles.loopBtn} onClick={() => nav('/follow')}>Loop this section</button>
                 )}
 
                 <button className={styles.dismissBtn} onClick={() => setActiveFlag(null)}>Dismiss</button>

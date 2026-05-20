@@ -10,7 +10,6 @@ const FEATURES = [
   'Unlimited recording uploads',
   'Score alignment & analysis',
   'Measure-by-measure feedback',
-  'Follow Along playback coach',
   'Session summaries & history',
   'Saved takes library',
   'Text prompt coaching',

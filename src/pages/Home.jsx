@@ -90,7 +90,7 @@ export default function Home() {
           { label: 'My Library',   sub: pieceCount > 0 ? `${pieceCount} piece${pieceCount !== 1 ? 's' : ''}` : 'Add your sheet music', to: '/search'   },
           { label: 'Upload Take',  sub: 'Submit a recording',   to: '/record'   },
           { label: 'Score Review', sub: recentSessions.length > 0 ? 'View last analysis' : 'No sessions yet', to: '/analysis' },
-          { label: 'Follow Along', sub: 'Live score guidance',  to: '/follow'   },
+          { label: 'Saved Takes',  sub: 'View all recordings',  to: '/takes'    },
         ].map(({ label, sub, to }) => (
           <button key={to} className={styles.actionTile} onClick={() => nav(to)}>
             <strong className={styles.actionTileLabel}>{label}</strong>

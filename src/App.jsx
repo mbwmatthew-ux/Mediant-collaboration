@@ -11,7 +11,6 @@ import Home from './pages/Home'
 import Search from './pages/Search'
 import Record from './pages/Record'
 import Analysis from './pages/Analysis'
-import FollowAlong from './pages/FollowAlong'
 import Summary from './pages/Summary'
 import Takes from './pages/Takes'
 import Profile from './pages/Profile'
@@ -31,7 +30,6 @@ export default function App() {
             <Route path="/search"   element={<Search />} />
             <Route path="/record"   element={<Record />} />
             <Route path="/analysis" element={<Analysis />} />
-            <Route path="/follow"   element={<FollowAlong />} />
             <Route path="/summary"  element={<Summary />} />
             <Route path="/takes"    element={<Takes />} />
             <Route path="/profile"  element={<Profile />} />

@@ -11,10 +11,6 @@ const FEATURES = [
     body: 'Receive warm, specific feedback that sounds like a teacher, not a metronome app. Mediant understands musical context and phrasing.',
   },
   {
-    title: 'Follow Along Playback',
-    body: 'Practice with a live moving playhead that tracks your score row by row — highlighting trouble spots as they come up.',
-  },
-  {
     title: 'Session History',
     body: 'Every take is saved and scored. Track which passages improved over time and see exactly where your practice is paying off.',
   },
