@@ -183,8 +183,8 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             </div>
             <div className={styles.formRowGroup}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>Key</label>
-                <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D♭ major" />
+                <label className={styles.formLabel}>Key <span className={styles.formRequired}>— enter manually</span></label>
+                <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D minor, B♭ major" />
               </div>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>Time</label>
