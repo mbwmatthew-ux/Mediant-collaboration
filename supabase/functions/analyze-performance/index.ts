@@ -1095,7 +1095,7 @@ serve(async (req) => {
         analysisQuality,
         suggestions: improvementSuggestions(analysisQuality),
       }), {
-        status: 422,
+        status: 200,
         headers: { 'Content-Type': 'application/json', ...CORS },
       })
     }
@@ -1148,7 +1148,7 @@ serve(async (req) => {
   } catch (err) {
     console.error('[analyze-performance] error:', (err as Error).message)
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 400,
+      status: 200,
       headers: { 'Content-Type': 'application/json', ...CORS },
     })
   }
