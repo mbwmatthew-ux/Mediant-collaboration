@@ -86,9 +86,9 @@ export default function Search() {
           onChange={e => setQuery(e.target.value)}
           autoFocus
         />
-        {(instruments.length >= 2 || eras.length >= 2 || difficulties.length >= 2) && (
+        {userPieces.length > 0 && (
           <div className={styles.toolbarFilters}>
-            {instruments.length >= 2 && (
+            {instruments.length >= 1 && (
               <div className={styles.filterGroup}>
                 <span className={styles.filterGroupLabel}>Instrument</span>
                 <div className={styles.filterStrip}>
@@ -106,7 +106,7 @@ export default function Search() {
                 </div>
               </div>
             )}
-            {eras.length >= 2 && (
+            {eras.length >= 1 && (
               <div className={styles.filterGroup}>
                 <span className={styles.filterGroupLabel}>Era</span>
                 <div className={styles.filterStrip}>
@@ -124,7 +124,7 @@ export default function Search() {
                 </div>
               </div>
             )}
-            {difficulties.length >= 2 && (
+            {difficulties.length >= 1 && (
               <div className={styles.filterGroup}>
                 <span className={styles.filterGroupLabel}>Level</span>
                 <div className={styles.filterStrip}>
