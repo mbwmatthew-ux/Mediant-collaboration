@@ -12,6 +12,17 @@ const CORS = {
 const GEMINI_MODEL = 'gemini-2.5-pro'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const MODAL_TIMEOUT_MS = 105_000
+// Gemini eval runs in parallel with Modal. Budget: 150s total limit
+// minus ~15s for Claude coaching = 135s; we cap Gemini at 85s so
+// Promise.all always resolves before Modal's 105s deadline.
+const GEMINI_EVAL_TIMEOUT_MS = 85_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -287,6 +298,63 @@ Return JSON only (no markdown):
 }
 
 // ── Step 2: Gemini transcribes the audio into pitch events ────────────────
+
+// Stream video from a signed URL directly to Gemini without loading full bytes into memory.
+async function uploadVideoToGeminiFromUrl(videoUrl: string, mimeType: string, apiKey: string): Promise<string> {
+  const videoRes = await fetch(videoUrl)
+  if (!videoRes.ok) throw new Error(`Video fetch for Gemini failed: ${videoRes.status}`)
+  if (!videoRes.body) throw new Error('Video response has no readable body')
+
+  const boundary = `gem_${Date.now()}`
+  const CRLF = '\r\n'
+  const metadata = JSON.stringify({ file: { displayName: 'practice-recording' } })
+  const pre  = `--${boundary}${CRLF}Content-Type: application/json; charset=UTF-8${CRLF}${CRLF}${metadata}${CRLF}--${boundary}${CRLF}Content-Type: ${mimeType}${CRLF}${CRLF}`
+  const post = `${CRLF}--${boundary}--`
+  const preB  = new TextEncoder().encode(pre)
+  const postB = new TextEncoder().encode(post)
+
+  const videoBody = videoRes.body
+  const stream = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(preB)
+      const reader = videoBody.getReader()
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          controller.enqueue(value)
+        }
+      } finally {
+        reader.releaseLock()
+      }
+      controller.enqueue(postB)
+      controller.close()
+    },
+  })
+
+  const headers: Record<string, string> = { 'Content-Type': `multipart/related; boundary=${boundary}` }
+  const rawLength = videoRes.headers.get('content-length')
+  if (rawLength) headers['Content-Length'] = String(preB.length + Number(rawLength) + postB.length)
+
+  const uploadRes = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}&uploadType=multipart`,
+    { method: 'POST', headers, body: stream },
+  )
+  if (!uploadRes.ok) throw new Error(`Gemini upload failed: ${await uploadRes.text()}`)
+  const { file } = await uploadRes.json()
+
+  const fileId = (file.name as string).split('/').pop()!
+  let state: string = file.state
+  let attempts = 0
+  while (state === 'PROCESSING' && attempts < 15) {
+    await new Promise(r => setTimeout(r, 3000))
+    const pollRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`)
+    state = (await pollRes.json()).state
+    attempts++
+  }
+  if (state !== 'ACTIVE') throw new Error(`Gemini file never became active (state: ${state})`)
+  return file.uri as string
+}
 
 async function uploadVideoToGemini(videoBytes: Uint8Array, mimeType: string, apiKey: string): Promise<string> {
   const boundary = `gem_${Date.now()}`
@@ -1027,28 +1095,37 @@ serve(async (req) => {
       : Promise.resolve(null)
 
     // ── Download score bytes in parallel with Modal ──────────────────────
-    // Avoid downloading/uploading the full video to Gemini on the normal
-    // Modal path; that extra media pass can push Supabase Edge runtime over
-    // its limit on longer recordings.
     const [scoreBlobRes, videoBlobRes] = await Promise.all([
       isVisualScore && scorePath
         ? admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
         : Promise.resolve({ data: null }),
-      // Always download video — needed for Gemini direct eval (runs in parallel with Modal)
-      admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
+      // Only download video bytes when Modal is unavailable (Gemini fallback path).
+      // On the Modal path we stream from the signed URL → no large buffer in memory.
+      modalUrl && videoSignedUrl
+        ? Promise.resolve({ data: null })
+        : admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
     ])
     const scoreBytesForClaude = scoreBlobRes.data
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
     const videoBytes = videoBlobRes.data
       ? new Uint8Array(await videoBlobRes.data.arrayBuffer()) : null
 
-    // ── Gemini direct eval (runs in parallel with Modal on every path) ────
-    const geminiUploadPromise: Promise<string | null> = (videoBytes && googleApiKey)
-      ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-          .catch(err => {
-            console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
-            return null
-          })
+    // ── Gemini direct eval — streams from signed URL when Modal is available,
+    //    falls back to uploading downloaded bytes when Modal is not.
+    const geminiUploadPromise: Promise<string | null> = googleApiKey
+      ? (videoSignedUrl
+          ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
+              .catch(err => {
+                console.error('[analyze-performance] Gemini stream upload failed:', (err as Error).message)
+                return null
+              })
+          : videoBytes
+            ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+                .catch(err => {
+                  console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
+                  return null
+                })
+            : Promise.resolve(null))
       : Promise.resolve(null)
 
     const geminiEvalPromise: Promise<GeminiAssessment | null> = geminiUploadPromise.then(fileUri =>
@@ -1078,8 +1155,14 @@ serve(async (req) => {
       : Promise.resolve({ key_signature: null, time_signature: null, tempo_marking: null, measures: [] })
 
     // ── Await all three parallel tasks ────────────────────────────────────
+    // Gemini eval is capped at GEMINI_EVAL_TIMEOUT_MS so it never holds up
+    // the response beyond the Supabase Edge 150s hard limit. If it finishes
+    // in time its observations become the primary coaching signal; if it
+    // times out, Modal + Claude still produce a full analysis.
     const [workerResult, scoreResult, geminiEval] = await Promise.all([
-      modalPromise, scorePromise, geminiEvalPromise,
+      modalPromise,
+      scorePromise,
+      withTimeout(geminiEvalPromise, GEMINI_EVAL_TIMEOUT_MS, null),
     ])
     geminiAssessment = geminiEval
     console.log('[analyze-performance] parallel done | Modal:', workerResult ? 'ok' : 'null',
