@@ -4,17 +4,16 @@ import UploadPieceModal from '../components/UploadPieceModal'
 import PieceDetailPanel from '../components/PieceDetailPanel'
 import styles from './Page.module.css'
 
-const INSTRUMENTS    = ['All', 'Piano', 'Violin', 'Cello', 'Viola', 'Guitar', 'Flute', 'Clarinet', 'Trumpet', 'Saxophone', 'Oboe', 'Horn', 'Harp']
-const ERA_FILTERS    = ['All eras', 'Baroque', 'Classical', 'Romantic', 'Modern']
-const DIFF_FILTERS   = ['Any level', 'Beginner', 'Intermediate', 'Advanced']
 const difficultyColor = { Beginner: 'green', Intermediate: 'gold', Advanced: 'coral' }
+
+function unique(arr) { return [...new Set(arr.filter(Boolean))].sort() }
 
 export default function Search() {
   const { user } = useAuth()
   const [query,      setQuery]      = useState('')
-  const [instrument, setInstrument] = useState('All')
-  const [era,        setEra]        = useState('All eras')
-  const [difficulty, setDifficulty] = useState('Any level')
+  const [instrument, setInstrument] = useState(null)
+  const [era,        setEra]        = useState(null)
+  const [difficulty, setDifficulty] = useState(null)
   const [userPieces, setUserPieces] = useState(() => {
     try { return JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]') }
     catch { return [] }
@@ -30,16 +29,20 @@ export default function Search() {
     setUserPieces(prev => [piece, ...prev])
   }
 
+  const instruments  = unique(userPieces.map(p => p.instrument))
+  const eras         = unique(userPieces.map(p => p.era))
+  const difficulties = unique(userPieces.map(p => p.difficulty))
+
   const results = userPieces.filter(p => {
     if (query) {
       const q = query.toLowerCase()
-      if (!p.title.toLowerCase().includes(q) &&
-          !p.composer.toLowerCase().includes(q) &&
-          !p.instrument.toLowerCase().includes(q)) return false
+      if (!p.title?.toLowerCase().includes(q) &&
+          !p.composer?.toLowerCase().includes(q) &&
+          !p.instrument?.toLowerCase().includes(q)) return false
     }
-    if (instrument !== 'All'       && p.instrument !== instrument) return false
-    if (era        !== 'All eras'  && p.era        !== era)        return false
-    if (difficulty !== 'Any level' && p.difficulty !== difficulty) return false
+    if (instrument && p.instrument !== instrument) return false
+    if (era        && p.era        !== era)        return false
+    if (difficulty && p.difficulty !== difficulty) return false
     return true
   })
 
@@ -83,44 +86,64 @@ export default function Search() {
           onChange={e => setQuery(e.target.value)}
           autoFocus
         />
-        <div className={styles.toolbarFilters}>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterGroupLabel}>Instrument</span>
-            <div className={styles.filterStrip}>
-              {INSTRUMENTS.map(f => (
-                <button
-                  key={f}
-                  className={`${styles.filterChip} ${instrument === f ? styles.filterChipActive : ''}`}
-                  onClick={() => setInstrument(f)}
-                >{f}</button>
-              ))}
-            </div>
+        {(instruments.length >= 2 || eras.length >= 2 || difficulties.length >= 2) && (
+          <div className={styles.toolbarFilters}>
+            {instruments.length >= 2 && (
+              <div className={styles.filterGroup}>
+                <span className={styles.filterGroupLabel}>Instrument</span>
+                <div className={styles.filterStrip}>
+                  <button
+                    className={`${styles.filterChip} ${!instrument ? styles.filterChipActive : ''}`}
+                    onClick={() => setInstrument(null)}
+                  >All</button>
+                  {instruments.map(f => (
+                    <button
+                      key={f}
+                      className={`${styles.filterChip} ${instrument === f ? styles.filterChipActive : ''}`}
+                      onClick={() => setInstrument(instrument === f ? null : f)}
+                    >{f}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {eras.length >= 2 && (
+              <div className={styles.filterGroup}>
+                <span className={styles.filterGroupLabel}>Era</span>
+                <div className={styles.filterStrip}>
+                  <button
+                    className={`${styles.filterChip} ${!era ? styles.filterChipActive : ''}`}
+                    onClick={() => setEra(null)}
+                  >All eras</button>
+                  {eras.map(f => (
+                    <button
+                      key={f}
+                      className={`${styles.filterChip} ${era === f ? styles.filterChipActive : ''}`}
+                      onClick={() => setEra(era === f ? null : f)}
+                    >{f}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {difficulties.length >= 2 && (
+              <div className={styles.filterGroup}>
+                <span className={styles.filterGroupLabel}>Level</span>
+                <div className={styles.filterStrip}>
+                  <button
+                    className={`${styles.filterChip} ${!difficulty ? styles.filterChipActive : ''}`}
+                    onClick={() => setDifficulty(null)}
+                  >Any level</button>
+                  {difficulties.map(f => (
+                    <button
+                      key={f}
+                      className={`${styles.filterChip} ${difficulty === f ? styles.filterChipActive : ''}`}
+                      onClick={() => setDifficulty(difficulty === f ? null : f)}
+                    >{f}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterGroupLabel}>Era</span>
-            <div className={styles.filterStrip}>
-              {ERA_FILTERS.map(f => (
-                <button
-                  key={f}
-                  className={`${styles.filterChip} ${era === f ? styles.filterChipActive : ''}`}
-                  onClick={() => setEra(f)}
-                >{f}</button>
-              ))}
-            </div>
-          </div>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterGroupLabel}>Level</span>
-            <div className={styles.filterStrip}>
-              {DIFF_FILTERS.map(f => (
-                <button
-                  key={f}
-                  className={`${styles.filterChip} ${difficulty === f ? styles.filterChipActive : ''}`}
-                  onClick={() => setDifficulty(f)}
-                >{f}</button>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className={styles.sectionHeader}>
