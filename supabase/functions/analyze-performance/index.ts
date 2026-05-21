@@ -299,63 +299,6 @@ Return JSON only (no markdown):
 
 // ── Step 2: Gemini transcribes the audio into pitch events ────────────────
 
-// Stream video from a signed URL directly to Gemini without loading full bytes into memory.
-async function uploadVideoToGeminiFromUrl(videoUrl: string, mimeType: string, apiKey: string): Promise<string> {
-  const videoRes = await fetch(videoUrl)
-  if (!videoRes.ok) throw new Error(`Video fetch for Gemini failed: ${videoRes.status}`)
-  if (!videoRes.body) throw new Error('Video response has no readable body')
-
-  const boundary = `gem_${Date.now()}`
-  const CRLF = '\r\n'
-  const metadata = JSON.stringify({ file: { displayName: 'practice-recording' } })
-  const pre  = `--${boundary}${CRLF}Content-Type: application/json; charset=UTF-8${CRLF}${CRLF}${metadata}${CRLF}--${boundary}${CRLF}Content-Type: ${mimeType}${CRLF}${CRLF}`
-  const post = `${CRLF}--${boundary}--`
-  const preB  = new TextEncoder().encode(pre)
-  const postB = new TextEncoder().encode(post)
-
-  const videoBody = videoRes.body
-  const stream = new ReadableStream({
-    async start(controller) {
-      controller.enqueue(preB)
-      const reader = videoBody.getReader()
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          controller.enqueue(value)
-        }
-      } finally {
-        reader.releaseLock()
-      }
-      controller.enqueue(postB)
-      controller.close()
-    },
-  })
-
-  const headers: Record<string, string> = { 'Content-Type': `multipart/related; boundary=${boundary}` }
-  const rawLength = videoRes.headers.get('content-length')
-  if (rawLength) headers['Content-Length'] = String(preB.length + Number(rawLength) + postB.length)
-
-  const uploadRes = await fetch(
-    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}&uploadType=multipart`,
-    { method: 'POST', headers, body: stream },
-  )
-  if (!uploadRes.ok) throw new Error(`Gemini upload failed: ${await uploadRes.text()}`)
-  const { file } = await uploadRes.json()
-
-  const fileId = (file.name as string).split('/').pop()!
-  let state: string = file.state
-  let attempts = 0
-  while (state === 'PROCESSING' && attempts < 15) {
-    await new Promise(r => setTimeout(r, 3000))
-    const pollRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`)
-    state = (await pollRes.json()).state
-    attempts++
-  }
-  if (state !== 'ACTIVE') throw new Error(`Gemini file never became active (state: ${state})`)
-  return file.uri as string
-}
-
 async function uploadVideoToGemini(videoBytes: Uint8Array, mimeType: string, apiKey: string): Promise<string> {
   const boundary = `gem_${Date.now()}`
   const metadata = JSON.stringify({ file: { displayName: 'practice-recording' } })
@@ -985,19 +928,27 @@ async function callModalWorker(
   workerUrl: string,
   payload: Record<string, unknown>,
 ): Promise<ModalWorkerResult> {
-  const res = await fetch(workerUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    // Stay below Supabase Edge's request ceiling so we can return a controlled
-    // JSON response instead of the platform killing the request as a non-2xx.
-    signal: AbortSignal.timeout(MODAL_TIMEOUT_MS),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '(no body)')
-    throw new Error(`Modal worker HTTP ${res.status}: ${text.slice(0, 300)}`)
+  // Use a manual AbortController instead of AbortSignal.timeout() — the static
+  // method has reliability issues in some Deno versions used by Supabase Edge.
+  const ac = new AbortController()
+  const tid = setTimeout(() => ac.abort(), MODAL_TIMEOUT_MS)
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+    })
+    clearTimeout(tid)
+    if (!res.ok) {
+      const text = await res.text().catch(() => '(no body)')
+      throw new Error(`Modal worker HTTP ${res.status}: ${text.slice(0, 300)}`)
+    }
+    return res.json() as Promise<ModalWorkerResult>
+  } catch (err) {
+    clearTimeout(tid)
+    throw err
   }
-  return res.json() as Promise<ModalWorkerResult>
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────
@@ -1110,22 +1061,20 @@ serve(async (req) => {
     const videoBytes = videoBlobRes.data
       ? new Uint8Array(await videoBlobRes.data.arrayBuffer()) : null
 
-    // ── Gemini direct eval — streams from signed URL when Modal is available,
-    //    falls back to uploading downloaded bytes when Modal is not.
-    const geminiUploadPromise: Promise<string | null> = googleApiKey
-      ? (videoSignedUrl
-          ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
+    // ── Gemini direct eval — only fires when Modal is unavailable. ────────
+    // On the Modal path, CREPE provides sub-semitone pitch accuracy and beat-
+    // precise alignment — the streaming video upload to Gemini creates
+    // background I/O that Deno waits to drain, pushing total time past 150s.
+    // On the fallback path (no Modal), Gemini is both transcriber and evaluator.
+    const runGeminiEval = !modalUrl || !videoSignedUrl
+    const geminiUploadPromise: Promise<string | null> = (runGeminiEval && googleApiKey)
+      ? (videoBytes
+          ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
               .catch(err => {
-                console.error('[analyze-performance] Gemini stream upload failed:', (err as Error).message)
+                console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
                 return null
               })
-          : videoBytes
-            ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-                .catch(err => {
-                  console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
-                  return null
-                })
-            : Promise.resolve(null))
+          : Promise.resolve(null))
       : Promise.resolve(null)
 
     const geminiEvalPromise: Promise<GeminiAssessment | null> = geminiUploadPromise.then(fileUri =>
