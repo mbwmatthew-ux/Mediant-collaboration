@@ -946,13 +946,19 @@ serve(async (req) => {
 
     // Determine score type
     const XML_MIMES = new Set(['application/vnd.recordare.musicxml+xml', 'application/vnd.recordare.musicxml', 'text/xml', 'application/xml'])
+    const scorePathLower = String(scorePath ?? '').toLowerCase()
     const isXmlScore = scoreMimeType && (
       XML_MIMES.has(scoreMimeType) ||
-      scoreMimeType === 'application/octet-stream' && (
-        scorePath?.endsWith('.xml') || scorePath?.endsWith('.musicxml') || scorePath?.endsWith('.mxl')
-      )
+      scorePathLower.endsWith('.xml') ||
+      scorePathLower.endsWith('.musicxml') ||
+      scorePathLower.endsWith('.mxl')
     )
-    const isVisualScore = scoreMimeType && VISUAL_SCORE_TYPES.has(scoreMimeType)
+    const isVisualScore = Boolean(scoreMimeType && VISUAL_SCORE_TYPES.has(scoreMimeType)) ||
+      scorePathLower.endsWith('.pdf') ||
+      scorePathLower.endsWith('.png') ||
+      scorePathLower.endsWith('.jpg') ||
+      scorePathLower.endsWith('.jpeg') ||
+      scorePathLower.endsWith('.webp')
 
     const modalUrl = Deno.env.get('MODAL_WORKER_URL')
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
@@ -971,6 +977,7 @@ serve(async (req) => {
         scoreSignedUrl = sSigned?.signedUrl ?? null
       }
     }
+    const shouldPreferWorkerScore = Boolean(modalUrl && videoSignedUrl && scoreSignedUrl && (isXmlScore || isVisualScore))
 
     let score: ScoreReading = { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
     let audio: AudioTranscription = { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null }
@@ -1025,8 +1032,10 @@ serve(async (req) => {
 
     const geminiEvalPromise: Promise<GeminiAssessment | null> = Promise.resolve(null)
 
-    // ── Claude reads score in parallel (score bytes already downloaded) ───
-    const scorePromise: Promise<ScoreReading> = (scoreBytesForClaude && isVisualScore)
+    // ── Claude reads score only when the worker cannot attempt structured parsing.
+    // If Modal has the score URL, let Audiveris/music21 try first; Claude becomes
+    // a fallback only if OMR/structured parsing returns no usable measures.
+    const scorePromise: Promise<ScoreReading> = (scoreBytesForClaude && isVisualScore && !shouldPreferWorkerScore)
       ? readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
           .catch(err => {
             console.error('[analyze-performance] readScoreNotes threw:', (err as Error).message)
@@ -1094,6 +1103,17 @@ serve(async (req) => {
     } else {
       if (workerResult?.error) console.error('[analyze-performance] Modal error:', workerResult.error)
       console.log('[analyze-performance] Modal unavailable — falling back to Gemini transcription')
+    }
+
+    if (score.measures.length === 0 && scoreBytesForClaude && isVisualScore) {
+      console.warn('[analyze-performance] structured score parsing unavailable — falling back to Claude visual score reading')
+      score = await readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
+        .catch(err => {
+          console.error('[analyze-performance] Claude visual fallback threw:', (err as Error).message)
+          return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
+        })
+      beatsPerMeasure = beatsPerMeasureFromTimeSig(score.time_signature ?? tSig)
+      console.log('[analyze-performance] Claude visual fallback measures:', score.measures.length)
     }
 
     // ── Path B: Gemini transcription fallback ─────────────────────────────
