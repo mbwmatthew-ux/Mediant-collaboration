@@ -52,11 +52,18 @@ Preferred path:
 - CREPE pitch tracking
 - librosa beat/onset tracking
 - music21 MusicXML parsing when available
+- Audiveris OMR conversion for visual scores (PDF/images) before parsing
 
 Files:
 
 - `modal_worker/worker.py`
 - `modal_worker/deploy.sh`
+
+Score-reading order:
+
+- MusicXML / MXL upload -> parse directly with `music21`
+- PDF / image upload -> convert to MXL with Audiveris, then parse with `music21`
+- If structured parsing fails -> fall back to Claude visual reading
 
 Fallback path:
 
@@ -124,6 +131,7 @@ For the best current results:
 - prefer short solo excerpts
 - prefer cleaner recordings
 - prefer MusicXML / MXL over score photos
+- if using a PDF or photo, use a clean, straight, high-contrast score image
 - avoid over-promising precision when the system is in fallback mode
 
 ## Near-term roadmap
@@ -137,7 +145,8 @@ Make the Modal worker the default measurement engine and reduce reliance on Gemi
 Narrow “accurate mode” to the strongest cases:
 
 - MusicXML / MXL
-- short excerpts
+- clean PDF/image scores that Audiveris can convert into MXL
+- short excerpts with correct start/end measure hints
 - solo instrument performance
 
 ### Priority 3

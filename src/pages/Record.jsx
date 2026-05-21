@@ -338,7 +338,7 @@ export default function Record() {
                 <>
                   <span className={styles.dropzoneIcon}>♩</span>
                   <strong>Photo, PDF, or MusicXML</strong>
-                  <span className={styles.dropzoneSub}>Take a photo of your sheet music or drag a file here</span>
+                  <span className={styles.dropzoneSub}>MusicXML/MXL is most accurate; clean PDFs/photos are converted first</span>
                 </>
               )}
             </div>

@@ -31,10 +31,15 @@ app = modal.App("mediant-worker")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install(
+        "curl",
+        "ca-certificates",
         "ffmpeg",
         "libsndfile1",
+        "libxtst6",
     )
     .run_commands(
+        # Audiveris converts visual scores (PDF/images) into MusicXML/MXL.
+        "curl -L -o /tmp/audiveris.deb https://github.com/Audiveris/audiveris/releases/download/5.10.2/Audiveris-5.10.2-ubuntu22.04-x86_64.deb && dpkg-deb -x /tmp/audiveris.deb / && if [ -x /opt/audiveris/bin/Audiveris ]; then ln -sf /opt/audiveris/bin/Audiveris /usr/local/bin/audiveris; elif [ -x /opt/audiveris/bin/audiveris ]; then ln -sf /opt/audiveris/bin/audiveris /usr/local/bin/audiveris; else find /opt -iname '*audiveris*' -maxdepth 4; exit 1; fi && audiveris -version && rm /tmp/audiveris.deb",
         # Install torch + torchaudio CPU-only together so torchaudio doesn't pull CUDA libs
         "pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu",
         "pip install torchcrepe",
@@ -60,10 +65,38 @@ MIDI_TO_NAME = [
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 ]
 
+VISUAL_SCORE_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff")
+VISUAL_SCORE_MIMES = {
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/tiff",
+}
+
 def midi_to_scientific(midi: int) -> str:
     octave = (midi // 12) - 1
     name = MIDI_TO_NAME[midi % 12]
     return f"{name}{octave}"
+
+
+def is_musicxml_score(score_mime: str, score_url: str) -> bool:
+    score_mime_lower = (score_mime or "").lower()
+    score_url_lower = (score_url or "").lower().split("?")[0]
+    return (
+        "musicxml" in score_mime_lower
+        or "xml" in score_mime_lower
+        or score_url_lower.endswith(".xml")
+        or score_url_lower.endswith(".musicxml")
+        or score_url_lower.endswith(".mxl")
+    )
+
+
+def is_visual_score(score_mime: str, score_url: str) -> bool:
+    score_mime_lower = (score_mime or "").lower()
+    score_url_lower = (score_url or "").lower().split("?")[0]
+    return score_mime_lower in VISUAL_SCORE_MIMES or score_url_lower.endswith(VISUAL_SCORE_EXTENSIONS)
 
 # ── Core functions ─────────────────────────────────────────────────────────
 
@@ -385,13 +418,10 @@ def parse_musicxml(score_bytes: bytes, start_measure: int) -> dict:
 
             for el in m.flatten().notesAndRests:
                 if isinstance(el, m21.note.Rest):
-                    notes_out.append({
-                        "pitch": "rest",   # literal string, not None — consistent with image-score reader
-                        "beat": float(el.beat),
-                        "duration_beats": float(el.duration.quarterLength),
-                        "articulation": None,
-                        "dynamic": None,
-                    })
+                    # Rests are intentionally ignored in this version. False
+                    # rest detection creates bad coaching, and sounded-note
+                    # feedback is the trustworthy core of the product.
+                    continue
                 elif isinstance(el, m21.note.Note):
                     artic = None
                     if el.articulations:
@@ -436,6 +466,103 @@ def parse_musicxml(score_bytes: bytes, start_measure: int) -> dict:
         return {"error": str(e), "measures": []}
     finally:
         os.unlink(xml_path)
+
+
+def extract_musicxml_from_mxl(mxl_bytes: bytes) -> bytes | None:
+    import zipfile, io
+
+    with zipfile.ZipFile(io.BytesIO(mxl_bytes)) as zf:
+        xml_files = [
+            name for name in zf.namelist()
+            if name.lower().endswith(".xml") and "meta-inf" not in name.lower()
+        ]
+        if not xml_files:
+            return None
+        return zf.read(xml_files[0])
+
+
+def find_exported_musicxml(output_dir: str) -> str | None:
+    import os
+
+    candidates: list[str] = []
+    for root, _, files in os.walk(output_dir):
+        for filename in files:
+            lower = filename.lower()
+            if lower.endswith((".mxl", ".musicxml", ".xml")) and "container.xml" not in lower:
+                candidates.append(os.path.join(root, filename))
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda path: (0 if path.lower().endswith(".mxl") else 1, len(path)))
+    return candidates[0]
+
+
+def convert_visual_score_to_musicxml(score_bytes: bytes, score_mime: str, start_measure: int) -> dict:
+    """
+    Convert a PDF/image score to MusicXML with Audiveris, then parse it with music21.
+    Returns the same ScoreResult shape as parse_musicxml.
+    """
+    import os
+    import subprocess
+    import tempfile
+
+    suffix = ".pdf"
+    score_mime_lower = (score_mime or "").lower()
+    if "png" in score_mime_lower:
+        suffix = ".png"
+    elif "jpeg" in score_mime_lower or "jpg" in score_mime_lower:
+        suffix = ".jpg"
+    elif "webp" in score_mime_lower:
+        suffix = ".webp"
+    elif "tiff" in score_mime_lower:
+        suffix = ".tif"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, f"score{suffix}")
+        output_dir = os.path.join(tmpdir, "audiveris-output")
+        os.makedirs(output_dir, exist_ok=True)
+        with open(input_path, "wb") as f:
+            f.write(score_bytes)
+
+        command = [
+            "audiveris",
+            "-batch",
+            "-transcribe",
+            "-export",
+            "-output",
+            output_dir,
+            "--",
+            input_path,
+        ]
+        print("[audiveris] running OMR conversion")
+        result = subprocess.run(command, capture_output=True, text=True, timeout=240)
+        if result.returncode != 0:
+            stderr = (result.stderr or result.stdout or "").strip()
+            print(f"[audiveris] failed: {stderr[:1000]}")
+            return {
+                "error": f"Audiveris failed: {stderr[:500] or 'no output'}",
+                "measures": [],
+                "source": "audiveris",
+            }
+
+        exported_path = find_exported_musicxml(output_dir)
+        if not exported_path:
+            print("[audiveris] no MusicXML/MXL export found")
+            return {"error": "Audiveris produced no MusicXML export", "measures": [], "source": "audiveris"}
+
+        print(f"[audiveris] exported {exported_path}")
+        with open(exported_path, "rb") as f:
+            exported_bytes = f.read()
+
+        if exported_path.lower().endswith(".mxl") or exported_bytes[:4] == b"PK\x03\x04":
+            extracted = extract_musicxml_from_mxl(exported_bytes)
+            if not extracted:
+                return {"error": "Audiveris MXL export had no XML payload", "measures": [], "source": "audiveris"}
+            exported_bytes = extracted
+
+        parsed = parse_musicxml(exported_bytes, start_measure)
+        parsed["source"] = "audiveris+music21"
+        return parsed
 
 
 def assign_events_to_measures(
@@ -539,34 +666,26 @@ def analyze(body: dict) -> dict:
 
         score_result = None
         if score_url:
-            score_mime_lower = score_mime.lower()
-            is_xml = (
-                "musicxml" in score_mime_lower
-                or "xml" in score_mime_lower
-                or score_url.lower().endswith(".xml")
-                or score_url.lower().endswith(".musicxml")
-                or score_url.lower().endswith(".mxl")
-            )
-            if is_xml:
-                print("[analyze] downloading and parsing MusicXML score")
-                with httpx.Client(timeout=60) as client:
-                    score_resp = client.get(score_url, follow_redirects=True)
-                    score_resp.raise_for_status()
-                    score_bytes = score_resp.content
+            print("[analyze] downloading score from signed URL")
+            with httpx.Client(timeout=90) as client:
+                score_resp = client.get(score_url, follow_redirects=True)
+                score_resp.raise_for_status()
+                score_bytes = score_resp.content
+            print(f"[analyze] score downloaded: {len(score_bytes):,} bytes, mime={score_mime or '(unknown)'}")
+
+            if is_musicxml_score(score_mime, score_url):
+                print("[analyze] parsing structured MusicXML/MXL score")
 
                 if score_url.lower().endswith(".mxl") or score_bytes[:4] == b"PK\x03\x04":
-                    import zipfile, io
-                    with zipfile.ZipFile(io.BytesIO(score_bytes)) as zf:
-                        xml_files = [n for n in zf.namelist() if n.endswith(".xml") and "META-INF" not in n]
-                        if xml_files:
-                            score_bytes = zf.read(xml_files[0])
-                        else:
-                            score_bytes = None
+                    score_bytes = extract_musicxml_from_mxl(score_bytes)
 
                 if score_bytes:
                     score_result = parse_musicxml(score_bytes, start_measure)
+            elif is_visual_score(score_mime, score_url):
+                print("[analyze] visual score detected; converting with Audiveris OMR")
+                score_result = convert_visual_score_to_musicxml(score_bytes, score_mime, start_measure)
             else:
-                print(f"[analyze] score MIME '{score_mime}' is not MusicXML — skipping music21 parse")
+                print(f"[analyze] score MIME '{score_mime}' is not supported for score parsing")
 
         return {
             "audio": audio_result,

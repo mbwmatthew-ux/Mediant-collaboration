@@ -984,7 +984,7 @@ serve(async (req) => {
     const modalPromise: Promise<ModalWorkerResult | null> = (modalUrl && videoSignedUrl)
       ? callModalWorker(modalUrl, {
           video_url:     videoSignedUrl,
-          score_url:     isXmlScore && scoreSignedUrl ? scoreSignedUrl : undefined,
+          score_url:     (isXmlScore || isVisualScore) && scoreSignedUrl ? scoreSignedUrl : undefined,
           score_mime:    scoreMimeType ?? undefined,
           instrument:    instrument ?? 'instrument',
           start_measure: safeStart,
@@ -1060,7 +1060,7 @@ serve(async (req) => {
           measures:       workerResult.score.measures,
         }
         beatsPerMeasure = beatsPerMeasureFromTimeSig(score.time_signature ?? tSig)
-        console.log('[analyze-performance] Modal music21 score:', score.measures.length, 'measures')
+        console.log('[analyze-performance] Modal score:', score.measures.length, 'measures, source:', workerResult.score.source)
         console.log('[analyze-performance] beats per measure from Modal score:', beatsPerMeasure, '| time signature:', score.time_signature ?? tSig)
       }
 
