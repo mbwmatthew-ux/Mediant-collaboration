@@ -109,6 +109,18 @@ function extractJsonObject(raw: string): unknown | null {
   try { return JSON.parse(stripped.slice(start, end + 1)) } catch { return null }
 }
 
+function beatsPerMeasureFromTimeSig(timeSig: string | null | undefined): number {
+  const match = String(timeSig ?? '').trim().match(/^(\d+)\s*\/\s*(\d+)$/)
+  if (!match) return 4
+
+  const num = parseInt(match[1], 10)
+  const denom = parseInt(match[2], 10)
+  if (!Number.isFinite(num) || !Number.isFinite(denom) || num <= 0 || denom <= 0) return 4
+
+  const isCompound = num % 3 === 0 && num / 3 >= 2 && denom >= 8
+  return isCompound ? Math.max(1, Math.round(num / 3)) : num
+}
+
 function assessAnalysisQuality(
   score: ScoreReading,
   audio: AudioTranscription,
@@ -431,7 +443,7 @@ function anchorAndAlign(
   const lastMeasure   = lastPlayedMeasureNum
   const aligned: AlignedEvent[] = []
   for (const ev of audio.events) {
-    const mRaw = startMeasure + Math.round((ev.time_sec - tAnchor) / secPerMeasure)
+    const mRaw = startMeasure + Math.floor(Math.max(0, ev.time_sec - tAnchor) / secPerMeasure)
     const m = Math.max(startMeasure, Math.min(lastMeasure, mRaw))
     if (validMeasures.has(m)) aligned.push({ ...ev, measure: m })
   }
@@ -640,31 +652,31 @@ Return JSON only (no markdown):
 
 // ── Beat-level alignment (used when Modal worker returns beat_times) ─────────
 
-function alignWithBeats(
+function alignWithBeatGrid(
   events: AudioEvent[],
   beatTimes: number[],
   beatsPerMeasure: number,
   startMeasure: number,
   endMeasure: number | null,
-): AlignedEvent[] {
-  if (!beatTimes.length || !events.length) return []
+): { aligned: AlignedEvent[]; secPerMeasure: number } {
+  if (!events.length) return { aligned: [], secPerMeasure: 4 }
   const maxMeasure = endMeasure ?? Infinity
+
+  let avgBeatSec = 1
+  if (beatTimes.length >= 2) {
+    avgBeatSec = (beatTimes[beatTimes.length - 1] - beatTimes[0]) / (beatTimes.length - 1)
+  }
+  const secPerMeasure = Math.max(1, Math.min(30, avgBeatSec * beatsPerMeasure))
+  const anchorTime = events[0].time_sec
 
   const aligned: AlignedEvent[] = []
   for (const ev of events) {
-    const t = ev.time_sec
-    // Find the last beat that started at or before this event
-    let beatIdx = 0
-    for (let i = 0; i < beatTimes.length; i++) {
-      if (beatTimes[i] <= t) beatIdx = i
-      else break
-    }
-    const measureOffset = Math.floor(beatIdx / beatsPerMeasure)
+    const measureOffset = Math.floor(Math.max(0, ev.time_sec - anchorTime) / secPerMeasure)
     const measure = startMeasure + measureOffset
     if (measure > maxMeasure) continue
     aligned.push({ ...ev, measure })
   }
-  return aligned
+  return { aligned, secPerMeasure }
 }
 
 function buildAlignmentRanges(
@@ -860,14 +872,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Compute beats_per_measure for alignment
     const tSig = (timeSig ?? '4/4').toString()
-    let beatsPerMeasure = 4
-    try {
-      const [num, denom] = tSig.split('/').map(Number)
-      const isCompound = num % 3 === 0 && num / 3 >= 2 && denom >= 8
-      beatsPerMeasure = isCompound ? Math.round(num / 3) : num
-    } catch { /* keep 4 */ }
+    let beatsPerMeasure = beatsPerMeasureFromTimeSig(tSig)
 
     // Determine score type
     const XML_MIMES = new Set(['application/vnd.recordare.musicxml+xml', 'application/vnd.recordare.musicxml', 'text/xml', 'application/xml'])
@@ -981,9 +987,23 @@ serve(async (req) => {
     if (scoreResult.measures.length > 0) {
       score = scoreResult
     }
+    beatsPerMeasure = beatsPerMeasureFromTimeSig(score.time_signature ?? tSig)
+    console.log('[analyze-performance] beats per measure:', beatsPerMeasure, '| time signature:', score.time_signature ?? tSig)
 
     // ── Path A: process Modal result ──────────────────────────────────────
     if (workerResult && !workerResult.error && workerResult.audio) {
+      if (workerResult.score && !workerResult.score.error && (workerResult.score.measures?.length ?? 0) > 0) {
+        score = {
+          key_signature:  workerResult.score.key_signature,
+          time_signature: workerResult.score.time_signature,
+          tempo_marking:  workerResult.score.tempo_marking,
+          measures:       workerResult.score.measures,
+        }
+        beatsPerMeasure = beatsPerMeasureFromTimeSig(score.time_signature ?? tSig)
+        console.log('[analyze-performance] Modal music21 score:', score.measures.length, 'measures')
+        console.log('[analyze-performance] beats per measure from Modal score:', beatsPerMeasure, '| time signature:', score.time_signature ?? tSig)
+      }
+
       const wa = workerResult.audio
       const rawEvents: AudioEvent[] = wa.events.map(e => ({
         time_sec:     e.time_sec,
@@ -1003,26 +1023,14 @@ serve(async (req) => {
       }
 
       const beatTimes = wa.beat_times ?? []
-      if (beatTimes.length > 0) {
-        aligned = alignWithBeats(rawEvents, beatTimes, beatsPerMeasure, safeStart, safeEnd)
-        if (beatTimes.length >= 2) {
-          const avgBeatSec = (beatTimes[beatTimes.length - 1] - beatTimes[0]) / (beatTimes.length - 1)
-          secPerMeasure = avgBeatSec * beatsPerMeasure
-        }
+      if (rawEvents.length > 0) {
+        const result = alignWithBeatGrid(rawEvents, beatTimes, beatsPerMeasure, safeStart, safeEnd)
+        aligned = result.aligned
+        secPerMeasure = result.secPerMeasure
         alignmentRanges = buildAlignmentRanges(aligned, secPerMeasure)
         console.log('[analyze-performance] Modal beat alignment:', aligned.length, 'events, secPerMeasure', secPerMeasure.toFixed(2))
       }
       usedModal = true
-
-      if (workerResult.score && !workerResult.score.error && (workerResult.score.measures?.length ?? 0) > 0) {
-        score = {
-          key_signature:  workerResult.score.key_signature,
-          time_signature: workerResult.score.time_signature,
-          tempo_marking:  workerResult.score.tempo_marking,
-          measures:       workerResult.score.measures,
-        }
-        console.log('[analyze-performance] Modal music21 score:', score.measures.length, 'measures')
-      }
     } else {
       if (workerResult?.error) console.error('[analyze-performance] Modal error:', workerResult.error)
       console.log('[analyze-performance] Modal unavailable — falling back to Gemini transcription')

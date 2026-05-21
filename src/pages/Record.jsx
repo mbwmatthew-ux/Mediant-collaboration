@@ -29,6 +29,7 @@ export default function Record() {
   const [composer,      setComposer]      = useState('')
   const [instrument,    setInstrument]    = useState('')
   const [part,          setPart]          = useState('')
+  const [timeSig,       setTimeSig]       = useState('4/4')
   const [startMeasure,  setStartMeasure]  = useState('')
   const [endMeasure,    setEndMeasure]    = useState('')
 
@@ -81,6 +82,7 @@ export default function Record() {
       const data = await res.json()
       if (data.title)    setPieceTitle(data.title)
       if (data.composer) setComposer(data.composer)
+      if (data.time)     setTimeSig(data.time)
     } catch { /* silently skip — user can fill manually */ }
     finally { setOcrLoading(false) }
   }
@@ -149,7 +151,8 @@ export default function Record() {
         const { error: scoreErr } = await supabase.storage
           .from('sheet-music')
           .upload(sp, scoreFile, { contentType: scoreFile.type || 'application/octet-stream', upsert: false })
-        if (!scoreErr) scorePath = sp
+        if (scoreErr) throw new Error(`Sheet music upload failed: ${scoreErr.message}`)
+        scorePath = sp
       }
 
       clearInterval(progressTick)
@@ -172,7 +175,7 @@ export default function Record() {
           composer:       composer.trim() || undefined,
           instrument,
           part:           part.trim() || undefined,
-          timeSig:        '4/4',
+          timeSig:        timeSig.trim() || '4/4',
           startMeasure:   startMeasure || undefined,
           endMeasure:     endMeasure || undefined,
         },
@@ -393,6 +396,18 @@ export default function Record() {
             </div>
 
             <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Time signature</label>
+                <input
+                  className={styles.formInput}
+                  value={timeSig}
+                  onChange={e => setTimeSig(e.target.value)}
+                  placeholder="4/4"
+                />
+                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
+                  Used to keep measure numbers aligned.
+                </span>
+              </div>
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>Starting measure</label>
                 <input
