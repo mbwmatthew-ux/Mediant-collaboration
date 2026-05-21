@@ -157,7 +157,7 @@ def run_pitch_tracking(wav_bytes: bytes, guide_times: list[float] | None = None)
 
         # ── CREPE pitch tracking ───────────────────────────────────────────
         CREPE_SR  = 16000
-        CREPE_HOP = 160   # 10 ms per frame at 16 kHz (standard CREPE hop)
+        CREPE_HOP = 320   # 20 ms frames; accurate enough for coaching and much more reliable on longer takes
 
         y16 = librosa.resample(y, orig_sr=SR, target_sr=CREPE_SR)
         audio_tensor = torch.from_numpy(y16).unsqueeze(0).float()  # (1, N)
