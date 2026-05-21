@@ -14,6 +14,7 @@ import Analysis from './pages/Analysis'
 import Summary from './pages/Summary'
 import Takes from './pages/Takes'
 import Profile from './pages/Profile'
+import Coach from './pages/Coach'
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/analysis" element={<Analysis />} />
             <Route path="/summary"  element={<Summary />} />
             <Route path="/takes"    element={<Takes />} />
+            <Route path="/coach"    element={<Coach />} />
             <Route path="/profile"  element={<Profile />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
