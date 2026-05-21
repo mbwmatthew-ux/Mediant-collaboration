@@ -926,22 +926,26 @@ serve(async (req) => {
         })
       : Promise.resolve(null)
 
-    // ── Download score bytes + video bytes in parallel with Modal ─────────
-    // Video bytes are needed to upload to Gemini for direct listening evaluation.
+    // ── Download score bytes in parallel with Modal ──────────────────────
+    // Avoid downloading/uploading the full video to Gemini on the normal
+    // Modal path; that extra media pass can push Supabase Edge runtime over
+    // its limit on longer recordings.
     const [scoreBlobRes, videoBlobRes] = await Promise.all([
       isVisualScore && scorePath
         ? admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
         : Promise.resolve({ data: null }),
-      admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
+      modalUrl && videoSignedUrl
+        ? Promise.resolve({ data: null })
+        : admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
     ])
     const scoreBytesForClaude = scoreBlobRes.data
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
     const videoBytes = videoBlobRes.data
       ? new Uint8Array(await videoBlobRes.data.arrayBuffer()) : null
 
-    // ── Upload video to Gemini; chain direct-listening evaluation off it ──
-    // This runs in parallel with Modal (Modal started above). Gemini upload
-    // (~5s) + eval (~15s) finishes well before Modal (~60s).
+    // ── Gemini fallback setup ─────────────────────────────────────────────
+    // This only starts when Modal is unavailable. The high-trust path should
+    // finish from Modal measurement + score reading + Claude coaching.
     const geminiUploadPromise: Promise<string | null> = (videoBytes && googleApiKey)
       ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
           .catch(err => {
@@ -950,20 +954,7 @@ serve(async (req) => {
           })
       : Promise.resolve(null)
 
-    const geminiEvalPromise: Promise<GeminiAssessment | null> = geminiUploadPromise.then(fileUri =>
-      fileUri
-        ? evaluatePerformanceWithGemini(
-            fileUri, videoMimeType,
-            instrument ?? 'instrument',
-            pieceTitle  ?? 'this piece',
-            composer    ?? 'the composer',
-            safeStart, safeEnd, googleApiKey,
-          ).catch(err => {
-            console.error('[analyze-performance] Gemini eval threw:', (err as Error).message)
-            return null
-          })
-        : null
-    )
+    const geminiEvalPromise: Promise<GeminiAssessment | null> = Promise.resolve(null)
 
     // ── Claude reads score in parallel (score bytes already downloaded) ───
     const scorePromise: Promise<ScoreReading> = (scoreBytesForClaude && isVisualScore)
@@ -1038,7 +1029,19 @@ serve(async (req) => {
 
     // ── Path B: Gemini transcription fallback ─────────────────────────────
     if (!usedModal) {
-      const geminiFileUri = await geminiUploadPromise  // already resolved, no extra wait
+      let geminiFileUri = await geminiUploadPromise
+      if (!geminiFileUri && googleApiKey) {
+        const { data: fallbackVideoBlob } = await admin.storage.from('recordings').download(videoPath)
+        const fallbackVideoBytes = fallbackVideoBlob
+          ? new Uint8Array(await fallbackVideoBlob.arrayBuffer())
+          : null
+        geminiFileUri = fallbackVideoBytes
+          ? await uploadVideoToGemini(fallbackVideoBytes, videoMimeType, googleApiKey).catch(err => {
+              console.error('[analyze-performance] Gemini fallback upload failed:', (err as Error).message)
+              return null
+            })
+          : null
+      }
       if (!geminiFileUri) throw new Error('Video upload to Gemini failed and Modal worker is unavailable')
 
       audio = await transcribeAudio(geminiFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
