@@ -500,12 +500,20 @@
 
 /* ── Features ────────────────────────────────────────────── */
 .features {
-  padding: 80px 56px 80px;
+  padding: 80px 56px;
+}
+
+.featuresLayout {
+  align-items: start;
+  display: grid;
+  gap: 72px;
+  grid-template-columns: 280px 1fr;
+  max-width: 1100px;
 }
 
 .featuresHead {
-  margin-bottom: 52px;
-  max-width: 560px;
+  position: sticky;
+  top: 72px;
 }
 
 .sectionLabel {
@@ -521,61 +529,57 @@
 .featuresTitle {
   color: var(--text-inverse);
   font-family: "Iowan Old Style", Georgia, serif;
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-size: clamp(1.6rem, 2.5vw, 2.1rem);
   font-weight: 400;
   letter-spacing: -0.03em;
-  line-height: 1.1;
-  margin: 0 0 12px;
+  line-height: 1.15;
+  margin: 0 0 14px;
 }
 
 .featuresSub {
-  color: rgba(248,246,242,0.5);
-  font-size: 0.95rem;
-  line-height: 1.6;
+  color: rgba(248,246,242,0.45);
+  font-size: 0.9rem;
+  line-height: 1.65;
   margin: 0;
 }
 
-.featuresGrid {
-  display: grid;
-  gap: 1px;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 1100px;
+.featuresList {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255,255,255,0.08);
 }
 
-.featureCard {
-  background: rgba(255,255,255,0.03);
-  border-right: 1px solid rgba(255,255,255,0.07);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  padding: 28px 26px;
+.featuresItem {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 36px 1fr;
+  padding: 28px 0;
   transition: background 150ms ease;
 }
-.featureCard:hover { background: rgba(255,255,255,0.055); }
-.featureCard:nth-child(3n) { border-right: 0; }
-.featureCard:nth-child(n+4) { border-bottom: 0; }
+.featuresItem:hover .featureTitle { color: var(--gold); }
 
 .featureNum {
-  color: rgba(214,177,104,0.5);
-  display: block;
-  font-size: 0.72rem;
+  color: rgba(214,177,104,0.45);
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  margin-bottom: 14px;
+  padding-top: 3px;
 }
 
 .featureTitle {
   color: var(--text-inverse);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
+  transition: color 150ms ease;
 }
 
 .featureBody {
   color: rgba(248,246,242,0.5);
-  font-size: 0.87rem;
-  line-height: 1.65;
+  font-size: 0.88rem;
+  line-height: 1.68;
   margin: 0;
 }
 
@@ -828,8 +832,8 @@
   .previewWrap    { padding: 0 16px 48px; }
   .instrumentsWrap { padding: 20px 24px; flex-direction: column; align-items: flex-start; }
   .features       { padding: 60px 24px; }
-  .featuresGrid   { grid-template-columns: 1fr; }
-  .featureCard    { border-right: 0 !important; }
+  .featuresLayout { grid-template-columns: 1fr; gap: 36px; }
+  .featuresHead   { position: static; }
   .howItWorks     { padding: 60px 24px; }
   .steps          { grid-template-columns: 1fr; gap: 40px; }
   .stepConnector  { display: none; }

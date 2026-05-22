@@ -233,19 +233,23 @@ export default function Landing() {
 
       {/* Features */}
       <section className={styles.features}>
-        <div className={`${styles.featuresHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>What you get</p>
-          <h2 className={styles.featuresTitle}>Everything a serious practice session needs</h2>
-          <p className={styles.featuresSub}>From raw recording to actionable feedback in under a minute.</p>
-        </div>
-        <div className={styles.featuresGrid}>
-          {FEATURES.map((f, i) => (
-            <div key={f.title} className={`${styles.featureCard} ${styles.reveal}`} style={{ '--d': `${i * 70}ms` }}>
-              <span className={styles.featureNum}>0{i + 1}</span>
-              <h3 className={styles.featureTitle}>{f.title}</h3>
-              <p className={styles.featureBody}>{f.body}</p>
-            </div>
-          ))}
+        <div className={styles.featuresLayout}>
+          <div className={`${styles.featuresHead} ${styles.reveal}`}>
+            <p className={styles.sectionLabel}>What you get</p>
+            <h2 className={styles.featuresTitle}>Everything a serious practice session needs</h2>
+            <p className={styles.featuresSub}>From raw recording to actionable feedback in under a minute.</p>
+          </div>
+          <div className={styles.featuresList}>
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className={`${styles.featuresItem} ${styles.reveal}`} style={{ '--d': `${i * 60}ms` }}>
+                <span className={styles.featureNum}>0{i + 1}</span>
+                <div>
+                  <h3 className={styles.featureTitle}>{f.title}</h3>
+                  <p className={styles.featureBody}>{f.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
