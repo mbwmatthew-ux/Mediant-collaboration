@@ -594,8 +594,8 @@ async function compareAndCoach(
     const secPerBeat = mDur / Math.max(1, beatsPerMeasure)
 
     for (const e of events) {
-      // Flag intonation at ≥15¢ (noticeable to listeners) with ≥30% CREPE confidence.
-      if (e.cents_offset == null || Math.abs(e.cents_offset) < 15 || e.confidence < 30) continue
+      // Flag intonation at ≥10¢ (audible to trained ear) with ≥25% CREPE confidence.
+      if (e.cents_offset == null || Math.abs(e.cents_offset) < 10 || e.confidence < 25) continue
       const beat = Math.max(1, Number(((e.time_sec - mStart) / secPerBeat + 1).toFixed(2)))
       evidenceCandidates.push(
         `intonation | measure ${m.number} beat ${beat} | ${e.pitches.join('/')} is ${e.cents_offset > 0 ? '+' : ''}${e.cents_offset}¢ at ${e.time_sec.toFixed(2)}s`,
@@ -656,7 +656,9 @@ async function compareAndCoach(
     return `Measure ${m.number}:\n  WRITTEN: ${written}\n  HEARD:   ${heard || '(no events)'}`
   }).join('\n\n')
 
-  const validMeasuresList = Array.from(validMeasures).sort((a, b) => a - b)
+  // Only expose measures with real alignment ranges to Claude — prevents Claude from assigning
+  // flags to unplayed measures where the range lookup would fail and the flag would be dropped.
+  const validMeasuresList = alignmentRanges.map(r => r.measure).sort((a, b) => a - b)
   const geminiEvidence = buildGeminiAssessmentBlock(geminiAssessment)
   const crepeHasData = strongestEvidence.length > 0
 
@@ -752,10 +754,18 @@ Return JSON only (no markdown):
     if (String(f.type) === 'intonation' && !hasCentsCitation && !hasTimestampCitation) continue
     if (/(rest|silence|missing note|skipped measure|dropped note|coverage gap|no events)/i.test(String(f.raw_detail))) continue
 
-    const range = rangeMap.get(f.measure)
+    let resolvedMeasure = f.measure as number
+    let range = rangeMap.get(resolvedMeasure)
     if (!range) {
-      console.warn('[compareAndCoach] dropping flag without alignment range:', f.measure)
-      continue
+      // Claude assigned a measure outside the aligned set — snap to nearest played measure.
+      const nearest = alignmentRanges.reduce((best, r) =>
+        Math.abs(r.measure - resolvedMeasure) < Math.abs(best.measure - resolvedMeasure) ? r : best,
+        alignmentRanges[0],
+      )
+      if (!nearest) { console.warn('[compareAndCoach] no alignment ranges at all, dropping flag'); continue }
+      console.warn('[compareAndCoach] snapping flag measure', resolvedMeasure, '→', nearest.measure)
+      resolvedMeasure = nearest.measure
+      range = nearest
     }
 
     const beat = typeof f.beat === 'number' && Number.isFinite(f.beat) ? f.beat : null
@@ -771,7 +781,7 @@ Return JSON only (no markdown):
     }
 
     flags.push({
-      measure:         f.measure,
+      measure:         resolvedMeasure,
       beat,
       type:            String(f.type),
       title:           String(f.title),
