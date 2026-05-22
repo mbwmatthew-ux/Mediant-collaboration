@@ -11,17 +11,20 @@ const CORS = {
 
 const GEMINI_MODEL = 'gemini-2.5-pro'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
-// Hard wall for Modal worker fetch. AbortController cancels the network
-// request; withTimeout() guarantees Promise.all resolves even if the
-// abort doesn't fire correctly in some Deno environments.
-const MODAL_TIMEOUT_MS = 60_000
-// Gemini eval (fallback path only).
-const GEMINI_EVAL_TIMEOUT_MS = 75_000
-// Hard cap on the Claude coaching call so it never hangs the handler.
-const COACH_TIMEOUT_MS = 25_000
-// Top-level handler deadline — must be well under Supabase/Cloudflare's
-// hard 150s kill. All internal timeouts sum to well under this.
-const GLOBAL_TIMEOUT_MS = 110_000
+// Hard wall for Modal worker fetch. CREPE+download+FFmpeg takes 35-90s
+// for typical 0.5-2 min practice recordings on a warm container.
+// Supabase platform limit is 150s; 110s leaves 30s+ for coaching after.
+const MODAL_TIMEOUT_MS = 110_000
+// Gemini eval (fallback path only — when Modal is unavailable).
+const GEMINI_EVAL_TIMEOUT_MS = 100_000
+// Cap on the Claude score-reading call (runs in parallel with Modal).
+const SCORE_READ_TIMEOUT_MS = 15_000
+// Hard cap on the Claude coaching call.
+const COACH_TIMEOUT_MS = 20_000
+// Top-level hard deadline. Budget: max(110s Modal, 15s score) + 20s coach
+// + ~5s overhead = 135s worst case. 140s leaves 10s buffer under
+// Supabase's 150s platform limit.
+const GLOBAL_TIMEOUT_MS = 140_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([
@@ -162,12 +165,13 @@ function assessAnalysisQuality(
   geminiAssessment: GeminiAssessment | null,
 ): AnalysisQuality {
   const reasons: string[] = []
-  const readableMeasures = score.measures.filter(m => m.notes.length > 0).length
 
   if (!usedModal) {
     reasons.push('The dedicated transcription worker was unavailable, so the analysis fell back to a lower-trust transcription path.')
   }
-  if (readableMeasures < 2) {
+  // Count total measures including skeleton (empty-notes) measures — those still
+  // enable time-based alignment and rhythm feedback even without pitch data.
+  if (score.measures.length < 2) {
     reasons.push('The score could not be parsed into enough readable measures.')
   }
   if (audio.events.length < 8) {
@@ -179,12 +183,17 @@ function assessAnalysisQuality(
   if (alignmentRanges.length < 2) {
     reasons.push('The recording only aligned to a very small number of measures.')
   }
-  if (!geminiAssessment) {
+  // Gemini only runs on the fallback path (when Modal is unavailable).
+  // Not having it when Modal succeeded is expected — do not penalise.
+  if (!geminiAssessment && !usedModal) {
     reasons.push('Direct listening corroboration from Gemini was unavailable.')
   }
 
   if (reasons.length === 0) return { trust: 'high', canProceed: true, reasons }
-  if (reasons.length <= 2 && usedModal && readableMeasures >= 2 && aligned.length >= 8) {
+  // Allow medium-trust analysis when Modal ran, the score has a usable
+  // skeleton, and enough events were aligned — even if individual notes
+  // are sparse or Gemini wasn't run.
+  if (usedModal && score.measures.length >= 2 && aligned.length >= 8) {
     return { trust: 'medium', canProceed: true, reasons }
   }
   return { trust: 'low', canProceed: false, reasons }
@@ -585,7 +594,8 @@ async function compareAndCoach(
     const secPerBeat = mDur / Math.max(1, beatsPerMeasure)
 
     for (const e of events) {
-      if (e.cents_offset == null || Math.abs(e.cents_offset) < 30 || e.confidence < 45) continue
+      // Flag intonation at ≥10¢ (audible to trained ear) with ≥25% CREPE confidence.
+      if (e.cents_offset == null || Math.abs(e.cents_offset) < 10 || e.confidence < 25) continue
       const beat = Math.max(1, Number(((e.time_sec - mStart) / secPerBeat + 1).toFixed(2)))
       evidenceCandidates.push(
         `intonation | measure ${m.number} beat ${beat} | ${e.pitches.join('/')} is ${e.cents_offset > 0 ? '+' : ''}${e.cents_offset}¢ at ${e.time_sec.toFixed(2)}s`,
@@ -593,11 +603,11 @@ async function compareAndCoach(
     }
 
     const gaps = events.slice(1).map((e, i) => e.time_sec - events[i].time_sec).filter(g => g > 0)
-    if (gaps.length >= 4) {
+    if (gaps.length >= 3) {
       const sorted = [...gaps].sort((a, b) => a - b)
       const median = sorted[Math.floor(sorted.length / 2)]
       gaps.forEach((gap, i) => {
-        if (median > 0 && gap > median * 2.2 && gap > 0.8) {
+        if (median > 0 && gap > median * 1.8 && gap > 0.4) {
           const beat = Math.max(1, Number(((events[i].time_sec - mStart) / secPerBeat + 1).toFixed(2)))
           evidenceCandidates.push(
             `timing | measure ${m.number} near beat ${beat} | ${gap.toFixed(2)}s gap after ${events[i].pitches.join('/')} at ${events[i].time_sec.toFixed(2)}s`,
@@ -607,14 +617,17 @@ async function compareAndCoach(
     }
   }
 
-  const strongestEvidence = evidenceCandidates.slice(0, 8)
+  const strongestEvidence = evidenceCandidates.slice(0, 12)
   const hasGeminiEvidence = geminiAssessment && (
     geminiAssessment.intonation_issues.length > 0 ||
     geminiAssessment.rhythm_issues.length > 0 ||
     geminiAssessment.technique_issues.length > 0
   )
-  if (strongestEvidence.length === 0 && !hasGeminiEvidence) {
-    console.warn('[compareAndCoach] no measurable evidence candidates and no Gemini observations; returning no flags')
+  // Only bail early when there are genuinely no events to analyze at all.
+  // If HEARD data exists with cents values, always pass it to Claude for review.
+  const totalPlayedEvents = playedMeasures.reduce((sum, m) => sum + (eventsByMeasure.get(m.number) ?? []).length, 0)
+  if (strongestEvidence.length === 0 && !hasGeminiEvidence && totalPlayedEvents < 3) {
+    console.warn('[compareAndCoach] no evidence and no events; returning no flags')
     return []
   }
 
@@ -643,7 +656,9 @@ async function compareAndCoach(
     return `Measure ${m.number}:\n  WRITTEN: ${written}\n  HEARD:   ${heard || '(no events)'}`
   }).join('\n\n')
 
-  const validMeasuresList = Array.from(validMeasures).sort((a, b) => a - b)
+  // Only expose measures with real alignment ranges to Claude — prevents Claude from assigning
+  // flags to unplayed measures where the range lookup would fail and the flag would be dropped.
+  const validMeasuresList = alignmentRanges.map(r => r.measure).sort((a, b) => a - b)
   const geminiEvidence = buildGeminiAssessmentBlock(geminiAssessment)
   const crepeHasData = strongestEvidence.length > 0
 
@@ -656,7 +671,7 @@ IMPORTANT: In the WRITTEN column, "(unreadable notehead)" means the score had a 
 ${measureBlocks}
 
 ${crepeHasData ? `MEASURABLE ISSUE CANDIDATES (from pitch/timing analysis):
-${strongestEvidence.map((e, i) => `${i + 1}. ${e}`).join('\n')}` : 'MEASURABLE ISSUE CANDIDATES: (pitch analysis did not produce specific candidates for this recording — rely on direct listening below)'}
+${strongestEvidence.map((e, i) => `${i + 1}. ${e}`).join('\n')}` : 'MEASURABLE ISSUE CANDIDATES: (auto-threshold not reached — examine the cents values and timing offsets in the HEARD column above directly to identify issues)'}
 
 Tempo: ${tempo.bpm ?? '?'} BPM, ${tempo.steadiness ?? '?'}.
 Key: ${score.key_signature ?? '?'}. Time signature: ${score.time_signature ?? '?'}.
@@ -669,23 +684,24 @@ CENTS NOTATION: Numbers like "(+32¢)" or "(-18¢)" after a pitch mean the stude
 - ±45–50¢: borderline between two semitones — may be a wrong note entirely
 
 YOUR TASK:
-Identify 1–4 issues. Order of preference:
-1. **Direct listening observations** — The DIRECT LISTENING CROSS-CHECK above is your most reliable source. If it names a specific passage, timestamp, or issue type, use it as your primary evidence. Cite the timestamp from the Gemini block in your raw_detail (e.g. "0:08 — opening note flat, per direct listening").
-2. **Specific intonation issue from CREPE** — if a pitch shows cents deviation ≥15¢, flag it. Deviation ≥30¢ is your top CREPE priority.
-3. **Pitch mismatch** (written vs. heard note name differs). Cite it specifically.
-4. **Rhythm/timing patterns** — uneven offsets in HEARD, long gaps, rushed beats.
-5. **Tempo issues** (too slow/fast, wavering).
+Identify 2–4 real issues. Priority order:
+1. **Direct listening (Gemini)** — If the DIRECT LISTENING CROSS-CHECK names a specific passage with a timestamp, that is your strongest evidence. Flag it. Use the timestamp in raw_detail (e.g. "0:08 — opening note flat, per direct listening").
+2. **CREPE intonation candidates** — If a pitch shows ≥15¢ deviation in MEASURABLE ISSUE CANDIDATES, flag it. ≥30¢ is highest priority.
+3. **HEARD column analysis** — Pitches with "(+X¢)" or "(-X¢)" ≥15¢ shown in the HEARD column are real intonation issues. Flag them.
+4. **Rhythm/timing patterns** — Uneven +offset values in HEARD, long gaps, rushed beats.
+5. **Tempo issues** — too slow/fast/wavering.
+
+Assume there are issues — this is a student practice recording, not a professional performance.
 
 HARD RULES:
 - Every "measure" field MUST be one of: [${validMeasuresList.join(', ')}].
-- ${crepeHasData ? 'Prefer flags that correspond to MEASURABLE ISSUE CANDIDATES. You may also flag issues named in the direct listening block even if they lack a CREPE candidate.' : 'Since CREPE candidates are unavailable, base flags on the DIRECT LISTENING CROSS-CHECK. Every flag must cite a timestamp or observation from that block in raw_detail.'}
-- If the recording sounds genuinely clean and you have NO basis for concern, return fewer or zero flags.
-- Do NOT invent a flag just to avoid returning zero. Precision matters more than quantity.
+- ALWAYS flag what the DIRECT LISTENING CROSS-CHECK reports. Do not omit a Gemini observation just because CREPE has no matching candidate.
+- ${crepeHasData ? 'Also flag any MEASURABLE ISSUE CANDIDATES that are not already covered by the direct listening block.' : 'No auto-candidates. Use the DIRECT LISTENING CROSS-CHECK and the HEARD column cents values as your evidence.'}
 - Do NOT flag rests, silence, missing notes, skipped measures, dropped notes, or "coverage gaps".
-- For intonation flags, raw_detail MUST cite either a cents value from HEARD or a direct listening timestamp.
-- For rhythm/timing flags, raw_detail MUST cite observed offsets, gaps, or a direct listening timestamp.
+- For intonation flags: raw_detail MUST include either a cents value (e.g. "+22¢") OR a timestamp (e.g. "0:08"). Both is even better.
+- For rhythm/timing flags: raw_detail MUST cite observed offsets, gaps, or a timestamp.
 - "type" must be one of: intonation, timing, rhythm, articulation, dynamics, voicing.
-- raw_detail should cite the evidence (which note/beat/measure and what's off).
+- Only skip a flag if you have absolutely zero evidence for it.
 
 Return JSON only (no markdown):
 {
@@ -731,15 +747,25 @@ Return JSON only (no markdown):
     if ((f.confidence ?? 100) < 60) continue
     if (!f.type || !f.title || !f.raw_detail || !f.body) continue
     if (!allowedTypes.has(String(f.type))) continue
-    // Require cents citation for intonation flags only when CREPE candidates existed.
-    // When Gemini is the sole evidence source, timestamps are the citation format.
-    if (crepeHasData && String(f.type) === 'intonation' && !/[+-]\d+¢/.test(String(f.raw_detail))) continue
+    // Intonation flags must cite either cents (CREPE: "+22¢") or a timestamp (Gemini: "0:08").
+    // Never drop a flag just because it uses one citation format vs the other.
+    const hasCentsCitation = /[+-]\d+¢/.test(String(f.raw_detail))
+    const hasTimestampCitation = /\d:\d{2}/.test(String(f.raw_detail))
+    if (String(f.type) === 'intonation' && !hasCentsCitation && !hasTimestampCitation) continue
     if (/(rest|silence|missing note|skipped measure|dropped note|coverage gap|no events)/i.test(String(f.raw_detail))) continue
 
-    const range = rangeMap.get(f.measure)
+    let resolvedMeasure = f.measure as number
+    let range = rangeMap.get(resolvedMeasure)
     if (!range) {
-      console.warn('[compareAndCoach] dropping flag without alignment range:', f.measure)
-      continue
+      // Claude assigned a measure outside the aligned set — snap to nearest played measure.
+      const nearest = alignmentRanges.reduce((best, r) =>
+        Math.abs(r.measure - resolvedMeasure) < Math.abs(best.measure - resolvedMeasure) ? r : best,
+        alignmentRanges[0],
+      )
+      if (!nearest) { console.warn('[compareAndCoach] no alignment ranges at all, dropping flag'); continue }
+      console.warn('[compareAndCoach] snapping flag measure', resolvedMeasure, '→', nearest.measure)
+      resolvedMeasure = nearest.measure
+      range = nearest
     }
 
     const beat = typeof f.beat === 'number' && Number.isFinite(f.beat) ? f.beat : null
@@ -755,7 +781,7 @@ Return JSON only (no markdown):
     }
 
     flags.push({
-      measure:         f.measure,
+      measure:         resolvedMeasure,
       beat,
       type:            String(f.type),
       title:           String(f.title),
@@ -862,22 +888,23 @@ async function evaluatePerformanceWithGemini(
   apiKey: string,
 ): Promise<GeminiAssessment | null> {
   const endInfo = endMeasure ? ` through measure ${endMeasure}` : ''
-  const prompt = `You are an expert ${instrument} teacher. Listen carefully to this student recording of "${pieceTitle}" by ${composer}, starting at measure ${startMeasure}${endInfo}.
+  const prompt = `You are an expert ${instrument} teacher giving honest feedback on a student recording of "${pieceTitle}" by ${composer}, starting at measure ${startMeasure}${endInfo}.
 
-Listen to the ENTIRE recording from start to finish. Then give me concrete, specific observations — NOT vague generalities.
+Listen to the ENTIRE recording from start to finish. You are looking for real issues — this is a student, not a professional, so there will be things to work on. Your job is to find the 2-4 most important ones.
 
-INTONATION: List every passage where the pitch sounds noticeably flat or sharp. Give a timestamp and say which direction. E.g. "0:08 — opening note sounds a quarter-step flat", "0:32 — upper notes consistently sharp throughout the phrase". If intonation sounds generally clean, say so explicitly.
+INTONATION: Name every passage where pitch sounds noticeably flat or sharp. Give a timestamp and direction. E.g. "0:08 — opening note flat by roughly a quarter step", "0:32 — upper register consistently sharp". Look carefully — students nearly always have some intonation tendency.
 
-RHYTHM: List any rushed or dragged passages, hesitations, uneven note-spacing, or beat instability. Give timestamps. E.g. "0:15 — slight rush into beat 3", "0:40 — long note is cut short, creating a gap". If rhythm sounds solid, say so.
+RHYTHM: Name rushed or dragged passages, hesitations, uneven note-spacing, or beat instability. Give timestamps. E.g. "0:15 — slight rush into beat 3", "0:40 — note held too short before the phrase ends".
 
-TECHNIQUE: List bow/breath noise, tone quality issues, insecure shifts, unclear articulation. Give timestamps. If technique sounds clean, say so.
+TECHNIQUE: Name bow noise, tone issues, insecure shifts, unclear articulation. Give timestamps.
 
-OVERALL: One sentence — the single most important thing for this student to work on in this excerpt.
+OVERALL: One sentence — the single most important thing to fix first.
 
 RULES:
-- Be direct. Vague feedback like "intonation could be better" is useless — name the specific note or passage and timestamp it.
-- If something is genuinely clean, say so. Do NOT fabricate issues.
-- Focus on the 1-3 most important issues, not every tiny imperfection.
+- Be specific and honest. Name the note/passage and timestamp it. Vague feedback like "intonation could be better" is not acceptable.
+- Do NOT fabricate issues that aren't there. But assume there ARE issues — this is a student practice recording.
+- Report the 2-4 most important issues across all three categories.
+- If a category is genuinely clean, you may leave its array empty — but at least one category must have observations.
 
 Return JSON only:
 {
@@ -1038,7 +1065,10 @@ async function handleRequest(req: Request): Promise<Response> {
         .createSignedUrl(scorePath, 3600)
       scoreSignedUrl = sSigned?.signedUrl ?? null
     }
-    const shouldPreferWorkerScore = Boolean(modalUrl && videoSignedUrl && scoreSignedUrl && (isXmlScore || isVisualScore))
+    // Only send structured (XML/MXL) scores to Modal — music21 parses those in
+    // under 5s. Visual scores (PNG/PDF) trigger Audiveris OMR which takes
+    // 60-120s and blows the platform timeout; Claude reads those in parallel instead.
+    const shouldPreferWorkerScore = Boolean(modalUrl && videoSignedUrl && scoreSignedUrl && isXmlScore)
 
     let score: ScoreReading = { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
     let audio: AudioTranscription = { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null }
@@ -1052,8 +1082,8 @@ async function handleRequest(req: Request): Promise<Response> {
     const modalPromise: Promise<ModalWorkerResult | null> = (modalUrl && videoSignedUrl)
       ? callModalWorker(modalUrl, {
           video_url:     videoSignedUrl,
-          score_url:     (isXmlScore || isVisualScore) && scoreSignedUrl ? scoreSignedUrl : undefined,
-          score_mime:    scoreMimeType ?? undefined,
+          score_url:     isXmlScore && scoreSignedUrl ? scoreSignedUrl : undefined,
+          score_mime:    isXmlScore ? (scoreMimeType ?? undefined) : undefined,
           instrument:    instrument ?? 'instrument',
           start_measure: safeStart,
           time_sig:      tSig,
@@ -1075,7 +1105,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // ── Gemini direct eval — only fires when Modal is unavailable. ────────
     // Video is streamed from the signed URL to Gemini without buffering
     // it in the edge function's memory, avoiding OOM on large recordings.
-    const runGeminiEval = !modalUrl || !videoSignedUrl
+    const runGeminiEval = Boolean(googleApiKey && videoSignedUrl)
     const geminiUploadPromise: Promise<string | null> = (runGeminiEval && googleApiKey && videoSignedUrl)
       ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
           .catch(err => {
@@ -1099,9 +1129,9 @@ async function handleRequest(req: Request): Promise<Response> {
         : null
     )
 
-    // ── Claude reads score only when the worker cannot attempt structured parsing.
-    // If Modal has the score URL, let Audiveris/music21 try first; Claude becomes
-    // a fallback only if OMR/structured parsing returns no usable measures.
+    // ── Claude reads visual scores in parallel with Modal CREPE. ─────────────
+    // XML scores are parsed by music21 inside Modal (fast). Visual scores are
+    // always read by Claude here — Audiveris is never called for visual scores.
     const scorePromise: Promise<ScoreReading> = (scoreBytesForClaude && isVisualScore && !shouldPreferWorkerScore)
       ? readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
           .catch(err => {
@@ -1115,9 +1145,10 @@ async function handleRequest(req: Request): Promise<Response> {
     // the response beyond the Supabase Edge 150s hard limit. If it finishes
     // in time its observations become the primary coaching signal; if it
     // times out, Modal + Claude still produce a full analysis.
+    const emptyScore: ScoreReading = { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
     const [workerResult, scoreResult, geminiEval] = await Promise.all([
       withTimeout(modalPromise, MODAL_TIMEOUT_MS, null),
-      scorePromise,
+      withTimeout(scorePromise, SCORE_READ_TIMEOUT_MS, emptyScore),
       withTimeout(geminiEvalPromise, GEMINI_EVAL_TIMEOUT_MS, null),
     ])
     geminiAssessment = geminiEval
@@ -1214,12 +1245,16 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     if (score.measures.length === 0 && scoreBytesForClaude && isVisualScore) {
-      console.warn('[analyze-performance] structured score parsing unavailable — falling back to Claude visual score reading')
-      score = await readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
-        .catch(err => {
-          console.error('[analyze-performance] Claude visual fallback threw:', (err as Error).message)
-          return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
-        })
+      console.warn('[analyze-performance] parallel score read returned empty — retrying Claude with remaining budget')
+      score = await withTimeout(
+        readScoreNotes(scoreBytesForClaude, scoreMimeType, safeStart, instrument ?? 'instrument', tSig)
+          .catch(err => {
+            console.error('[analyze-performance] Claude visual fallback threw:', (err as Error).message)
+            return { key_signature: null, time_signature: null, tempo_marking: null, measures: [] } as ScoreReading
+          }),
+        SCORE_READ_TIMEOUT_MS,
+        { key_signature: null, time_signature: null, tempo_marking: null, measures: [] },
+      )
       beatsPerMeasure = beatsPerMeasureFromTimeSig(score.time_signature ?? tSig)
       console.log('[analyze-performance] Claude visual fallback measures:', score.measures.length)
     }

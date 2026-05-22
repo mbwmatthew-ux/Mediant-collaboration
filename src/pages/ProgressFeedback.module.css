@@ -1,0 +1,186 @@
+/* ── Period toggle ─────────────────────────────────────── */
+.periodToggle {
+  align-items: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px;
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+}
+
+.toggleBtn {
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: rgba(248,246,242,0.45);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 6px 14px;
+  transition: background 140ms ease, color 140ms ease;
+}
+.toggleBtn:hover { color: var(--text-inverse); }
+.toggleBtnActive {
+  background: rgba(255,255,255,0.09);
+  color: var(--text-inverse);
+}
+
+/* ── Sessions table ─────────────────────────────────────── */
+.sessionTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.sessionRow {
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  gap: 16px;
+}
+.sessionRow:last-child { border-bottom: 0; }
+
+.sessionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sessionPiece {
+  color: var(--text-inverse);
+  font-size: 0.87rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionMeta {
+  color: rgba(248,246,242,0.38);
+  font-size: 0.77rem;
+}
+
+.sessionRight {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.sessionScore {
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.sessionFlags {
+  color: rgba(248,246,242,0.3);
+  font-size: 0.77rem;
+}
+
+/* ── Generate row ───────────────────────────────────────── */
+.generateRow {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.generateHint {
+  color: rgba(248,246,242,0.35);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Feedback card ──────────────────────────────────────── */
+.feedbackCard {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 28px 28px;
+}
+
+.feedbackCardHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.feedbackHeadline {
+  color: var(--text-inverse);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.feedbackOverview {
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  color: rgba(248,246,242,0.62);
+  font-size: 0.87rem;
+  line-height: 1.75;
+  margin: 0;
+  padding-bottom: 20px;
+}
+
+/* ── Feedback sections ──────────────────────────────────── */
+.feedbackSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedbackSectionTitle {
+  align-items: center;
+  color: var(--text-inverse);
+  display: flex;
+  font-size: 0.83rem;
+  font-weight: 600;
+  gap: 8px;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.iconGreen { color: #8fbe9f; }
+.iconGold  { color: var(--gold); }
+.iconBlue  { color: rgba(120,160,210,0.9); }
+
+.feedbackList {
+  color: rgba(248,246,242,0.62);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.86rem;
+  gap: 6px;
+  line-height: 1.6;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.feedbackList li {
+  position: relative;
+}
+
+.feedbackList li::before {
+  color: rgba(248,246,242,0.2);
+  content: '·';
+  left: -14px;
+  position: absolute;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .periodToggle { align-self: flex-start; }
+  .feedbackCard { padding: 18px 16px 22px; }
+  .feedbackHeadline { font-size: 1.15rem; }
+}
