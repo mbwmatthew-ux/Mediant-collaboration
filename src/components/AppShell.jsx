@@ -13,6 +13,7 @@ const NAV = [
   { to: '/analysis', label: 'Score Review',     icon: ScoreIcon },
   { to: '/summary',  label: 'Session Summary',  icon: SummaryIcon },
   { to: '/takes',    label: 'Saved Takes',      icon: SavedIcon },
+  { to: '/progress', label: 'Progress Report',  icon: ProgressIcon },
   { to: '/coach',    label: 'Coach',            icon: CoachIcon },
 ]
 
@@ -366,11 +367,11 @@ export default function AppShell() {
       {/* Mobile bottom nav — hidden on desktop via CSS */}
       <nav className={styles.mobileNav}>
         {[
-          { to: '/home',     label: 'Home',     icon: HomeIcon   },
-          { to: '/search',   label: 'Library',  icon: SearchIcon },
-          { to: '/record',   label: 'Record',   icon: UploadIcon },
-          { to: '/analysis', label: 'Review',   icon: ScoreIcon  },
-          { to: '/coach',    label: 'Coach',    icon: CoachIcon  },
+          { to: '/home',     label: 'Home',     icon: HomeIcon     },
+          { to: '/search',   label: 'Library',  icon: SearchIcon   },
+          { to: '/record',   label: 'Record',   icon: UploadIcon   },
+          { to: '/progress', label: 'Progress', icon: ProgressIcon },
+          { to: '/coach',    label: 'Coach',    icon: CoachIcon    },
         ].map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -486,6 +487,16 @@ function BellIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
       <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  )
+}
+
+function ProgressIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/>
+      <line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6"  y1="20" x2="6"  y2="14"/>
     </svg>
   )
 }
