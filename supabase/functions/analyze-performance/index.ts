@@ -301,23 +301,40 @@ Return JSON only (no markdown):
 
 // ── Step 2: Gemini transcribes the audio into pitch events ────────────────
 
-async function uploadVideoToGemini(videoBytes: Uint8Array, mimeType: string, apiKey: string): Promise<string> {
-  const boundary = `gem_${Date.now()}`
-  const metadata = JSON.stringify({ file: { displayName: 'practice-recording' } })
-  const CRLF = '\r\n'
-  const pre  = `--${boundary}${CRLF}Content-Type: application/json; charset=UTF-8${CRLF}${CRLF}${metadata}${CRLF}--${boundary}${CRLF}Content-Type: ${mimeType}${CRLF}${CRLF}`
-  const post = `${CRLF}--${boundary}--`
-  const preB  = new TextEncoder().encode(pre)
-  const postB = new TextEncoder().encode(post)
-  const body = new Uint8Array(preB.length + videoBytes.length + postB.length)
-  body.set(preB)
-  body.set(videoBytes, preB.length)
-  body.set(postB, preB.length + videoBytes.length)
+// Streams video from a Supabase signed URL directly to Gemini's resumable
+// upload endpoint, avoiding a large Uint8Array buffer in the edge function.
+async function uploadVideoToGeminiFromUrl(
+  signedUrl: string,
+  mimeType: string,
+  apiKey: string,
+): Promise<string> {
+  const videoRes = await fetch(signedUrl)
+  if (!videoRes.ok) throw new Error(`Failed to fetch video from storage (${videoRes.status})`)
+  const fileSize = parseInt(videoRes.headers.get('content-length') ?? '0', 10)
 
-  const uploadRes = await fetch(
-    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}&uploadType=multipart`,
-    { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
+  const initHeaders: Record<string, string> = {
+    'Content-Type': 'application/json; charset=UTF-8',
+    'X-Goog-Upload-Protocol': 'resumable',
+    'X-Goog-Upload-Command': 'start',
+    'X-Goog-Upload-Header-Content-Type': mimeType,
+  }
+  if (fileSize > 0) initHeaders['X-Goog-Upload-Header-Content-Length'] = String(fileSize)
+
+  const initRes = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}&uploadType=resumable`,
+    { method: 'POST', headers: initHeaders, body: JSON.stringify({ file: { displayName: 'practice-recording' } }) },
   )
+  if (!initRes.ok) throw new Error(`Gemini resumable init failed: ${await initRes.text()}`)
+  const uploadUrl = initRes.headers.get('x-goog-upload-url')
+  if (!uploadUrl) throw new Error('Gemini did not return an upload URL')
+
+  const uploadHeaders: Record<string, string> = {
+    'X-Goog-Upload-Command': 'upload, finalize',
+    'X-Goog-Upload-Offset': '0',
+  }
+  if (fileSize > 0) uploadHeaders['Content-Length'] = String(fileSize)
+
+  const uploadRes = await fetch(uploadUrl, { method: 'POST', headers: uploadHeaders, body: videoRes.body })
   if (!uploadRes.ok) throw new Error(`Gemini upload failed: ${await uploadRes.text()}`)
   const { file } = await uploadRes.json()
 
@@ -1008,19 +1025,16 @@ serve(async (req) => {
     const modalUrl = Deno.env.get('MODAL_WORKER_URL')
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
 
-    // Generate signed URLs for Modal worker
-    let videoSignedUrl: string | null = null
-    let scoreSignedUrl: string | null = null
-    if (modalUrl) {
-      const { data: vSigned } = await admin.storage.from('recordings')
-        .createSignedUrl(videoPath, 3600)
-      videoSignedUrl = vSigned?.signedUrl ?? null
+    // Always generate a video signed URL (used for Gemini streaming upload and Modal)
+    const { data: vSignedData } = await admin.storage.from('recordings')
+      .createSignedUrl(videoPath, 3600)
+    const videoSignedUrl: string | null = vSignedData?.signedUrl ?? null
 
-      if (scorePath) {
-        const { data: sSigned } = await admin.storage.from('sheet-music')
-          .createSignedUrl(scorePath, 3600)
-        scoreSignedUrl = sSigned?.signedUrl ?? null
-      }
+    let scoreSignedUrl: string | null = null
+    if (modalUrl && scorePath) {
+      const { data: sSigned } = await admin.storage.from('sheet-music')
+        .createSignedUrl(scorePath, 3600)
+      scoreSignedUrl = sSigned?.signedUrl ?? null
     }
     const shouldPreferWorkerScore = Boolean(modalUrl && videoSignedUrl && scoreSignedUrl && (isXmlScore || isVisualScore))
 
@@ -1047,36 +1061,25 @@ serve(async (req) => {
         })
       : Promise.resolve(null)
 
-    // ── Download score bytes in parallel with Modal ──────────────────────
-    const [scoreBlobRes, videoBlobRes] = await Promise.all([
+    // ── Download score bytes only (score image is small; video is streamed) ─
+    const [scoreBlobRes] = await Promise.all([
       isVisualScore && scorePath
         ? admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
         : Promise.resolve({ data: null }),
-      // Only download video bytes when Modal is unavailable (Gemini fallback path).
-      // On the Modal path we stream from the signed URL → no large buffer in memory.
-      modalUrl && videoSignedUrl
-        ? Promise.resolve({ data: null })
-        : admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
     ])
     const scoreBytesForClaude = scoreBlobRes.data
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
-    const videoBytes = videoBlobRes.data
-      ? new Uint8Array(await videoBlobRes.data.arrayBuffer()) : null
 
     // ── Gemini direct eval — only fires when Modal is unavailable. ────────
-    // On the Modal path, CREPE provides sub-semitone pitch accuracy and beat-
-    // precise alignment — the streaming video upload to Gemini creates
-    // background I/O that Deno waits to drain, pushing total time past 150s.
-    // On the fallback path (no Modal), Gemini is both transcriber and evaluator.
+    // Video is streamed from the signed URL to Gemini without buffering
+    // it in the edge function's memory, avoiding OOM on large recordings.
     const runGeminiEval = !modalUrl || !videoSignedUrl
-    const geminiUploadPromise: Promise<string | null> = (runGeminiEval && googleApiKey)
-      ? (videoBytes
-          ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-              .catch(err => {
-                console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
-                return null
-              })
-          : Promise.resolve(null))
+    const geminiUploadPromise: Promise<string | null> = (runGeminiEval && googleApiKey && videoSignedUrl)
+      ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
+          .catch(err => {
+            console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
+            return null
+          })
       : Promise.resolve(null)
 
     const geminiEvalPromise: Promise<GeminiAssessment | null> = geminiUploadPromise.then(fileUri =>
@@ -1222,17 +1225,11 @@ serve(async (req) => {
     // ── Path B: Gemini transcription fallback ─────────────────────────────
     if (!usedModal) {
       let geminiFileUri = await geminiUploadPromise
-      if (!geminiFileUri && googleApiKey) {
-        const { data: fallbackVideoBlob } = await admin.storage.from('recordings').download(videoPath)
-        const fallbackVideoBytes = fallbackVideoBlob
-          ? new Uint8Array(await fallbackVideoBlob.arrayBuffer())
-          : null
-        geminiFileUri = fallbackVideoBytes
-          ? await uploadVideoToGemini(fallbackVideoBytes, videoMimeType, googleApiKey).catch(err => {
-              console.error('[analyze-performance] Gemini fallback upload failed:', (err as Error).message)
-              return null
-            })
-          : null
+      if (!geminiFileUri && googleApiKey && videoSignedUrl) {
+        geminiFileUri = await uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey).catch((err: Error) => {
+          console.error('[analyze-performance] Gemini fallback upload failed:', err.message)
+          return null
+        })
       }
       if (!geminiFileUri) throw new Error('Video upload to Gemini failed and Modal worker is unavailable')
 
