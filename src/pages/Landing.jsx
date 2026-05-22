@@ -120,57 +120,90 @@ export default function Landing() {
       {/* App mockup */}
       <div className={`${styles.previewWrap} ${styles.reveal}`}>
         <div className={styles.previewShell}>
-          {/* Fake top bar */}
+          {/* Top bar */}
           <div className={styles.previewTopBar}>
             <div className={styles.previewTopLeft}>
               <div className={styles.previewLogoBox} />
+              <span className={styles.previewSep}>/</span>
+              <span className={styles.previewOrg}>Mediant</span>
               <span className={styles.previewSep}>/</span>
               <span className={styles.previewCrumb}>Score Review</span>
               <span className={styles.previewBadge}>PRACTICE</span>
             </div>
             <div className={styles.previewTopRight}>
-              <div className={styles.previewDot} />
-              <div className={styles.previewDot} />
-              <div className={styles.previewDot} />
-              <div className={styles.previewAvatar} />
+              <span className={styles.previewNavLink}>Record</span>
+              <span className={styles.previewNavLink}>Library</span>
+              <div className={styles.previewAvatar}>PS</div>
             </div>
           </div>
-          {/* Fake body */}
+          {/* Body */}
           <div className={styles.previewBody}>
-            {/* Fake sidebar */}
+            {/* Sidebar */}
             <div className={styles.previewSidebar}>
-              {[1,2,3,4,5,6,7].map(i => (
-                <div key={i} className={`${styles.previewNavDot} ${i === 3 ? styles.previewNavDotActive : ''}`} />
+              {[
+                { icon: '♩', label: 'Score' },
+                { icon: '↑', label: 'Record' },
+                { icon: '▤', label: 'Takes' },
+                { icon: '♪', label: 'Follow' },
+                { icon: '≡', label: 'Summary' },
+                { icon: '⊙', label: 'Library' },
+                { icon: '✦', label: 'Coach' },
+              ].map((item, i) => (
+                <div key={i} className={`${styles.previewNavItem} ${i === 0 ? styles.previewNavItemActive : ''}`} title={item.label}>
+                  {item.icon}
+                </div>
               ))}
             </div>
             {/* Main content */}
             <div className={styles.previewMain}>
+              {/* Header row */}
               <div className={styles.previewContentTop}>
-                <div className={styles.previewPageTitle} />
+                <div className={styles.previewPieceInfo}>
+                  <span className={styles.previewPieceName}>Clair de Lune</span>
+                  <span className={styles.previewPieceMeta}>Debussy · Piano</span>
+                </div>
+                <div className={styles.previewScoreBadge}>
+                  <span className={styles.previewScoreNum}>78</span>
+                  <span className={styles.previewScoreDen}>/100</span>
+                </div>
                 <div className={styles.previewIssueChips}>
-                  <div className={styles.previewChip} />
-                  <div className={`${styles.previewChip} ${styles.previewChipActive}`} />
-                  <div className={styles.previewChip} />
+                  <div className={styles.previewChip}>Timing</div>
+                  <div className={`${styles.previewChip} ${styles.previewChipActive}`}>Rushing ×2</div>
+                  <div className={styles.previewChip}>Dynamics</div>
                 </div>
               </div>
+              {/* Score + feedback */}
               <div className={styles.previewTwoCol}>
-                {/* Score area with notes */}
+                {/* Score area */}
                 <div className={styles.previewScore}>
                   {[
-                    [{x:'7%',y:'30%'},{x:'19%',y:'68%'},{x:'31%',y:'45%'},{x:'43%',y:'78%'},{x:'55%',y:'32%'},{x:'67%',y:'62%'},{x:'79%',y:'48%'}],
-                    [{x:'7%',y:'58%'},{x:'19%',y:'34%'},{x:'31%',y:'72%'},{x:'43%',y:'42%'},{x:'55%',y:'78%'},{x:'67%',y:'38%'},{x:'79%',y:'66%'}],
-                    [{x:'7%',y:'42%'},{x:'21%',y:'72%'},{x:'35%',y:'28%'},{x:'49%',y:'62%'},{x:'63%',y:'44%'},{x:'77%',y:'76%'}],
-                    [{x:'9%',y:'36%'},{x:'23%',y:'68%'},{x:'37%',y:'52%'},{x:'51%',y:'28%'},{x:'65%',y:'72%'},{x:'79%',y:'54%'}],
+                    [{x:'22%',y:'32%'},{x:'30%',y:'60%'},{x:'38%',y:'42%'},{x:'46%',y:'72%'},{x:'58%',y:'28%'},{x:'66%',y:'56%'},{x:'74%',y:'40%'},{x:'82%',y:'66%'}],
+                    [{x:'22%',y:'56%'},{x:'30%',y:'36%'},{x:'38%',y:'70%'},{x:'46%',y:'44%'},{x:'58%',y:'76%'},{x:'66%',y:'38%'},{x:'74%',y:'62%'},{x:'82%',y:'50%'}],
+                    [{x:'22%',y:'44%'},{x:'32%',y:'68%'},{x:'42%',y:'30%'},{x:'52%',y:'58%'},{x:'62%',y:'46%'},{x:'72%',y:'72%'},{x:'82%',y:'36%'}],
+                    [{x:'22%',y:'38%'},{x:'32%',y:'64%'},{x:'42%',y:'50%'},{x:'52%',y:'30%'},{x:'62%',y:'68%'},{x:'72%',y:'44%'},{x:'82%',y:'56%'}],
                   ].map((notes, i) => (
                     <div key={i} className={`${styles.previewStave} ${i === 1 ? styles.previewStaveFlagged : ''}`}>
+                      {/* Clef */}
+                      <span className={styles.previewClef}>𝄞</span>
+                      {/* Time sig on first stave only */}
+                      {i === 0 && (
+                        <div className={styles.previewTimeSig}><span>4</span><span>4</span></div>
+                      )}
+                      {/* Measure numbers */}
+                      {[0,1,2,3].map(m => (
+                        <span key={m} className={styles.previewMeasureNum} style={{ left: `${m * 25 + (i===0 ? 19 : 19)}%` }}>{i * 4 + m + 1}</span>
+                      ))}
+                      {/* Staff lines */}
                       <div className={styles.previewStaffLine} />
                       <div className={styles.previewStaffLine} />
                       <div className={styles.previewStaffLine} />
                       <div className={styles.previewStaffLine} />
                       <div className={styles.previewStaffLine} />
+                      {/* Measure bars */}
                       {['25%','50%','75%'].map(pos => (
                         <div key={pos} className={styles.previewMeasureBar} style={{ left: pos }} />
                       ))}
+                      {/* Notes */}
                       {notes.map((n, j) => {
                         const stemDown = parseFloat(n.y) <= 50
                         return (
@@ -191,16 +224,10 @@ export default function Landing() {
                   ))}
                 </div>
 
-                {/* SVG connector from flagged stave → feedback panel */}
+                {/* SVG connector */}
                 <svg className={styles.previewConnectorSvg} viewBox="0 0 32 264" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                   <circle cx="1" cy="102" r="3.5" fill="rgba(225,134,118,0.92)" />
-                  <path
-                    d="M 1 102 C 22 102 10 46 28 46"
-                    stroke="rgba(225,134,118,0.6)"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 3"
-                    fill="none"
-                  />
+                  <path d="M 1 102 C 22 102 10 46 28 46" stroke="rgba(225,134,118,0.6)" strokeWidth="1.5" strokeDasharray="4 3" fill="none" />
                   <circle cx="28" cy="46" r="2.5" fill="rgba(225,134,118,0.92)" />
                 </svg>
 
@@ -213,7 +240,12 @@ export default function Landing() {
                     <li className={styles.previewFeedItem}>Rushing through the 8th-note runs</li>
                     <li className={styles.previewFeedItem}>Slow the pickup — let the phrase breathe</li>
                   </ul>
-                  <button className={styles.previewFeedBtn}>Loop measure</button>
+                  <div className={styles.previewWaveform}>
+                    {[28,45,70,38,60,82,50,35,65,44,72,30].map((h, j) => (
+                      <span key={j} className={j < 7 ? styles.previewWaveDone : styles.previewWaveTodo} style={{ height: `${h}%` }} />
+                    ))}
+                  </div>
+                  <button className={styles.previewFeedBtn}>Loop excerpt</button>
                 </div>
               </div>
             </div>

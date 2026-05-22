@@ -232,57 +232,110 @@
   padding: 0 16px;
 }
 .previewTopLeft { align-items: center; display: flex; gap: 8px; }
-.previewLogoBox { background: rgba(255,255,255,0.18); border-radius: 4px; height: 18px; width: 18px; }
+.previewLogoBox { background: rgba(255,255,255,0.18); border-radius: 4px; height: 18px; width: 18px; flex-shrink: 0; }
 .previewSep     { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
-.previewCrumb   { color: rgba(248,246,242,0.6); font-size: 0.75rem; }
+.previewOrg     { color: rgba(248,246,242,0.45); font-size: 0.73rem; }
+.previewCrumb   { color: rgba(248,246,242,0.75); font-size: 0.73rem; font-weight: 500; }
 .previewBadge   {
   background: rgba(88,121,101,0.2);
   border: 1px solid rgba(88,121,101,0.35);
   border-radius: 4px;
   color: #8fbe9f;
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   padding: 2px 6px;
 }
-.previewTopRight { align-items: center; display: flex; gap: 8px; }
-.previewDot      { background: rgba(255,255,255,0.15); border-radius: 50%; height: 24px; width: 24px; }
-.previewAvatar   { background: rgba(214,177,104,0.25); border-radius: 6px; height: 26px; width: 58px; }
+.previewTopRight { align-items: center; display: flex; gap: 12px; }
+.previewNavLink  { color: rgba(248,246,242,0.35); font-size: 0.71rem; }
+.previewAvatar   {
+  align-items: center;
+  background: rgba(214,177,104,0.2);
+  border: 1px solid rgba(214,177,104,0.3);
+  border-radius: 6px;
+  color: rgba(214,177,104,0.9);
+  display: flex;
+  font-size: 0.6rem;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  width: 32px;
+}
 
 /* Fake body */
 .previewBody {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 48px 1fr;
   min-height: 300px;
 }
 
-/* Fake sidebar */
+/* Sidebar */
 .previewSidebar {
   align-items: center;
-  background: rgba(0,0,0,0.1);
+  background: rgba(0,0,0,0.12);
   border-right: 1px solid rgba(255,255,255,0.06);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 0;
+  gap: 6px;
+  padding: 12px 0;
 }
-.previewNavDot { background: rgba(255,255,255,0.12); border-radius: 7px; height: 28px; width: 28px; }
-.previewNavDotActive { background: rgba(255,255,255,0.22); }
+.previewNavItem {
+  align-items: center;
+  border-radius: 7px;
+  color: rgba(255,255,255,0.3);
+  display: flex;
+  font-size: 0.82rem;
+  height: 28px;
+  justify-content: center;
+  width: 32px;
+}
+.previewNavItemActive {
+  background: rgba(255,255,255,0.1);
+  color: rgba(248,246,242,0.85);
+}
 
 /* Fake main area */
 .previewMain { display: flex; flex-direction: column; }
 
 .previewContentTop {
+  align-items: center;
   border-bottom: 1px solid rgba(255,255,255,0.07);
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
+  gap: 10px;
+  padding: 10px 16px;
 }
-.previewPageTitle { background: rgba(255,255,255,0.12); border-radius: 4px; height: 14px; width: 180px; }
-.previewIssueChips { align-items: center; display: flex; gap: 6px; margin-left: auto; }
-.previewChip { background: rgba(225,134,118,0.1); border: 1px solid rgba(225,134,118,0.2); border-radius: 5px; height: 22px; width: 64px; }
-.previewChipActive { background: rgba(225,134,118,0.22); border-color: rgba(225,134,118,0.45); }
+.previewPieceInfo  { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.previewPieceName  { color: rgba(248,246,242,0.88); font-size: 0.74rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.previewPieceMeta  { color: rgba(248,246,242,0.35); font-size: 0.62rem; }
+.previewScoreBadge {
+  align-items: baseline;
+  background: rgba(88,121,101,0.15);
+  border: 1px solid rgba(88,121,101,0.3);
+  border-radius: 6px;
+  display: flex;
+  flex-shrink: 0;
+  gap: 1px;
+  padding: 3px 7px;
+}
+.previewScoreNum { color: #8fbe9f; font-size: 0.82rem; font-weight: 700; }
+.previewScoreDen { color: rgba(143,190,159,0.5); font-size: 0.58rem; }
+.previewIssueChips { align-items: center; display: flex; gap: 4px; flex-shrink: 0; }
+.previewChip {
+  background: rgba(225,134,118,0.08);
+  border: 1px solid rgba(225,134,118,0.18);
+  border-radius: 5px;
+  color: rgba(225,134,118,0.65);
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.previewChipActive {
+  background: rgba(225,134,118,0.18);
+  border-color: rgba(225,134,118,0.4);
+  color: rgba(225,134,118,0.95);
+}
 
 .previewTwoCol {
   display: grid;
@@ -292,24 +345,67 @@
 
 /* Score area */
 .previewScore {
-  background: #fdf9f5;
-  border-right: 1px solid rgba(0,0,0,0.08);
+  background: #fafaf8;
+  border-right: 1px solid rgba(0,0,0,0.07);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px 20px;
+  gap: 10px;
+  padding: 14px 16px 14px 14px;
 }
 .previewStave {
   background: white;
-  border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   display: flex;
   flex-direction: column;
-  height: 52px;
+  height: 56px;
   justify-content: space-evenly;
   overflow: visible;
-  padding: 0 12px;
+  padding: 0 10px 0 30px;
   position: relative;
+}
+
+/* Treble clef */
+.previewClef {
+  color: rgba(22,35,28,0.55);
+  font-size: 38px;
+  left: 3px;
+  line-height: 1;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-46%);
+  z-index: 2;
+}
+
+/* Time signature */
+.previewTimeSig {
+  display: flex;
+  flex-direction: column;
+  left: 19px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+.previewTimeSig span {
+  color: rgba(22,35,28,0.55);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.05;
+  text-align: center;
+}
+
+/* Measure numbers */
+.previewMeasureNum {
+  color: rgba(22,35,28,0.22);
+  font-size: 6.5px;
+  pointer-events: none;
+  position: absolute;
+  top: -10px;
 }
 .previewStaveFlagged {
   border-color: rgba(225,134,118,0.5);
@@ -450,6 +546,31 @@
   left: 0;
   position: absolute;
 }
+.previewWaveform {
+  align-items: center;
+  background: rgba(0,0,0,0.18);
+  border-radius: 4px;
+  display: flex;
+  gap: 2px;
+  height: 20px;
+  margin: 2px 0;
+  padding: 3px 6px;
+}
+.previewWaveDone {
+  background: rgba(88,121,101,0.7);
+  border-radius: 1px;
+  display: block;
+  flex-shrink: 0;
+  width: 2px;
+}
+.previewWaveTodo {
+  background: rgba(255,255,255,0.12);
+  border-radius: 1px;
+  display: block;
+  flex-shrink: 0;
+  width: 2px;
+}
+
 .previewFeedBtn {
   background: rgba(88,121,101,0.2);
   border: 1px solid rgba(88,121,101,0.35);
@@ -458,7 +579,7 @@
   cursor: default;
   font-size: 0.66rem;
   font-weight: 600;
-  margin-top: 4px;
+  margin-top: 2px;
   padding: 6px 10px;
   text-align: center;
   width: 100%;
