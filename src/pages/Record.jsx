@@ -362,7 +362,7 @@ export default function Record() {
                 <>
                   <span className={styles.dropzoneIcon}>♩</span>
                   <strong>Photo, PDF, or MusicXML</strong>
-                  <span className={styles.dropzoneSub}>MusicXML/MXL is most accurate; clean PDFs/photos are converted first</span>
+                  <span className={styles.dropzoneSub}>MusicXML/MXL gives the most accurate measure mapping. Photos and PDFs work but may have lower confidence.</span>
                 </>
               )}
             </div>

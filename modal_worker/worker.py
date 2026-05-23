@@ -1152,7 +1152,7 @@ def compare_and_coach_claude(
 ) -> list[dict]:
     import anthropic as ac, re
     CLAUDE_MODEL = "claude-sonnet-4-6"
-    allowed_types = {"intonation", "timing", "rhythm", "articulation", "dynamics", "voicing"}
+    allowed_types = {"intonation", "timing", "rhythm", "articulation", "dynamics", "voicing", "phrasing"}
     events_by_measure: dict[int, list] = {}
     for ev in aligned:
         events_by_measure.setdefault(ev["measure"], []).append(ev)
@@ -1235,7 +1235,9 @@ HARD RULES:
 - Every "measure" field MUST be one of: [{', '.join(str(m) for m in valid_list)}].
 - Do NOT flag rests, silence, missing notes, or coverage gaps.
 - For intonation flags, raw_detail MUST cite cents ("+22¢") or a listening timestamp ("0:08").
-- "type" must be one of: intonation, timing, rhythm, articulation, dynamics, voicing.
+- "type" must be one of: intonation, timing, rhythm, articulation, dynamics, voicing, phrasing.
+  - Use "articulation" for staccato/tenuto/accent issues (notes too short, not detached enough, etc.)
+  - Use "phrasing" for shape, musical line, or expression issues (no direction in the phrase, abrupt endings, missing crescendo/diminuendo)
 - If the recording sounds genuinely clean, return fewer or zero flags.
 
 Return JSON only (no markdown):
@@ -1248,7 +1250,7 @@ Return JSON only (no markdown):
       "confidence": <70-100>,
       "title": "<6-10 word specific title>",
       "raw_detail": "<one sentence: the evidence>",
-      "body": "<3-sentence warm coaching paragraph>"
+      "body": "<3-sentence warm coaching paragraph: what happened, why it matters, one specific practice fix>"
     }}
   ]
 }}"""

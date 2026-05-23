@@ -290,13 +290,17 @@ export default function Analysis() {
     ? Object.fromEntries(
         take.flags.map((f, i) => [
           `flag_${i}`,
-          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.body },
+          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.body, confidence: f.confidence ?? 100 },
         ])
       )
     : {}
 
   const chips = take?.flags?.length
-    ? take.flags.map((f, i) => ({ flag: `flag_${i}`, label: `m.${f.measure} · ${capitalize(f.type)}` }))
+    ? take.flags.map((f, i) => ({
+        flag:       `flag_${i}`,
+        label:      `m.${f.measure} · ${capitalize(f.type)}`,
+        confidence: f.confidence ?? 100,
+      }))
     : []
 
   const pieceTitle    = take?.piece_title    ?? ''
@@ -365,6 +369,12 @@ export default function Analysis() {
           <p className={styles.sub}>
             {pieceComposer}{instrument ? ` · ${instrument}` : ''} · {issueCount} issue{issueCount !== 1 ? 's' : ''} found
             {score != null && <> · <span style={{ color: scoreColor(score) }}>{score}/100</span></>}
+            {analysisQuality?.trust && (
+              <> · <span style={{
+                color: analysisQuality.trust === 'high' ? 'var(--hero-green)' : analysisQuality.trust === 'medium' ? 'var(--gold)' : 'var(--coral)',
+                fontWeight: 500,
+              }}>{analysisQuality.trust === 'high' ? '● High confidence' : analysisQuality.trust === 'medium' ? '◑ Medium confidence' : '○ Low confidence'}</span></>
+            )}
             {timeAgo(take?.created_at ?? take?.date) && (
               <> · <span style={{ color: 'rgba(248,246,242,0.35)' }}>Analyzed {timeAgo(take?.created_at ?? take?.date)}</span></>
             )}
@@ -375,32 +385,53 @@ export default function Analysis() {
         </div>
       </div>
 
-      {analysisQuality && analysisQuality.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-        <div className={`${styles.analysisNotice} ${styles[`analysisNotice${trustTone(analysisQuality.trust)}`]}`}>
-          <p className={styles.analysisNoticeTitle}>Analysis quality was limited</p>
+      {analysisQuality?.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+        <div className={`${styles.analysisNotice} ${styles.analysisNoticeLow}`}>
+          <p className={styles.analysisNoticeTitle}>Analysis confidence was too low for precise feedback</p>
           <ul className={styles.analysisNoticeList}>
             {analysisQuality.reasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
+          <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>Try uploading a MusicXML file for higher accuracy, or record a cleaner excerpt with less background noise.</p>
+        </div>
+      )}
+
+      {analysisQuality?.trust === 'medium' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+        <div className={`${styles.analysisNotice} ${styles.analysisNoticeMedium}`}>
+          <p className={styles.analysisNoticeTitle}>Medium confidence — feedback may be slightly imprecise</p>
+          <ul className={styles.analysisNoticeList}>
+            {analysisQuality.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+          <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
         </div>
       )}
 
       <div className={styles.issueStrip}>
         <span className={styles.issueStripLabel}>Issues:</span>
         {chips.length === 0
-          ? <span className={styles.issueStripHint}>No issues detected — performance looks clean.</span>
+          ? (
+            <span className={styles.issueStripHint} style={{ color: 'var(--hero-green)', fontWeight: 500 }}>
+              ✓ Clean performance — no issues detected. Great work.
+            </span>
+          )
           : <>
-              {chips.map(({ flag, label }) => (
-                <button
-                  key={flag}
-                  className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
-                  onClick={() => setActiveFlag(activeFlag === flag ? null : flag)}
-                >
-                  {label}
-                </button>
-              ))}
-              <span className={styles.issueStripHint}>Click a highlighted measure or issue to read feedback.</span>
+              {chips.map(({ flag, label, confidence }) => {
+                const confColor = confidence >= 90 ? 'var(--hero-green)' : confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.4)'
+                return (
+                  <button
+                    key={flag}
+                    className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
+                    onClick={() => setActiveFlag(activeFlag === flag ? null : flag)}
+                  >
+                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: confColor, marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />
+                    {label}
+                  </button>
+                )
+              })}
+              <span className={styles.issueStripHint}>Click an issue to read feedback. ● high confidence · ◐ medium · ○ lower</span>
             </>
         }
       </div>
@@ -502,7 +533,19 @@ export default function Analysis() {
               </div>
             ) : (
               <div className={styles.feedbackDetail}>
-                <p className={styles.detailTag}>{info.tag}</p>
+                <p className={styles.detailTag}>
+                  {info.tag}
+                  {info.confidence != null && (
+                    <span style={{
+                      marginLeft: 10,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: info.confidence >= 90 ? 'var(--hero-green)' : info.confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.45)',
+                    }}>
+                      {info.confidence >= 90 ? '● high' : info.confidence >= 75 ? '◑ medium' : '○ lower'} confidence
+                    </span>
+                  )}
+                </p>
                 <h3 className={styles.detailTitle}>{info.title}</h3>
                 <p className={styles.detailBody}>{info.body}</p>
 

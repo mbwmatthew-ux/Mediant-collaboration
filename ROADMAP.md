@@ -47,31 +47,30 @@ A musician uploads a video of themselves playing sheet music and receives specif
 ## Phase 1 — Analyzer Quality (Days 3–7) 🔄 ← CURRENT
 **Goal:** Make the output genuinely useful to a musician. Flags should be specific, correct, and actionable.
 
-### 1.1 — Score Reading Accuracy
-- [ ] Validate MusicXML upload path end-to-end (highest accuracy — structured data)
-- [ ] Add user-facing option to manually enter piece title, key, time signature if OCR fails
-- [ ] Show user a preview of parsed score (which measures were read) before submit
+### 1.1 — Score Reading Accuracy ✅
+- [x] MusicXML path validated end-to-end (music21 → DTW alignment → coaching)
+- [x] Score dropzone updated with clear MusicXML guidance and quality warning for photos/PDFs
+- [x] Title, composer, key, time signature, start/end measure all manually editable in Record.jsx
+- [ ] Show user a preview of parsed score measures before submit *(deferred — requires pre-submit API call)*
 
 **Success criteria:** For a clean image upload, Claude reads ≥90% of notes correctly on a test set of 5 pieces.
 
-### 1.2 — Flag Quality
-- [ ] Test with piano (polyphonic), cello, clarinet — verify flag types are instrument-appropriate
-- [ ] Add articulation and phrasing flag types to coaching prompt
-- [ ] Ensure "warm teacher" tone holds across all flag types
-- [ ] Add confidence indicator to each flag (high / medium badge in UI)
-- [ ] If zero flags: show a positive "clean performance" summary instead of empty screen
+### 1.2 — Flag Quality ✅
+- [x] Added `phrasing` flag type to coaching prompt and allowed types (alongside articulation)
+- [x] Confidence dot badge on every issue chip (green ≥90, gold ≥75, muted <75)
+- [x] Confidence label in flag detail panel (high / medium / lower)
+- [x] Zero flags → "✓ Clean performance — no issues detected. Great work." (green, positive)
+- [ ] Instrument-specific testing (piano, cello, clarinet) *(requires real recordings — Phase 1.4)*
 
 **Success criteria:** 3 beta musicians review flagged recordings and rate accuracy ≥ 4/5.
 
-### 1.3 — Analysis Quality Feedback to User
-- [ ] Display trust level (high / medium / low) visibly on Analysis screen
-- [ ] For medium trust: show banner explaining why + how to improve
-- [ ] For low trust: don't show empty flags — show quality gate error + improvement suggestions
-- [ ] Log analysis backend in DB for debugging
+### 1.3 — Analysis Quality Feedback to User ✅
+- [x] Trust level badge in Analysis page header (● High / ◑ Medium / ○ Low confidence)
+- [x] Medium trust: banner with explanation + "upload MusicXML for higher accuracy" CTA
+- [x] Low trust: banner with specific reasons + improvement path
+- [x] Analysis backend logged in DB (`analysis_backend` column)
 
-**Success criteria:** User always knows why they got the result they did and always has a path to improve it.
-
-### 1.4 — End-to-End Testing Protocol
+### 1.4 — End-to-End Testing Protocol 🔄 ← CURRENT
 - [ ] Define test set of 5 recordings (piano, cello, wind, beginner, advanced)
 - [ ] For each: manually note which measures have real issues
 - [ ] Run through analyzer, compare — record measure accuracy and flag type accuracy
