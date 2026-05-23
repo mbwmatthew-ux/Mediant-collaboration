@@ -9,7 +9,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_MODEL = 'gemini-2.5-pro'
+const GEMINI_MODEL = 'gemini-2.5-flash'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 // Supabase platform limit is 150s. Budget breakdown:
 // Modal (CREPE + download + FFmpeg) takes 35-90s for typical recordings → cap at 110s.
