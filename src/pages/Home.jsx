@@ -131,27 +131,28 @@ export default function Home() {
             )}
           </div>
 
-          {/* Waveform */}
-          <div className={styles.waveformWrap}>
-            {bars.map((h, i) => (
-              <div
-                key={i}
-                className={styles.waveBar}
-                style={{
-                  height: `${h}px`,
-                  opacity: i < bars.length * 0.55 ? 0.85 : 0.35,
-                  background: i < bars.length * 0.55 ? 'var(--accent)' : 'var(--gold)',
-                }}
-              />
-            ))}
-          </div>
-          <div className={styles.waveFooter}>
-            <span>0:00</span>
-            <span>TEMPO · {lastTake?.bpm ?? 72} BPM</span>
-            <span>{lastTake ? '—:——' : '-:--'}</span>
-          </div>
-
-          {!lastTake && (
+          {lastTake ? (
+            <>
+              <div className={styles.waveformWrap}>
+                {bars.map((h, i) => (
+                  <div
+                    key={i}
+                    className={styles.waveBar}
+                    style={{
+                      height: `${h}px`,
+                      opacity: i < bars.length * 0.55 ? 0.85 : 0.35,
+                      background: i < bars.length * 0.55 ? 'var(--accent)' : 'var(--gold)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div className={styles.waveFooter}>
+                <span>0:00</span>
+                <span>TEMPO · {lastTake.bpm ?? 72} BPM</span>
+                <span>—:——</span>
+              </div>
+            </>
+          ) : (
             <div className={styles.heroEmpty}>
               <button className={styles.heroUploadBtn} onClick={() => nav('/record')}>
                 + Upload a recording
