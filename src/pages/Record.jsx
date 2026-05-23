@@ -205,14 +205,16 @@ export default function Record() {
       if (!jobId) throw new Error('No job ID returned from analysis service')
 
       // Poll job-status every 4s until done or failed (max 4 min = 60 attempts)
+      // If the function already completed inline it returns status:'done' — skip straight to polling
       const { data: { session } } = await supabase.auth.getSession()
       const token   = session?.access_token
       const fnBase  = supabase.supabaseUrl + '/functions/v1'
       const anonKey = supabase.supabaseKey
 
       let finalResult = null
+      const alreadyDone = jobResult?.status === 'done'
       for (let attempt = 0; attempt < 60; attempt++) {
-        await new Promise(r => setTimeout(r, 4000))
+        if (!alreadyDone || attempt > 0) await new Promise(r => setTimeout(r, 4000))
         setProgress(p => Math.min(p + 0.75, 95))
 
         try {
