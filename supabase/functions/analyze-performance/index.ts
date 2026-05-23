@@ -1126,23 +1126,31 @@ async function handleRequest(req: Request): Promise<Response> {
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
 
     // Download video bytes for Gemini upload (bytes-based upload is reliable in Deno edge).
-    const { data: videoBlob } = await admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null }))
+    const { data: videoBlob } = await admin.storage.from('recordings').download(videoPath).catch((e) => {
+      console.error('[analyze-performance] video download failed:', (e as Error).message)
+      return { data: null }
+    })
     const videoBytes = videoBlob ? new Uint8Array(await videoBlob.arrayBuffer()) : null
+    console.log('[analyze-performance] videoSignedUrl:', videoSignedUrl ? 'ok' : 'null', '| videoBytes:', videoBytes ? videoBytes.length + 'b' : 'null', '| googleApiKey:', googleApiKey ? 'set' : 'MISSING')
 
     // ── Gemini upload — try streaming first, fall back to bytes if it fails.
     const geminiUploadPromise: Promise<string | null> = googleApiKey
       ? (videoSignedUrl
           ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
-              .catch(() => videoBytes
-                ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-                    .catch(err => { console.error('[analyze-performance] Gemini bytes upload failed:', (err as Error).message); return null })
-                : null
-              )
+              .catch((e) => {
+                console.error('[analyze-performance] Gemini stream upload failed, trying bytes:', (e as Error).message)
+                return videoBytes
+                  ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+                      .catch(err => { console.error('[analyze-performance] Gemini bytes upload failed:', (err as Error).message); return null })
+                  : null
+              })
           : videoBytes
             ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
                 .catch(err => { console.error('[analyze-performance] Gemini upload failed:', (err as Error).message); return null })
             : Promise.resolve(null))
       : Promise.resolve(null)
+
+    geminiUploadPromise.then(uri => console.log('[analyze-performance] Gemini upload result:', uri ? 'ok (' + uri.slice(0,40) + '...)' : 'null'))
 
     const geminiEvalPromise: Promise<GeminiAssessment | null> = geminiUploadPromise.then(fileUri =>
       fileUri && googleApiKey
