@@ -90,7 +90,19 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
-  if (loading) return null
+  if (loading) return (
+    <div style={{
+      alignItems: 'center',
+      background: 'var(--bg)',
+      display: 'flex',
+      height: '100vh',
+      justifyContent: 'center',
+    }}>
+      <span style={{ color: 'var(--accent)', fontSize: '1.1rem', opacity: 0.6 }}>
+        Loading…
+      </span>
+    </div>
+  )
 
   return (
     <AuthContext.Provider value={{ user, subscription, login, signup, logout, refreshSubscription }}>
