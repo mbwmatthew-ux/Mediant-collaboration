@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import UploadPieceModal from '../components/UploadPieceModal'
 import PieceDetailPanel from '../components/PieceDetailPanel'
 import styles from './Page.module.css'
@@ -16,16 +17,27 @@ export default function Search() {
   const [instrument, setInstrument] = useState(null)
   const [era,        setEra]        = useState(null)
   const [difficulty, setDifficulty] = useState(null)
-  const [userPieces, setUserPieces] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]') }
-    catch { return [] }
-  })
+  const [userPieces,    setUserPieces]    = useState([])
+  const [loadingPieces, setLoadingPieces] = useState(true)
   const [showUpload,    setShowUpload]    = useState(false)
   const [selectedPiece, setSelectedPiece] = useState(null)
 
   useEffect(() => {
-    localStorage.setItem('mediant_user_pieces', JSON.stringify(userPieces))
-  }, [userPieces])
+    if (!user?.id) {
+      try { setUserPieces(JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]')) }
+      catch { setUserPieces([]) }
+      setLoadingPieces(false)
+      return
+    }
+    setLoadingPieces(true)
+    supabase
+      .from('user_pieces')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setUserPieces(data ?? []); setLoadingPieces(false) })
+      .catch(() => setLoadingPieces(false))
+  }, [user?.id])
 
   function handlePieceAdded(piece) {
     setUserPieces(prev => [piece, ...prev])

@@ -19,49 +19,54 @@ function userFromSession(session) {
   }
 }
 
-// SUBSCRIPTIONS DISABLED — run supabase migrations before re-enabling
-// async function fetchSubscription(userId) {
-//   const { data } = await supabase
-//     .from('subscriptions')
-//     .select('status, plan, current_period_end')
-//     .eq('user_id', userId)
-//     .single()
-//   return data ?? { status: 'inactive', plan: null, current_period_end: null }
-// }
+async function fetchSubscription(userId) {
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('status, plan, current_period_end')
+    .eq('user_id', userId)
+    .maybeSingle()
+  return data ?? { status: 'inactive', plan: null, current_period_end: null }
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser]   = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user,         setUser]         = useState(null)
+  const [subscription, setSubscription] = useState({ status: 'inactive', plan: null })
+  const [loading,      setLoading]      = useState(true)
 
-  // Stub — always active until subscriptions table is set up
-  const subscription = { status: 'active', plan: null }
-  function refreshSubscription() {}
+  function refreshSubscription(userId) {
+    const id = userId ?? user?.id
+    if (id) fetchSubscription(id).then(setSubscription)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(userFromSession(session))
+      const u = userFromSession(session)
+      setUser(u)
+      if (u?.id) fetchSubscription(u.id).then(setSubscription)
       setLoading(false)
     })
 
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(userFromSession(session))
+      const u = userFromSession(session)
+      setUser(u)
+      if (u?.id) fetchSubscription(u.id).then(setSubscription)
+      else setSubscription({ status: 'inactive', plan: null })
     })
 
     return () => authSub.unsubscribe()
   }, [])
 
-  // REALTIME SUBSCRIPTION LISTENER — re-enable with subscriptions table
-  // useEffect(() => {
-  //   if (!user) return
-  //   const channel = supabase
-  //     .channel(`sub-${user.id}`)
-  //     .on('postgres_changes', {
-  //       event: '*', schema: 'public', table: 'subscriptions',
-  //       filter: `user_id=eq.${user.id}`,
-  //     }, (payload) => setSubscription(payload.new))
-  //     .subscribe()
-  //   return () => { supabase.removeChannel(channel) }
-  // }, [user?.id])
+  useEffect(() => {
+    if (!user?.id) return
+    const channel = supabase
+      .channel(`sub-${user.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'subscriptions',
+        filter: `user_id=eq.${user.id}`,
+      }, payload => setSubscription(payload.new))
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
 
   async function signup(name, email, password, instrument) {
     const { data, error } = await supabase.auth.signUp({

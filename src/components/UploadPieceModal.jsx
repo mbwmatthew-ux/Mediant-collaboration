@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { saveFile } from '../lib/fileStore'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import styles from './UploadPieceModal.module.css'
 
 const ACCEPTED    = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -19,11 +20,12 @@ function fileToBase64(file) {
 }
 
 export default function UploadPieceModal({ onClose, onAdded }) {
-  const inputRef = useRef(null)
+  const { user }  = useAuth()
+  const inputRef  = useRef(null)
   const [file,       setFile]       = useState(null)
   const [drag,       setDrag]       = useState(false)
   const [instrument, setInstrument] = useState('')
-  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready
+  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready | saving
   const [form,       setForm]       = useState(null)
   const [error,      setError]      = useState(null)
 
@@ -68,23 +70,55 @@ export default function UploadPieceModal({ onClose, onAdded }) {
   }
 
   async function handleAdd() {
-    if (!file || !form) return
-    const id = `upload-${Date.now()}`
-    const piece = {
-      id,
-      ...form,
-      title:       form.title.trim()    || file.name,
-      composer:    form.composer.trim() || 'Unknown',
-      key:         form.key.trim()      || '—',
-      time:        form.time.trim()     || '—',
-      instrument,
-      mediaType:   file.type,
-      userUploaded: true,
+    if (!file || !form || !instrument) return
+    setPhase('saving')
+    setError(null)
+    try {
+      // Upload file to Supabase storage
+      const ext      = file.name.split('.').pop() ?? 'bin'
+      const filePath = `${user.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('sheet-music')
+        .upload(filePath, file, { contentType: file.type })
+      if (uploadErr) throw uploadErr
+
+      // Insert into user_pieces
+      const { data: inserted, error: insertErr } = await supabase
+        .from('user_pieces')
+        .insert({
+          user_id:    user.id,
+          title:      form.title.trim()    || file.name,
+          composer:   form.composer.trim() || 'Unknown',
+          instrument,
+          era:        form.era,
+          difficulty: form.difficulty,
+          key:        form.key.trim()  || '—',
+          time:       form.time.trim() || '—',
+          file_path:  filePath,
+        })
+        .select('id')
+        .single()
+      if (insertErr) throw insertErr
+
+      // Save to IndexedDB so the score viewer works offline
+      await saveFile(inserted.id, file).catch(() => {})
+
+      onAdded({
+        id:           inserted.id,
+        ...form,
+        title:        form.title.trim()    || file.name,
+        composer:     form.composer.trim() || 'Unknown',
+        instrument,
+        key:          form.key.trim()  || '—',
+        time:         form.time.trim() || '—',
+        file_path:    filePath,
+        userUploaded: true,
+      })
+      onClose()
+    } catch (err) {
+      setError(`Failed to save: ${err.message}`)
+      setPhase('ready')
     }
-    // Save the actual file to IndexedDB so it can be viewed later
-    await saveFile(id, file).catch(() => {})
-    onAdded(piece)
-    onClose()
   }
 
   return (
@@ -199,7 +233,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             onClick={handleAdd}
             disabled={phase !== 'ready' || !instrument}
           >
-            Add to library
+            {phase === 'saving' ? 'Saving…' : 'Add to library'}
           </button>
         </div>
 

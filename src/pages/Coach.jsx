@@ -22,11 +22,18 @@ export default function Coach() {
   useEffect(() => {
     supabase
       .from('takes')
-      .select('id, piece_title, piece_composer, instrument, score, flags')
+      .select('id, piece_title, piece_composer, instrument, score, flags, chat_history')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => { if (data) setTake(data) })
+      .then(({ data }) => {
+        if (data) {
+          setTake(data)
+          if (Array.isArray(data.chat_history) && data.chat_history.length > 0) {
+            setMessages(data.chat_history)
+          }
+        }
+      })
       .catch(() => {
         try {
           const stored = localStorage.getItem('mediant_last_take')
@@ -43,7 +50,8 @@ export default function Coach() {
     const msg = (text ?? input).trim()
     if (!msg || loading) return
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: msg }])
+    const withUser = [...messages, { role: 'user', content: msg }]
+    setMessages(withUser)
     setLoading(true)
 
     try {
@@ -60,7 +68,12 @@ export default function Coach() {
         },
       })
       if (error) throw new Error(error.message ?? String(error))
-      setMessages(prev => [...prev, { role: 'assistant', content: data?.reply ?? '' }])
+      const reply = data?.reply ?? ''
+      const updated = [...withUser, { role: 'assistant', content: reply }]
+      setMessages(updated)
+      if (take?.id) {
+        supabase.from('takes').update({ chat_history: updated }).eq('id', take.id).catch(() => {})
+      }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
