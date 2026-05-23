@@ -1076,19 +1076,14 @@ async function handleRequest(req: Request): Promise<Response> {
     const modalUrl = Deno.env.get('MODAL_WORKER_URL')
     const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY')!
 
-    // Generate signed URLs for Modal worker
-    let videoSignedUrl: string | null = null
+    // Always generate a video signed URL — used for both Modal and streaming Gemini upload.
+    const { data: vSignedData } = await admin.storage.from('recordings').createSignedUrl(videoPath, 3600)
+    let videoSignedUrl: string | null = vSignedData?.signedUrl ?? null
     let scoreSignedUrl: string | null = null
-    if (modalUrl) {
-      const { data: vSigned } = await admin.storage.from('recordings')
-        .createSignedUrl(videoPath, 3600)
-      videoSignedUrl = vSigned?.signedUrl ?? null
-
-      if (scorePath) {
-        const { data: sSigned } = await admin.storage.from('sheet-music')
-          .createSignedUrl(scorePath, 3600)
-        scoreSignedUrl = sSigned?.signedUrl ?? null
-      }
+    if (modalUrl && scorePath) {
+      const { data: sSigned } = await admin.storage.from('sheet-music')
+        .createSignedUrl(scorePath, 3600)
+      scoreSignedUrl = sSigned?.signedUrl ?? null
     }
     // Only send structured (XML/MXL) scores to Modal — music21 parses those in
     // under 5s. Visual scores (PNG/PDF) trigger Audiveris OMR which takes
@@ -1118,21 +1113,13 @@ async function handleRequest(req: Request): Promise<Response> {
         })
       : Promise.resolve(null)
 
-    // ── Download score bytes in parallel with Modal ──────────────────────
-    const [scoreBlobRes, videoBlobRes] = await Promise.all([
-      isVisualScore && scorePath
-        ? admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
-      // Only download video bytes when Modal is unavailable (Gemini fallback path).
-      // On the Modal path we stream from the signed URL → no large buffer in memory.
-      modalUrl && videoSignedUrl
-        ? Promise.resolve({ data: null })
-        : admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null })),
-    ])
+    // ── Download score bytes only (video is always streamed via signed URL) ──
+    const scoreBlobRes = await (isVisualScore && scorePath
+      ? admin.storage.from('sheet-music').download(scorePath).catch(() => ({ data: null }))
+      : Promise.resolve({ data: null }))
     const scoreBytesForClaude = scoreBlobRes.data
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
-    const videoBytes = videoBlobRes.data
-      ? new Uint8Array(await videoBlobRes.data.arrayBuffer()) : null
+    const videoBytes: Uint8Array | null = null
 
     // ── Gemini direct eval — streams from signed URL when Modal is available,
     //    falls back to uploading downloaded bytes when Modal is not.
@@ -1312,31 +1299,19 @@ async function handleRequest(req: Request): Promise<Response> {
 
     // ── Path B: Gemini transcription fallback ─────────────────────────────
     if (!usedModal) {
-      let geminiFileUri = await geminiUploadPromise
-      if (!geminiFileUri && googleApiKey) {
-        const { data: fallbackVideoBlob } = await admin.storage.from('recordings').download(videoPath)
-        const fallbackVideoBytes = fallbackVideoBlob
-          ? new Uint8Array(await fallbackVideoBlob.arrayBuffer())
-          : null
-        geminiFileUri = fallbackVideoBytes
-          ? await uploadVideoToGemini(fallbackVideoBytes, videoMimeType, googleApiKey).catch(err => {
-              console.error('[analyze-performance] Gemini fallback upload failed:', (err as Error).message)
-              return null
-            })
-          : null
+      const geminiFileUri = await geminiUploadPromise
+      if (!geminiFileUri) {
+        console.error('[analyze-performance] Gemini upload failed — proceeding with assessment-only analysis')
       }
-      if (!geminiFileUri) throw new Error('Video upload to Gemini failed and Modal worker is unavailable')
 
       if (geminiAudio) {
         audio = geminiAudio
         console.log('[analyze-performance] Gemini transcription (pre-computed):', audio.events.length, 'events, tempo:', audio.tempo_estimate_bpm)
       } else {
-        audio = await transcribeAudio(geminiFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
-          .catch(err => {
-            console.error('[analyze-performance] transcribeAudio threw:', (err as Error).message)
-            return { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null } as AudioTranscription
-          })
-        console.log('[analyze-performance] Gemini transcription:', audio.events.length, 'events, tempo:', audio.tempo_estimate_bpm)
+        // Transcription already ran in parallel but timed out or failed — do not retry
+        // sequentially or we'll blow the global timeout. Proceed with empty audio;
+        // the Gemini assessment still drives coaching quality.
+        console.warn('[analyze-performance] Gemini transcription unavailable; proceeding with assessment only')
       }
     }
 
