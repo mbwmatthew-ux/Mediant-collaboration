@@ -1,127 +1,208 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './Landing.module.css'
 
+const ROTATING_LINES = [
+  { we: 'elevate', you: 'create',  color: '#a58fe8' },
+  { we: 'listen',  you: 'perform', color: '#e18676' },
+  { we: 'analyze', you: 'refine',  color: '#d6b168' },
+  { we: 'map',     you: 'improve', color: '#5cb86b' },
+  { we: 'coach',   you: 'grow',    color: '#5cb86b' },
+]
+
 const FEATURES = [
   {
-    title: 'Score-Aware Analysis',
-    body: 'Mediant maps your recording directly to the sheet music — not just pitch detection. Every flag is tied to a specific measure, beat, and voice.',
+    icon: ScoreIcon,
+    title: 'Score-aware analysis',
+    body: 'Every flag is tied to a specific measure and beat — not a vague average. Mediant reads the sheet music, not just the audio.',
   },
   {
-    title: 'Coaching Feedback',
-    body: 'Receive warm, specific feedback that sounds like a teacher, not a metronome app. Mediant understands musical context and phrasing.',
+    icon: CoachIcon,
+    title: 'Coaching that sounds human',
+    body: 'Feedback reads like it came from a conservatory teacher. Musical context, not just correct vs. incorrect.',
   },
   {
-    title: 'Session History',
-    body: 'Every take is saved and scored. Track which passages improved over time and see exactly where your practice is paying off.',
-  },
-  {
-    title: 'Measure-Level Flags',
-    body: 'Flagged measures are tagged by issue type — timing, dynamics, voicing, articulation — so you know exactly what to work on.',
-  },
-  {
-    title: 'Any Instrument, Any Level',
-    body: 'Piano, violin, voice, and more. Beginner to advanced. Mediant adapts its feedback to your instrument and experience level.',
+    icon: ProgressIcon,
+    title: 'Session history',
+    body: 'Track exactly which passages improved across every take. See where your practice is paying off.',
   },
 ]
 
 const STEPS = [
-  {
-    num: '01',
-    title: 'Upload your recording',
-    body: 'Drop in an audio file from your practice session. Mediant accepts any format and works with live recordings or exports from your DAW.',
-  },
-  {
-    num: '02',
-    title: 'Maps it to the score',
-    body: 'Mediant aligns your performance to the sheet music measure by measure, detecting timing, dynamics, and voicing issues with musical precision.',
-  },
-  {
-    num: '03',
-    title: 'Get targeted feedback',
-    body: 'Click any flagged measure to read specific, actionable feedback. Loop the passage, fix it, and move on — with a clear record of improvement.',
-  },
+  { num: '01', title: 'Upload your recording', body: 'Drop in a video or audio file from your practice session.' },
+  { num: '02', title: 'Maps it to the score',  body: 'Mediant aligns every note to your sheet music, measure by measure.' },
+  { num: '03', title: 'Get targeted feedback', body: 'Click any flagged measure for specific, actionable coaching.' },
 ]
 
-const INSTRUMENTS = ['Piano', 'Violin', 'Viola', 'Cello', 'Voice', 'Flute', 'Clarinet', 'Guitar', 'Harp', 'Trumpet', 'Oboe', 'Bassoon']
+const INSTRUMENTS = ['Piano', 'Violin', 'Viola', 'Cello', 'Voice', 'Flute', 'Clarinet', 'Guitar', 'Harp', 'Trumpet']
 
-function LogoMark() {
-  const S = 4.5
-  const C = 'rgba(255,255,255,0.92)'
-  const top = 14, bot = 72
-  const xL = 14, xC = 42, xR = 70
+/* ── Animated logo that draws itself in ──────────────────────── */
+function AnimatedLogo({ size = 28 }) {
+  const vb = 84
+  const w = size
+  const h = Math.round(size * (vb / vb))
   return (
-    <svg width="22" height="26" viewBox="0 0 84 84" fill="none">
-      <line x1="6"  y1={top} x2="78" y2={top} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1="6"  y1={bot} x2="78" y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xL} y1={top} x2={xL} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xC} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xR} y1={top} x2={xR} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xL} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xR} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
+    <svg width={w} height={h} viewBox="0 0 84 84" fill="none" className={styles.logoSvg}>
+      <line x1="6"  y1="14" x2="78" y2="14" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '0ms',   '--l': 72 }} />
+      <line x1="6"  y1="72" x2="78" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '55ms',  '--l': 72 }} />
+      <line x1="14" y1="14" x2="14" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '110ms', '--l': 58 }} />
+      <line x1="42" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '155ms', '--l': 58 }} />
+      <line x1="70" y1="14" x2="70" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '200ms', '--l': 58 }} />
+      <line x1="14" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '255ms', '--l': 65 }} />
+      <line x1="70" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
+        className={styles.ll} style={{ '--d': '310ms', '--l': 65 }} />
     </svg>
   )
 }
 
+/* ── Large glowing hero logo ─────────────────────────────────── */
+function HeroLogo() {
+  return (
+    <div className={styles.heroLogoWrap}>
+      <div className={styles.heroLogoGlow} />
+      <svg width="80" height="80" viewBox="0 0 84 84" fill="none" className={styles.heroLogoSvg}>
+        <line x1="6"  y1="14" x2="78" y2="14" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '100ms', '--l': 72 }} />
+        <line x1="6"  y1="72" x2="78" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '160ms', '--l': 72 }} />
+        <line x1="14" y1="14" x2="14" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '220ms', '--l': 58 }} />
+        <line x1="42" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '270ms', '--l': 58 }} />
+        <line x1="70" y1="14" x2="70" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '320ms', '--l': 58 }} />
+        <line x1="14" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '380ms', '--l': 65 }} />
+        <line x1="70" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
+          className={styles.ll} style={{ '--d': '435ms', '--l': 65 }} />
+      </svg>
+    </div>
+  )
+}
+
+/* ── Brand wordmark ──────────────────────────────────────────── */
+function Wordmark({ className }) {
+  return (
+    <span className={`${styles.wordmark} ${className || ''}`}>
+      Mediant
+    </span>
+  )
+}
+
 export default function Landing() {
+  const [wordIdx, setWordIdx]         = useState(0)
+  const [wordVisible, setWordVisible] = useState(true)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setWordVisible(false)
+      // Change word while invisible, then fade in — no key remounting needed
+      setTimeout(() => setWordIdx(i => (i + 1) % ROTATING_LINES.length), 320)
+      setTimeout(() => setWordVisible(true), 370)
+    }, 2800)
+    return () => clearInterval(id)
+  }, [])
+
   useEffect(() => {
     const els = document.querySelectorAll(`.${styles.reveal}`)
     if (!els.length) return
     const obs = new IntersectionObserver(
       entries => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add(styles.revealVisible)
-        } else {
-          e.target.classList.remove(styles.revealVisible)
-        }
+        if (e.isIntersecting) e.target.classList.add(styles.revealVisible)
       }),
-      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.06, rootMargin: '0px 0px -40px 0px' },
     )
     els.forEach(el => obs.observe(el))
     return () => obs.disconnect()
   }, [])
 
+  const current = ROTATING_LINES[wordIdx]
+
   return (
     <div className={styles.page}>
 
-      {/* Nav */}
+      {/* ── Nav ─────────────────────────────────────────────── */}
       <nav className={styles.nav}>
-        <div className={styles.navLeft}>
-          <Link to="/" className={styles.brand}>
-            <LogoMark />
-          </Link>
-          <span className={styles.navSep}>/</span>
-          <span className={styles.navOrg}>Mediant</span>
-          <span className={styles.navBadge}>PRACTICE</span>
-        </div>
+        <Link to="/" className={styles.navBrand}>
+          <AnimatedLogo size={22} />
+          <Wordmark />
+        </Link>
         <div className={styles.navRight}>
           <Link to="/login"  className={styles.navLogin}>Log in</Link>
-          <Link to="/signup" className={styles.navCta}>Get started free</Link>
+          <Link to="/signup" className={styles.navCta}>Get started free →</Link>
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────── */}
       <section className={styles.hero}>
-        <span className={styles.eyebrow}>Intelligent Practice Coach</span>
+
+        {/* Large animated logo mark */}
+        <div className={styles.heroLogoAnim}>
+          <HeroLogo />
+        </div>
+
+        <div className={styles.heroBadge}>
+          <span className={styles.heroBadgeDot} />
+          AI-powered music coaching
+        </div>
+
         <h1 className={styles.heroHeading}>
-          The practice coach<br />
-          <em>that actually listens.</em>
+          <span className={styles.heroLine}>
+            <span className={styles.heroStatic}>We</span>
+            <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
+              <span
+                className={`${styles.heroWord} ${wordVisible ? styles.heroWordIn : styles.heroWordOut}`}
+                style={{ '--w-color': current.color }}
+              >
+                {current.we}
+              </span>
+            </span>
+            <span className={styles.heroComma}>,</span>
+          </span>
+          <span className={styles.heroLine}>
+            <span className={styles.heroStatic}>you</span>
+            <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
+              <span
+                className={`${styles.heroWord} ${wordVisible ? styles.heroWordIn : styles.heroWordOut}`}
+                style={{ '--w-color': current.color }}
+              >
+                {current.you}
+              </span>
+            </span>
+          </span>
         </h1>
+
         <p className={styles.heroSub}>
-          Mediant listens to your recordings, aligns them to your sheet music, and gives you
-          specific, measure-by-measure feedback — like having a teacher in the room with you.
+          Upload a recording. Mediant maps it to your sheet music and delivers
+          coaching that sounds like it came from a teacher — not an app.
         </p>
+
         <div className={styles.heroCtas}>
           <Link to="/signup" className={styles.ctaPrimary}>Start for free →</Link>
           <Link to="/login"  className={styles.ctaGhost}>Log in</Link>
         </div>
-        <p className={styles.heroNote}>Free to start · No credit card required · Works with any instrument</p>
+
+        <p className={styles.heroNote}>Free to start · No credit card · Any instrument</p>
+
+        {/* Instrument chips */}
+        <div className={styles.instrRow}>
+          <span className={styles.instrLabel}>Works with</span>
+          {INSTRUMENTS.map(i => (
+            <span key={i} className={styles.instrChip}>{i}</span>
+          ))}
+          <span className={styles.instrMore}>+ more</span>
+        </div>
       </section>
 
-      {/* App mockup */}
+      {/* ── App mockup ──────────────────────────────────────── */}
       <div className={`${styles.previewWrap} ${styles.reveal}`}>
         <div className={styles.previewShell}>
-          {/* Top bar */}
           <div className={styles.previewTopBar}>
             <div className={styles.previewTopLeft}>
               <div className={styles.previewLogoBox} />
@@ -134,31 +215,24 @@ export default function Landing() {
             <div className={styles.previewTopRight}>
               <span className={styles.previewNavLink}>Record</span>
               <span className={styles.previewNavLink}>Library</span>
-              <div className={styles.previewAvatar}>PS</div>
+              <div className={styles.previewAvatar}>MS</div>
             </div>
           </div>
-          {/* Body */}
           <div className={styles.previewBody}>
-            {/* Sidebar — mirrors the real AppShell NAV icons */}
             <div className={styles.previewSidebar}>
               {[
-                <svg key="home"     width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
-                <svg key="search"   width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
-                <svg key="upload"   width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-                <svg key="score"    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
-                <svg key="summary"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>,
-                <svg key="saved"    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-                <svg key="progress" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-                <svg key="coach"    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+                <svg key="h"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
+                <svg key="s"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
+                <svg key="u"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
+                <svg key="sc" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+                <svg key="p"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
               ].map((icon, i) => (
-                <div key={i} className={`${styles.previewNavItem} ${i === 3 ? styles.previewNavItemActive : ''}`}>
+                <div key={i} className={`${styles.previewNavItem} ${i === 2 ? styles.previewNavItemActive : ''}`}>
                   {icon}
                 </div>
               ))}
             </div>
-            {/* Main content */}
             <div className={styles.previewMain}>
-              {/* Header row */}
               <div className={styles.previewContentTop}>
                 <div className={styles.previewPieceInfo}>
                   <span className={styles.previewPieceName}>Clair de Lune</span>
@@ -174,9 +248,7 @@ export default function Landing() {
                   <div className={styles.previewChip}>Dynamics</div>
                 </div>
               </div>
-              {/* Score + feedback */}
               <div className={styles.previewTwoCol}>
-                {/* Score area */}
                 <div className={styles.previewScore}>
                   {[
                     [{x:'22%',y:'32%'},{x:'30%',y:'60%'},{x:'38%',y:'42%'},{x:'46%',y:'72%'},{x:'58%',y:'28%'},{x:'66%',y:'56%'},{x:'74%',y:'40%'},{x:'82%',y:'66%'}],
@@ -185,55 +257,26 @@ export default function Landing() {
                     [{x:'22%',y:'38%'},{x:'32%',y:'64%'},{x:'42%',y:'50%'},{x:'52%',y:'30%'},{x:'62%',y:'68%'},{x:'72%',y:'44%'},{x:'82%',y:'56%'}],
                   ].map((notes, i) => (
                     <div key={i} className={`${styles.previewStave} ${i === 1 ? styles.previewStaveFlagged : ''}`}>
-                      {/* Clef */}
                       <span className={styles.previewClef}>𝄞</span>
-                      {/* Time sig on first stave only */}
-                      {i === 0 && (
-                        <div className={styles.previewTimeSig}><span>4</span><span>4</span></div>
-                      )}
-                      {/* Measure numbers */}
-                      {[0,1,2,3].map(m => (
-                        <span key={m} className={styles.previewMeasureNum} style={{ left: `${m * 25 + (i===0 ? 19 : 19)}%` }}>{i * 4 + m + 1}</span>
+                      {i === 0 && <div className={styles.previewTimeSig}><span>4</span><span>4</span></div>}
+                      <div className={styles.previewStaffLine}/><div className={styles.previewStaffLine}/>
+                      <div className={styles.previewStaffLine}/><div className={styles.previewStaffLine}/>
+                      <div className={styles.previewStaffLine}/>
+                      {['25%','50%','75%'].map(p => <div key={p} className={styles.previewMeasureBar} style={{left:p}}/>)}
+                      {notes.map((n, j) => (
+                        <div key={j}
+                          className={`${styles.previewNote} ${i===1?styles.previewNoteFlagged:''} ${parseFloat(n.y)<=50?'':styles.previewNoteStemDown}`}
+                          style={{left:n.x,top:n.y}}/>
                       ))}
-                      {/* Staff lines */}
-                      <div className={styles.previewStaffLine} />
-                      <div className={styles.previewStaffLine} />
-                      <div className={styles.previewStaffLine} />
-                      <div className={styles.previewStaffLine} />
-                      <div className={styles.previewStaffLine} />
-                      {/* Measure bars */}
-                      {['25%','50%','75%'].map(pos => (
-                        <div key={pos} className={styles.previewMeasureBar} style={{ left: pos }} />
-                      ))}
-                      {/* Notes */}
-                      {notes.map((n, j) => {
-                        const stemDown = parseFloat(n.y) <= 50
-                        return (
-                          <div
-                            key={j}
-                            className={`${styles.previewNote} ${i === 1 ? styles.previewNoteFlagged : ''} ${stemDown ? styles.previewNoteStemDown : ''}`}
-                            style={{ left: n.x, top: n.y }}
-                          />
-                        )
-                      })}
-                      {i === 1 && (
-                        <div className={styles.previewInlineAnnotation}>
-                          <div className={styles.previewAnnotationCaret} />
-                          Rushing
-                        </div>
-                      )}
+                      {i === 1 && <div className={styles.previewInlineAnnotation}><div className={styles.previewAnnotationCaret}/>Rushing</div>}
                     </div>
                   ))}
                 </div>
-
-                {/* SVG connector */}
-                <svg className={styles.previewConnectorSvg} viewBox="0 0 32 264" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
-                  <circle cx="1" cy="102" r="3.5" fill="rgba(225,134,118,0.92)" />
-                  <path d="M 1 102 C 22 102 10 46 28 46" stroke="rgba(225,134,118,0.6)" strokeWidth="1.5" strokeDasharray="4 3" fill="none" />
-                  <circle cx="28" cy="46" r="2.5" fill="rgba(225,134,118,0.92)" />
+                <svg className={styles.previewConnectorSvg} viewBox="0 0 32 264" preserveAspectRatio="none" style={{overflow:'visible'}}>
+                  <circle cx="1" cy="102" r="3.5" fill="rgba(225,134,118,0.92)"/>
+                  <path d="M 1 102 C 22 102 10 46 28 46" stroke="rgba(225,134,118,0.6)" strokeWidth="1.5" strokeDasharray="4 3" fill="none"/>
+                  <circle cx="28" cy="46" r="2.5" fill="rgba(225,134,118,0.92)"/>
                 </svg>
-
-                {/* Feedback panel */}
                 <div className={styles.previewFeedback}>
                   <span className={styles.previewFeedTag}>Timing · m.13</span>
                   <span className={styles.previewFeedTitle}>Rushing</span>
@@ -243,8 +286,8 @@ export default function Landing() {
                     <li className={styles.previewFeedItem}>Slow the pickup — let the phrase breathe</li>
                   </ul>
                   <div className={styles.previewWaveform}>
-                    {[28,45,70,38,60,82,50,35,65,44,72,30].map((h, j) => (
-                      <span key={j} className={j < 7 ? styles.previewWaveDone : styles.previewWaveTodo} style={{ height: `${h}%` }} />
+                    {[28,45,70,38,60,82,50,35,65,44,72,30].map((h,j)=>(
+                      <span key={j} className={j<7?styles.previewWaveDone:styles.previewWaveTodo} style={{height:`${h}%`}}/>
                     ))}
                   </div>
                   <button className={styles.previewFeedBtn}>Loop excerpt</button>
@@ -255,95 +298,45 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Instruments strip */}
-      <div className={`${styles.instrumentsWrap} ${styles.reveal}`}>
-        <p className={styles.instrumentsLabel}>Works with</p>
-        <div className={styles.instruments}>
-          {INSTRUMENTS.map(i => (
-            <span key={i} className={styles.instrumentChip}>{i}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Features */}
+      {/* ── Features ────────────────────────────────────────── */}
       <section className={styles.features}>
-        <div className={styles.featuresLayout}>
-          <div className={`${styles.featuresHead} ${styles.reveal}`}>
-            <p className={styles.sectionLabel}>What you get</p>
-            <h2 className={styles.featuresTitle}>Everything a serious practice session needs</h2>
-            <p className={styles.featuresSub}>From raw recording to actionable feedback in under a minute.</p>
-          </div>
-          <div className={styles.featuresList}>
-            {FEATURES.map((f, i) => (
-              <div key={f.title} className={`${styles.featuresItem} ${styles.reveal}`} style={{ '--d': `${i * 60}ms` }}>
-                <span className={styles.featureNum}>0{i + 1}</span>
-                <div>
-                  <h3 className={styles.featureTitle}>{f.title}</h3>
-                  <p className={styles.featureBody}>{f.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className={`${styles.featuresHead} ${styles.reveal}`}>
+          <p className={styles.sectionLabel}>What you get</p>
+          <h2 className={styles.featuresTitle}>Everything a serious<br />practice session needs</h2>
+        </div>
+        <div className={styles.featureGrid}>
+          {FEATURES.map((f, i) => (
+            <div key={f.title} className={`${styles.featureCard} ${styles.reveal}`} style={{ '--d': `${i * 80}ms` }}>
+              <div className={styles.featureIconWrap}><f.icon /></div>
+              <h3 className={styles.featureTitle}>{f.title}</h3>
+              <p className={styles.featureBody}>{f.body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* How it works */}
+      {/* ── How it works ────────────────────────────────────── */}
       <section className={styles.howItWorks}>
         <div className={`${styles.howHead} ${styles.reveal}`}>
           <p className={styles.sectionLabel}>How it works</p>
-          <h2 className={styles.howTitle}>Three steps to better practice</h2>
+          <h2 className={styles.howTitle}>Three steps to<br />better practice</h2>
         </div>
         <div className={styles.steps}>
           {STEPS.map((s, i) => (
-            <div key={s.num} className={`${styles.step} ${styles.reveal}`} style={{ '--d': `${i * 90}ms` }}>
+            <div key={s.num} className={`${styles.step} ${styles.reveal}`} style={{ '--d': `${i * 100}ms` }}>
               <span className={styles.stepNum}>{s.num}</span>
               <h3 className={styles.stepTitle}>{s.title}</h3>
               <p className={styles.stepBody}>{s.body}</p>
-              {i < STEPS.length - 1 && <div className={styles.stepConnector} />}
+              {i < STEPS.length - 1 && <div className={styles.stepArrow}>→</div>}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Difference section */}
-      <section className={styles.diff}>
-        <div className={styles.diffInner}>
-          <div className={`${styles.diffText} ${styles.reveal}`}>
-            <p className={styles.sectionLabel}>Why Mediant</p>
-            <h2 className={styles.diffTitle}>Not just a tuner.<br />A real musical ear.</h2>
-            <p className={styles.diffBody}>
-              Most practice tools detect pitch and tempo. Mediant understands music — phrasing, voicing, dynamics, and the relationship between notes over time. The feedback reads like it came from a conservatory teacher, not a spec sheet.
-            </p>
-            <ul className={styles.diffList}>
-              <li>Feedback tied to specific measures, not vague averages</li>
-              <li>Understands musical context — not just correct vs. incorrect</li>
-              <li>Works with the sheet music, not against it</li>
-              <li>Tracks improvement across sessions</li>
-            </ul>
-            <Link to="/signup" className={styles.ctaPrimary} style={{ alignSelf: 'flex-start', display: 'inline-block', marginTop: 8 }}>
-              Try it free →
-            </Link>
-          </div>
-          <div className={`${styles.diffVisual} ${styles.reveal}`} style={{ '--d': '120ms' }}>
-            <div className={styles.diffCard}>
-              <p className={styles.diffCardTag}>Timing · m.16</p>
-              <p className={styles.diffCardTitle}>Entrance is slightly early</p>
-              <p className={styles.diffCardBody}>
-                This phrase starts just ahead of the beat. Slow the pickup down and let the phrase breathe into the downbeat — the tension resolves much more convincingly that way.
-              </p>
-              <div className={styles.diffCardFooter}>
-                <button className={styles.diffCardBtn}>Loop this measure</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
+      {/* ── Final CTA ───────────────────────────────────────── */}
       <section className={`${styles.ctaSection} ${styles.reveal}`}>
-        <p className={styles.sectionLabel}>Get started</p>
-        <h2 className={styles.ctaTitle}>Practice with intention, not just repetition.</h2>
-        <p className={styles.ctaSub}>Join musicians who use Mediant to turn practice time into real progress.</p>
+        <h2 className={styles.ctaTitle}>Practice with intention,<br />not just repetition.</h2>
+        <p className={styles.ctaSub}>Join musicians turning practice time into real, measurable progress.</p>
         <div className={styles.heroCtas}>
           <Link to="/signup" className={styles.ctaPrimary}>Create your free account</Link>
           <Link to="/login"  className={styles.ctaGhost}>Log in</Link>
@@ -351,12 +344,12 @@ export default function Landing() {
         <p className={styles.heroNote}>No credit card · Cancel anytime</p>
       </section>
 
-      {/* Footer */}
+      {/* ── Footer ──────────────────────────────────────────── */}
       <footer className={styles.footer}>
         <div className={styles.footerLeft}>
-          <Link to="/" className={styles.brand} style={{ gap: 8 }}>
-            <LogoMark />
-            <span className={styles.brandName}>Mediant</span>
+          <Link to="/" className={styles.navBrand} style={{ opacity: 0.6 }}>
+            <AnimatedLogo size={18} />
+            <Wordmark />
           </Link>
           <p className={styles.footerTagline}>Intelligent music practice coaching.</p>
         </div>
@@ -368,5 +361,28 @@ export default function Landing() {
         <p className={styles.footerCopy}>© 2026 Mediant</p>
       </footer>
     </div>
+  )
+}
+
+/* ── Icons ─────────────────────────────────────────────────── */
+function ScoreIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </svg>
+  )
+}
+function CoachIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
+}
+function ProgressIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
   )
 }

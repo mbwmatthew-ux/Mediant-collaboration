@@ -1,25 +1,32 @@
 :root {
-  --bg: #344841;
-  --bg-deep: #2d3c37;
-  --hero-green: #587965;
-  --panel-green: #6d8a77;
+  --bg: #111714;
+  --bg-deep: #0d120f;
+  --bg-card: #192018;
+  --bg-card-hover: #1f2a1e;
+  --hero-green: #4a7a5a;
+  --panel-green: #3d6650;
+  --accent: #5cb86b;
+  --accent-dim: rgba(92,184,107,0.14);
   --cream: #f7f3ee;
   --cream-strong: #fdf9f5;
   --text: #2f3440;
   --text-soft: #66707a;
-  --text-inverse: #f8f6f2;
+  --text-inverse: #e8f0eb;
+  --text-muted: rgba(232,240,235,0.45);
   --gold: #d6b168;
   --gold-soft: #e8d7a8;
   --coral: #e18676;
   --coral-soft: #f5dfda;
+  --mint: #5cb86b;
   --mint-soft: #e3ece6;
-  --line: rgba(63, 80, 72, 0.12);
-  --shadow-lg: 0 34px 80px rgba(29, 40, 36, 0.22);
-  --shadow-md: 0 8px 28px rgba(55, 68, 63, 0.1);
-  --shadow-sm: 0 2px 8px rgba(55, 68, 63, 0.07);
-  --radius-lg: 26px;
-  --radius-md: 20px;
-  --radius-sm: 16px;
+  --line: rgba(255,255,255,0.07);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,0.5);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --sidebar-w: 220px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -30,7 +37,7 @@ html, body, #root {
 }
 
 body {
-  background: var(--cream);
+  background: var(--bg);
   color: var(--text);
   font-family: "Avenir Next", "Inter", "Segoe UI", sans-serif;
   font-size: 15px;
