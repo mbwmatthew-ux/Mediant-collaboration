@@ -22,7 +22,7 @@ const MODAL_TIMEOUT_MS = 75_000
 const GEMINI_EVAL_TIMEOUT_MS = 90_000
 const SCORE_READ_TIMEOUT_MS = 15_000
 const COACH_TIMEOUT_MS = 20_000
-const GLOBAL_TIMEOUT_MS = 140_000
+const GLOBAL_TIMEOUT_MS = 280_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([
