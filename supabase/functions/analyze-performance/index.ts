@@ -16,9 +16,10 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6'
 // Gemini eval runs in parallel with Modal → cap at 100s.
 // Score read (Claude vision) runs in parallel → cap at 15s.
 // Coaching (Claude) runs after → cap at 20s.
-// Worst case: max(110s, 100s) + 20s + ~5s overhead = 135s → under 140s global cap.
-const MODAL_TIMEOUT_MS = 110_000
-const GEMINI_EVAL_TIMEOUT_MS = 100_000
+// Gemini eval+transcription run in parallel from t=0, finish ~70s.
+// Modal capped at 75s so fallback to Gemini leaves ~45s for coaching.
+const MODAL_TIMEOUT_MS = 75_000
+const GEMINI_EVAL_TIMEOUT_MS = 90_000
 const SCORE_READ_TIMEOUT_MS = 15_000
 const COACH_TIMEOUT_MS = 20_000
 const GLOBAL_TIMEOUT_MS = 140_000
