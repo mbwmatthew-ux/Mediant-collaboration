@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { saveFile } from '../lib/fileStore'
+import { supabase } from '../lib/supabase'
 import styles from './UploadPieceModal.module.css'
 
 const ACCEPTED    = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -31,13 +32,10 @@ export default function UploadPieceModal({ onClose, onAdded }) {
     setError(null)
     try {
       const imageBase64 = await fileToBase64(f)
-      const res = await fetch('/api/analyze-sheet-music', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64, mediaType: f.type }),
+      const { data, error } = await supabase.functions.invoke('analyze-sheet-music', {
+        body: { imageBase64, mediaType: f.type },
       })
-      if (!res.ok) throw new Error()
-      const data = await res.json()
+      if (error) throw new Error(error.message ?? String(error))
       const name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
       setForm({
         title:      data.title      || name,
@@ -183,7 +181,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             </div>
             <div className={styles.formRowGroup}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>Key <span className={styles.formRequired}>— enter manually</span></label>
+                <label className={styles.formLabel}>Key</label>
                 <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D minor, B♭ major" />
               </div>
               <div className={styles.formRow}>
