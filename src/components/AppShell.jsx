@@ -11,11 +11,12 @@ const NAV_SECTIONS = [
     key: 'workspace',
     label: 'WORKSPACE',
     items: [
-      { to: '/home',     label: 'Dashboard',        icon: HomeIcon,            live: true  },
-      { to: '/record',   label: 'Record',            icon: UploadIcon,          live: true  },
-      { to: null,        label: 'Other instruments', icon: OtherIcon,           live: false },
-      { to: null,        label: 'Lessons',           icon: LessonsIcon,         live: false },
-      { to: '/progress', label: 'Progress',          icon: ProgressIcon,        live: true  },
+      { to: '/home',     label: 'Dashboard',        icon: HomeIcon,     live: true  },
+      { to: '/record',   label: 'Record',            icon: UploadIcon,   live: true  },
+      { to: '/takes',    label: 'Sessions',          icon: SavedIcon,    live: true  },
+      { to: '/progress', label: 'Progress',          icon: ProgressIcon, live: true  },
+      { to: null,        label: 'Other instruments', icon: OtherIcon,    live: false },
+      { to: null,        label: 'Lessons',           icon: LessonsIcon,  live: false },
     ],
   },
   {
@@ -29,15 +30,6 @@ const NAV_SECTIONS = [
       { to: null,          label: 'Mock audition', icon: MicIcon,         live: false },
       { to: null,          label: 'Master class',  icon: MasterIcon,      live: false },
       { to: null,          label: 'Discussion',    icon: DiscussIcon,     live: false },
-    ],
-  },
-  {
-    key: 'social',
-    label: 'SOCIAL',
-    items: [
-      { to: '/takes', label: 'Sessions',  icon: SavedIcon,     live: true  },
-      { to: null,     label: 'Friends',   icon: FriendsIcon,   live: false },
-      { to: null,     label: 'Community', icon: CommunityIcon, live: false },
     ],
   },
   {
@@ -577,26 +569,6 @@ function SavedIcon() {
   )
 }
 
-function FriendsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <line x1="19" y1="8" x2="19" y2="14"/>
-      <line x1="22" y1="11" x2="16" y2="11"/>
-    </svg>
-  )
-}
-
-function CommunityIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="2" y1="12" x2="22" y2="12"/>
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
-  )
-}
 
 function SettingsIcon() {
   return (
