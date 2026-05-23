@@ -5,25 +5,47 @@ const NOTES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A�
 
 function autoCorrelate(buf, sampleRate) {
   const SIZE = buf.length
-  const HALF = Math.floor(SIZE / 2)
-  let sum = 0
-  for (let i = 0; i < SIZE; i++) sum += buf[i] * buf[i]
-  if (Math.sqrt(sum / SIZE) < 0.008) return -1
 
-  let best = -1, bestCorr = 0, lastCorr = 1, found = false
-  for (let t = 1; t < HALF; t++) {
-    let corr = 0
-    for (let i = 0; i < HALF; i++) corr += Math.abs(buf[i] - buf[i + t])
-    corr = 1 - corr / HALF
-    if (corr > 0.9 && corr > lastCorr) {
-      found = true
-      if (corr > bestCorr) { bestCorr = corr; best = t }
-    } else if (found) {
-      return sampleRate / best
-    }
-    lastCorr = corr
+  // Silence gate
+  let rms = 0
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i]
+  if (Math.sqrt(rms / SIZE) < 0.01) return -1
+
+  // Trim to zero crossings on both ends for better accuracy
+  let r1 = 0, r2 = SIZE - 1
+  for (let i = 0; i < SIZE >> 1; i++) { if (buf[i] < 0) { r1 = i; break } }
+  for (let i = 1; i < SIZE >> 1; i++) { if (buf[SIZE - i] < 0) { r2 = SIZE - i; break } }
+  const trimmed = buf.slice(r1, r2)
+  const N = trimmed.length
+  if (N < 8) return -1
+
+  // Limit lag search to 50 Hz – 2 000 Hz (covers all common instruments)
+  const minLag = Math.floor(sampleRate / 2000)
+  const maxLag = Math.min(Math.ceil(sampleRate / 50), N - 1)
+
+  // Multiply-and-sum autocorrelation (correct, amplitude-independent)
+  const c = new Float32Array(maxLag + 1)
+  for (let lag = 0; lag <= maxLag; lag++)
+    for (let j = 0; j < N - lag; j++) c[lag] += trimmed[j] * trimmed[j + lag]
+
+  // Skip initial downslope from lag 0, then find the best peak
+  let d = 0
+  while (d < maxLag && c[d] > c[d + 1]) d++
+  d = Math.max(d, minLag)
+
+  let maxCorr = -Infinity, bestLag = -1
+  for (let i = d; i <= maxLag; i++) {
+    if (c[i] > maxCorr) { maxCorr = c[i]; bestLag = i }
   }
-  return best > 0 ? sampleRate / best : -1
+  if (bestLag < 1 || bestLag >= maxLag) return -1
+  if (c[0] > 0 && maxCorr / c[0] < 0.1) return -1  // too weak — not a stable pitch
+
+  // Parabolic interpolation for sub-sample accuracy
+  const x1 = c[bestLag - 1], x2 = c[bestLag], x3 = c[bestLag + 1]
+  const denom = 2 * (2 * x2 - x1 - x3)
+  const refined = denom ? bestLag + (x1 - x3) / denom : bestLag
+
+  return sampleRate / refined
 }
 
 function freqToNote(freq) {
@@ -97,7 +119,7 @@ export default function TunerModal({ onClose }) {
       function tick() {
         analyserRef.current.getFloatTimeDomainData(bufRef.current)
         const freq = autoCorrelate(bufRef.current, ctx.sampleRate)
-        setNote(freq > 20 && freq < 5000 ? freqToNote(freq) : null)
+        setNote(freq > 50 && freq < 2000 ? freqToNote(freq) : null)
         rafRef.current = requestAnimationFrame(tick)
       }
       rafRef.current = requestAnimationFrame(tick)
