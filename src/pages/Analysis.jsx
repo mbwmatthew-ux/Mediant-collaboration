@@ -550,8 +550,8 @@ export default function Analysis() {
                 <h3 className={styles.detailTitle}>{info.title}</h3>
                 <p className={styles.detailBody}>{info.body}</p>
 
-                {/* Video excerpt player */}
-                {videoUrl && hasTimestamps && (
+                {/* Video player — always show when video exists */}
+                {videoUrl && (
                   <div className={styles.excerptPlayer}>
                     <video
                       ref={videoRef}
@@ -559,9 +559,10 @@ export default function Analysis() {
                       className={styles.excerptVideo}
                       playsInline
                       preload="metadata"
+                      controls={!isLooping}
                     />
                     <div className={styles.excerptControls}>
-                      {!isLooping ? (
+                      {hasTimestamps && (!isLooping ? (
                         <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
                           ▶ Loop m.{activeFlagRaw.measure}
                         </button>
@@ -569,10 +570,12 @@ export default function Analysis() {
                         <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
                           ■ Stop loop
                         </button>
+                      ))}
+                      {hasTimestamps && (
+                        <span className={styles.excerptTime}>
+                          {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
+                        </span>
                       )}
-                      <span className={styles.excerptTime}>
-                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
-                      </span>
                     </div>
                   </div>
                 )}
