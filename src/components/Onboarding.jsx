@@ -44,12 +44,15 @@ export default function Onboarding({ onClose }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(10,12,14,0.82)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px',
-    }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(10,12,14,0.82)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+      }}
+      onClick={e => { if (e.target === e.currentTarget) handleSkip() }}
+    >
       <div style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',

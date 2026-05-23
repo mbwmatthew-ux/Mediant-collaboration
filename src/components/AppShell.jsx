@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useState, useEffect, useRef } from 'react'
 import TunerModal from './Tuner'
+import ErrorBoundary from './ErrorBoundary'
 import styles from './AppShell.module.css'
 
 const NOTIFICATIONS = []
@@ -385,7 +386,9 @@ export default function AppShell() {
         </aside>
 
         <main className={styles.main}>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 

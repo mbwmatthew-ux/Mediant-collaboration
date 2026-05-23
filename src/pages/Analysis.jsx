@@ -570,7 +570,7 @@ export default function Analysis() {
                         </button>
                       )}
                       <span className={styles.excerptTime}>
-                        {activeFlagRaw.timestamp_start.toFixed(1)}s – {activeFlagRaw.timestamp_end.toFixed(1)}s
+                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
                       </span>
                     </div>
                   </div>
