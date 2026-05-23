@@ -27,16 +27,17 @@ A musician uploads a video of themselves playing sheet music and receives specif
 
 **Success criteria:** A 90-second recording processes fully in Modal with no timeout. All three AI sources (CREPE, Gemini, Claude) run to completion.
 
-### 0.3 — DTW Alignment 🔄 ← CURRENT
-- [ ] Implement `dtw_align_to_score()` in `modal_worker/worker.py` using numpy (~50 lines)
-- [ ] Activate for MusicXML/MXL scores only (note data is exact enough for DTW)
-- [ ] Fall back to existing beat-grid alignment for image/PDF scores
-- [ ] Re-enable Gemini transcription inside Modal
-- [ ] Add CREPE + Gemini pitch corroboration block to the coaching prompt
+### 0.3 — DTW Alignment ✅
+- [x] Implement `dtw_align_to_score()` in `modal_worker/worker.py` using numpy
+- [x] Activate for MusicXML/MXL scores only (note data is exact enough for DTW)
+- [x] Fall back to existing beat-grid alignment for image/PDF scores
+- [x] Gemini evaluation (listening assessment) runs in Modal — full pitch/rhythm/technique block fed into coaching prompt
+- [x] CREPE cents-offset data + Gemini assessment block both present in coaching prompt (corroboration done)
+- [n/a] Full Gemini pitch transcription skipped — redundant with CREPE and adds cost; evaluation covers it
 
 **Success criteria:** Measure numbers on flags are correct (verified manually against 3 test recordings). No more off-by-2 or off-by-3 measure errors.
 
-### 0.4 — Cleanup
+### 0.4 — Cleanup 🔄 ← CURRENT
 - [ ] Delete dead code: `geminiTranscribePromise` path in Edge Function, `api/analyze-performance.js` Vercel stub
 - [ ] Disable Audiveris OMR path in `analyze_async` (too slow; Claude vision is better for images)
 - [ ] `Analysis.jsx`: handle `job_status = processing` state when navigating directly to a pending take

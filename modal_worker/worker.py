@@ -663,6 +663,133 @@ def assign_events_to_measures(
     return result
 
 
+# ── DTW alignment ─────────────────────────────────────────────────────────
+
+def midi_from_name(pitch_name: str) -> int | None:
+    """Convert scientific pitch notation ("F#4", "Bb3") to MIDI number."""
+    import re
+    m = re.match(r'^([A-Ga-g])([#b♯♭]?)(-?\d+)$', pitch_name.strip())
+    if not m:
+        return None
+    step, accidental, octave_str = m.group(1).upper(), m.group(2), int(m.group(3))
+    base = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[step]
+    acc  = 1 if accidental in ("#", "♯") else (-1 if accidental in ("b", "♭") else 0)
+    return (octave_str + 1) * 12 + base + acc
+
+
+def dtw_align_to_score(
+    events: list[dict],
+    score: dict,
+    start_measure: int,
+    beats_per_measure: int,
+) -> list[dict]:
+    """
+    Align CREPE pitch events to score measures using Dynamic Time Warping.
+
+    Works by building two sequences:
+      - audio_seq: MIDI pitch of each detected event (from CREPE)
+      - score_seq: MIDI pitch of each score note, flattened in order
+
+    DTW finds the minimum-cost warping path between them. Each audio event
+    is mapped to the score note it best aligns with, and inherits that
+    note's measure number. This handles tempo fluctuations, hesitations,
+    and repeats far better than linear time mapping.
+
+    Only activated when the score has structured note data (MusicXML/MXL).
+    Falls back gracefully if the score has fewer than 4 notes total.
+    """
+    import numpy as np
+
+    measures = score.get("measures", [])
+    if not measures or not events:
+        return events
+
+    # Build flattened score sequence: (midi_pitch, measure_number)
+    score_seq: list[tuple[int, int]] = []
+    for m in measures:
+        for note in m.get("notes", []):
+            pitch = note.get("pitch")
+            if pitch:
+                midi = midi_from_name(pitch)
+                if midi is not None:
+                    score_seq.append((midi, m["number"]))
+
+    if len(score_seq) < 4:
+        print(f"[dtw_align] score has <4 pitched notes — falling back to beat-grid alignment")
+        return events
+
+    # Build audio sequence: MIDI pitch per event (use the primary pitch)
+    audio_midis: list[int | None] = []
+    for ev in events:
+        pitches = ev.get("pitches", [])
+        midi = midi_from_name(pitches[0]) if pitches else None
+        audio_midis.append(midi)
+
+    n, m_len = len(audio_midis), len(score_seq)
+    score_midis = [s[0] for s in score_seq]
+
+    # Cost matrix: semitone distance between each audio event and each score note.
+    # Unpitched/silent events get a high fixed cost (don't penalize alignment).
+    SILENCE_COST = 6.0
+    cost = np.full((n, m_len), SILENCE_COST, dtype=np.float32)
+    for i, a_midi in enumerate(audio_midis):
+        if a_midi is not None:
+            cost[i] = np.abs(np.array(score_midis, dtype=np.float32) - a_midi)
+            # Octave confusion (12 semitones) is common — halve its penalty
+            cost[i] = np.minimum(cost[i], np.abs(cost[i] - 12) + 3.0)
+
+    # Standard DTW accumulated cost with slope constraint (Sakoe-Chiba band)
+    # band_ratio limits how far the path can deviate from the diagonal.
+    band = max(4, int(max(n, m_len) * 0.25))
+    acc  = np.full((n, m_len), np.inf, dtype=np.float32)
+    acc[0, 0] = cost[0, 0]
+    for i in range(1, n):
+        j_lo = max(0, i - band)
+        j_hi = min(m_len - 1, i + band)
+        for j in range(j_lo, j_hi + 1):
+            candidates = [acc[i - 1, j]]
+            if j > 0:
+                candidates.append(acc[i - 1, j - 1])
+                candidates.append(acc[i,     j - 1])
+            acc[i, j] = cost[i, j] + min(candidates)
+
+    # Traceback from (n-1, m_len-1) to (0, 0)
+    path_audio_to_score: list[int] = [0] * n
+    i, j = n - 1, m_len - 1
+    while i > 0 or j > 0:
+        path_audio_to_score[i] = j
+        if i == 0:
+            j -= 1
+        elif j == 0:
+            i -= 1
+        else:
+            prev = min(
+                (acc[i - 1, j - 1], 0),
+                (acc[i - 1, j],     1),
+                (acc[i,     j - 1], 2),
+            )
+            if prev[1] == 0:
+                i -= 1; j -= 1
+            elif prev[1] == 1:
+                i -= 1
+            else:
+                j -= 1
+    path_audio_to_score[0] = j
+
+    # Map each audio event to a measure number via the score alignment
+    result = []
+    for idx, ev in enumerate(events):
+        score_idx   = path_audio_to_score[idx]
+        measure_num = score_seq[score_idx][1]
+        result.append({**ev, "measure": measure_num})
+
+    # Sanity check: count how many distinct measures were assigned
+    measures_hit = len({ev["measure"] for ev in result})
+    total_score_measures = len(measures)
+    print(f"[dtw_align] {n} audio events → {measures_hit}/{total_score_measures} score measures covered")
+    return result
+
+
 # ── Modal endpoint ─────────────────────────────────────────────────────────
 
 @app.function(
@@ -1312,8 +1439,19 @@ def run_full_analysis(payload: dict) -> None:
                     piece_title, composer, start_measure, end_measure, gemini_key,
                 )
 
-        # ── Step 4: Build alignment ranges from beat-assigned events ───────
-        aligned = [ev for ev in events_with_measures if "measure" in ev]
+        # ── Step 4: Assign events to measures ─────────────────────────────
+        # Use DTW when the score has real note data (MusicXML/MXL parsed by
+        # music21). DTW handles tempo fluctuations and hesitations; the beat-grid
+        # fallback is used for image/PDF scores where note positions are approximate.
+        total_score_notes = sum(len(m.get("notes", [])) for m in score.get("measures", []))
+        score_source      = (score.get("source") or "")
+
+        if total_score_notes >= 4 and "music21" in score_source:
+            print(f"[run_full_analysis] using DTW alignment ({total_score_notes} score notes)")
+            aligned = dtw_align_to_score(raw_events, score, start_measure, bpm_int)
+        else:
+            print(f"[run_full_analysis] using beat-grid alignment (score notes={total_score_notes}, source={score_source})")
+            aligned = [ev for ev in events_with_measures if "measure" in ev]
         ranges_acc: dict = defaultdict(lambda: {"start": float("inf"), "end": float("-inf")})
         for ev in aligned:
             m = ev["measure"]
