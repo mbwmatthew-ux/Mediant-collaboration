@@ -1167,6 +1167,20 @@ async function handleRequest(req: Request): Promise<Response> {
         : null
     )
 
+    // ── Gemini transcription — starts in parallel with eval on the no-Modal path.
+    // Chaining off the same upload promise means we don't pay upload time twice.
+    const geminiTranscribePromise: Promise<AudioTranscription | null> = (!modalUrl && googleApiKey)
+      ? geminiUploadPromise.then(fileUri =>
+          fileUri
+            ? transcribeAudio(fileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
+                .catch(err => {
+                  console.error('[analyze-performance] Gemini transcription pre-compute failed:', (err as Error).message)
+                  return null
+                })
+            : null
+        )
+      : Promise.resolve(null)
+
     // ── Claude reads score only when the worker cannot attempt structured parsing.
     // If Modal has the score URL, let Audiveris/music21 try first; Claude becomes
     // a fallback only if OMR/structured parsing returns no usable measures.
@@ -1183,10 +1197,11 @@ async function handleRequest(req: Request): Promise<Response> {
     // well within Supabase Edge's 150s hard limit, leaving time for
     // Gemini transcription fallback + Claude coaching + DB insert.
     const emptyScore: ScoreReading = { key_signature: null, time_signature: null, tempo_marking: null, measures: [] }
-    const [workerResult, scoreResult, geminiEval] = await Promise.all([
+    const [workerResult, scoreResult, geminiEval, geminiAudio] = await Promise.all([
       withTimeout(modalPromise, MODAL_TIMEOUT_MS, null),
       withTimeout(scorePromise, SCORE_READ_TIMEOUT_MS, emptyScore),
       withTimeout(geminiEvalPromise, GEMINI_EVAL_TIMEOUT_MS, null),
+      withTimeout(geminiTranscribePromise, GEMINI_EVAL_TIMEOUT_MS, null),
     ])
     geminiAssessment = geminiEval
     console.log('[analyze-performance] parallel done | Modal:', workerResult ? 'ok' : 'null',
@@ -1312,12 +1327,17 @@ async function handleRequest(req: Request): Promise<Response> {
       }
       if (!geminiFileUri) throw new Error('Video upload to Gemini failed and Modal worker is unavailable')
 
-      audio = await transcribeAudio(geminiFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
-        .catch(err => {
-          console.error('[analyze-performance] transcribeAudio threw:', (err as Error).message)
-          return { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null } as AudioTranscription
-        })
-      console.log('[analyze-performance] Gemini transcription:', audio.events.length, 'events, tempo:', audio.tempo_estimate_bpm)
+      if (geminiAudio) {
+        audio = geminiAudio
+        console.log('[analyze-performance] Gemini transcription (pre-computed):', audio.events.length, 'events, tempo:', audio.tempo_estimate_bpm)
+      } else {
+        audio = await transcribeAudio(geminiFileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
+          .catch(err => {
+            console.error('[analyze-performance] transcribeAudio threw:', (err as Error).message)
+            return { audio_duration_sec: 0, events: [], tempo_estimate_bpm: null, tempo_steadiness: null } as AudioTranscription
+          })
+        console.log('[analyze-performance] Gemini transcription:', audio.events.length, 'events, tempo:', audio.tempo_estimate_bpm)
+      }
     }
 
     console.log('[analyze-performance] score measures:', score.measures.length, '| audio events:', audio.events.length, '| tempo:', audio.tempo_estimate_bpm)
