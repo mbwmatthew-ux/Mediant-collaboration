@@ -20,10 +20,19 @@ export default function Coach() {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mediant_last_take')
-      if (stored) setTake(JSON.parse(stored))
-    } catch {}
+    supabase
+      .from('takes')
+      .select('id, piece_title, piece_composer, instrument, score, flags')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setTake(data) })
+      .catch(() => {
+        try {
+          const stored = localStorage.getItem('mediant_last_take')
+          if (stored) setTake(JSON.parse(stored))
+        } catch {}
+      })
   }, [])
 
   useEffect(() => {

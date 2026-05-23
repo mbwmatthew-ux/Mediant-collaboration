@@ -1,6 +1,8 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTakes } from '../hooks/useTakes'
+import Onboarding from '../components/Onboarding'
 import styles from './Home.module.css'
 
 const FLAG_COLOR = {
@@ -71,14 +73,12 @@ export default function Home() {
   const nav = useNavigate()
   const { user } = useAuth()
 
-  const [recentSessions, setRecentSessions] = useState([])
+  const takes = useTakes({ limit: 5 })
+  const recentSessions = takes ?? []
 
-  useEffect(() => {
-    try {
-      const takes = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      setRecentSessions(takes.slice(0, 5))
-    } catch { setRecentSessions([]) }
-  }, [])
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !localStorage.getItem('mediant_onboarded')
+  )
 
   const lastTake  = recentSessions[0] ?? null
   const streak    = useMemo(() => calcStreak(recentSessions), [recentSessions])
@@ -104,6 +104,9 @@ export default function Home() {
 
   return (
     <div className={styles.dashboard}>
+      {showOnboarding && user && (
+        <Onboarding onClose={() => setShowOnboarding(false)} />
+      )}
 
       {/* ── Main column ─────────────────────────────────────── */}
       <div className={styles.mainCol}>
@@ -125,7 +128,7 @@ export default function Home() {
               )}
             </div>
             {lastTake && (
-              <button className={styles.heroCardAction} onClick={() => nav('/analysis')}>
+              <button className={styles.heroCardAction} onClick={() => nav(`/analysis?takeId=${lastTake.id}`)}>
                 View →
               </button>
             )}
@@ -249,7 +252,7 @@ export default function Home() {
               <button
                 key={s.id || i}
                 className={styles.sessionRow}
-                onClick={() => nav('/analysis')}
+                onClick={() => nav(s.id ? `/analysis?takeId=${s.id}` : '/analysis')}
               >
                 <div className={styles.sessionIcon}>♩</div>
                 <div className={styles.sessionInfo}>
@@ -257,7 +260,7 @@ export default function Home() {
                     {[s.piece_composer, s.piece_title].filter(Boolean).join(' · ') || 'Untitled'}
                   </span>
                   <span className={styles.sessionMeta}>
-                    {formatDate(s.date)} · {s.flags?.length ?? 0} tip{(s.flags?.length ?? 0) !== 1 ? 's' : ''}
+                    {formatDate(s.created_at || s.date)} · {s.flags?.length ?? 0} tip{(s.flags?.length ?? 0) !== 1 ? 's' : ''}
                   </span>
                 </div>
                 {s.score != null && (

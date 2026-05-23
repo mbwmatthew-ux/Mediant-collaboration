@@ -72,17 +72,14 @@ export default function Record() {
     if (!OCR_TYPES.has(f.type)) return  // skip for XML/MXL
     setOcrLoading(true)
     try {
-      const buf    = await f.arrayBuffer()
-      const b64    = btoa(String.fromCharCode(...new Uint8Array(buf)))
-      const res    = await fetch('/api/analyze-sheet-music', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64: b64, mediaType: f.type }),
+      const buf  = await f.arrayBuffer()
+      const b64  = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      const { data } = await supabase.functions.invoke('analyze-sheet-music', {
+        body: { imageBase64: b64, mediaType: f.type },
       })
-      const data = await res.json()
-      if (data.title)    setPieceTitle(data.title)
-      if (data.composer) setComposer(data.composer)
-      if (data.time)     setTimeSig(data.time)
+      if (data?.title)    setPieceTitle(data.title)
+      if (data?.composer) setComposer(data.composer)
+      if (data?.time)     setTimeSig(data.time)
     } catch { /* silently skip — user can fill manually */ }
     finally { setOcrLoading(false) }
   }

@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useTakes } from '../hooks/useTakes'
 import styles from './Page.module.css'
 import pStyles from './ProgressFeedback.module.css'
 
@@ -43,20 +45,12 @@ function computeStats(takes) {
 
 export default function ProgressFeedback() {
   const nav = useNavigate()
-  const [period, setPeriod]     = useState('weekly')
-  const [allTakes, setAllTakes] = useState([])
+  const [period, setPeriod]   = useState('weekly')
   const [feedback, setFeedback] = useState(null)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
 
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      setAllTakes(Array.isArray(stored) ? stored : [])
-    } catch {
-      setAllTakes([])
-    }
-  }, [])
+  const allTakes = useTakes() ?? []
 
   // Reset feedback when period changes
   useEffect(() => { setFeedback(null); setError(null) }, [period])
@@ -70,15 +64,13 @@ export default function ProgressFeedback() {
     setError(null)
     setFeedback(null)
     try {
-      const res = await fetch('/api/progress-feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ period, takes }),
+      const { data, error: fnErr } = await supabase.functions.invoke('progress-feedback', {
+        body: { period, takes },
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      if (fnErr) throw new Error(fnErr.message ?? String(fnErr))
+      if (data?.error) throw new Error(data.error)
       setFeedback(data.feedback)
-    } catch (err) {
+    } catch {
       setError('Could not generate feedback. Please try again.')
     } finally {
       setLoading(false)

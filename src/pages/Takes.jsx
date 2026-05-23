@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTakes } from '../hooks/useTakes'
 import styles from './Page.module.css'
 
 function scoreColor(n) {
@@ -22,16 +22,7 @@ function formatDate(iso) {
 
 export default function Takes() {
   const nav = useNavigate()
-  const [takes, setTakes] = useState(undefined)
-
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      setTakes(Array.isArray(stored) ? stored : [])
-    } catch {
-      setTakes([])
-    }
-  }, [])
+  const takes = useTakes()
 
   if (takes === undefined) {
     return (
@@ -84,7 +75,7 @@ export default function Takes() {
               {[
                 t.piece_composer,
                 t.instrument,
-                formatDate(t.date || t.created_at),
+                formatDate(t.created_at || t.date),
               ].filter(Boolean).join(' · ')}
             </p>
             {(t.score != null || t.flags?.length > 0) && (
@@ -99,7 +90,7 @@ export default function Takes() {
             <button
               className={i === 0 ? styles.primaryBtn : styles.ghostBtn}
               style={{ marginTop: 16 }}
-              onClick={() => nav('/analysis')}
+              onClick={() => nav(t.id ? `/analysis?takeId=${t.id}` : '/analysis')}
             >
               View score review
             </button>

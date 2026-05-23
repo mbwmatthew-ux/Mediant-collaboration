@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { getFile } from '../lib/fileStore'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import styles from './PieceDetailPanel.module.css'
 
 function scoreColor(n) {
@@ -18,25 +19,38 @@ function formatDate(iso) {
 
 export default function PieceDetailPanel({ piece, onClose }) {
   const nav        = useNavigate()
+  const { user }   = useAuth()
   const scoreEl    = useRef(null)
   const osmdRef    = useRef(null)
 
   const [scoreFetching, setScoreFetching] = useState(false)
   const [scoreReady,    setScoreReady]    = useState(false)
   const [scoreSource,   setScoreSource]   = useState(null)
-  const [fileURL,       setFileURL]       = useState(null)  // object URL for uploaded file
+  const [fileURL,       setFileURL]       = useState(null)
   const [pastSessions,  setPastSessions]  = useState([])
   const [deletingId,    setDeletingId]    = useState(null)
 
-  // Load past sessions for this piece from localStorage
+  // Load past sessions for this piece from Supabase
   useEffect(() => {
-    try {
-      const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      setPastSessions(all.filter(t =>
-        t.piece_title?.toLowerCase() === piece.title?.toLowerCase()
-      ))
-    } catch { setPastSessions([]) }
-  }, [piece.title])
+    if (!user?.id) {
+      try {
+        const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        setPastSessions(all.filter(t =>
+          t.piece_title?.toLowerCase() === piece.title?.toLowerCase()
+        ))
+      } catch { setPastSessions([]) }
+      return
+    }
+
+    supabase
+      .from('takes')
+      .select('id, piece_title, score, flags, created_at, video_path, score_path')
+      .eq('user_id', user.id)
+      .ilike('piece_title', piece.title)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setPastSessions(data ?? []))
+      .catch(() => setPastSessions([]))
+  }, [piece.title, user?.id])
 
   // Load sheet music — use uploaded file if available, otherwise search online
   useEffect(() => {
@@ -89,22 +103,22 @@ export default function PieceDetailPanel({ piece, onClose }) {
   }, [piece.id, piece.title, piece.composer, piece.userUploaded])
 
   async function deleteSession(take) {
-    if (!window.confirm(`Delete this recording from ${formatDate(take.date)}? This cannot be undone.`)) return
+    if (!window.confirm(`Delete this recording from ${formatDate(take.created_at || take.date)}? This cannot be undone.`)) return
     setDeletingId(take.id)
     try {
-      // Remove from localStorage
-      const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      localStorage.setItem('mediant_takes', JSON.stringify(all.filter(t => t.id !== take.id)))
       setPastSessions(prev => prev.filter(t => t.id !== take.id))
 
-      // Delete video from Supabase Storage
-      if (take.video_path) {
-        await supabase.storage.from('recordings').remove([take.video_path])
+      // Delete DB row
+      if (user?.id) {
+        await supabase.from('takes').delete().eq('id', take.id)
+      } else {
+        const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        localStorage.setItem('mediant_takes', JSON.stringify(all.filter(t => t.id !== take.id)))
       }
-      // Delete sheet music from Supabase Storage
-      if (take.score_path) {
-        await supabase.storage.from('sheet-music').remove([take.score_path])
-      }
+
+      // Delete storage files
+      if (take.video_path) await supabase.storage.from('recordings').remove([take.video_path])
+      if (take.score_path) await supabase.storage.from('sheet-music').remove([take.score_path])
     } catch { /* storage errors are non-fatal */ }
     finally { setDeletingId(null) }
   }
@@ -201,7 +215,7 @@ export default function PieceDetailPanel({ piece, onClose }) {
                 {pastSessions.map((t, i) => (
                   <div key={t.id || i} className={styles.sessionCard}>
                     <div className={styles.sessionRow}>
-                      <span className={styles.sessionDate}>{formatDate(t.date)}</span>
+                      <span className={styles.sessionDate}>{formatDate(t.created_at || t.date)}</span>
                       <div className={styles.sessionRowRight}>
                         {t.score != null && (
                           <span className={styles.sessionScore} style={{ color: scoreColor(t.score) }}>

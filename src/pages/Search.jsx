@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import UploadPieceModal from '../components/UploadPieceModal'
 import PieceDetailPanel from '../components/PieceDetailPanel'
@@ -10,6 +11,7 @@ function unique(arr) { return [...new Set(arr.filter(Boolean))].sort() }
 
 export default function Search() {
   const { user } = useAuth()
+  const nav = useNavigate()
   const [query,      setQuery]      = useState('')
   const [instrument, setInstrument] = useState(null)
   const [era,        setEra]        = useState(null)
@@ -71,6 +73,9 @@ export default function Search() {
           </p>
         </div>
         <div className={styles.headerActions}>
+          <button className={styles.ghostBtn} onClick={() => nav('/record')}>
+            + New recording
+          </button>
           <button className={styles.primaryBtn} onClick={() => setShowUpload(true)}>
             ↑ Upload sheet music
           </button>

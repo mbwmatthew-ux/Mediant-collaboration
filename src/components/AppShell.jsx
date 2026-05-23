@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useState, useEffect, useRef } from 'react'
 import TunerModal from './Tuner'
 import styles from './AppShell.module.css'
@@ -144,7 +145,10 @@ export default function AppShell() {
                         {['Piano','Violin','Cello','Viola','Guitar','Flute','Clarinet','Trumpet','Saxophone','Oboe','Horn','Harp','Other'].map(i => <option key={i}>{i}</option>)}
                       </select>
                     </div>
-                    <button className={styles.acctSaveBtn} onClick={() => toggle('profile')}>Save profile</button>
+                    <button className={styles.acctSaveBtn} onClick={async () => {
+                      await supabase.auth.updateUser({ data: { name: editName, instrument: editInstrument } })
+                      toggle('profile')
+                    }}>Save profile</button>
                   </div>
                 )}
 
