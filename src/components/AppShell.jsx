@@ -13,6 +13,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/home',     label: 'Dashboard',        icon: HomeIcon,     live: true  },
       { to: '/record',   label: 'Record',            icon: UploadIcon,   live: true  },
+      { to: '/search',   label: 'Library',           icon: SearchIcon,   live: true  },
       { to: '/takes',    label: 'Sessions',          icon: SavedIcon,    live: true  },
       { to: '/progress', label: 'Progress',          icon: ProgressIcon, live: true  },
       { to: null,        label: 'Other instruments', icon: OtherIcon,    live: false },
