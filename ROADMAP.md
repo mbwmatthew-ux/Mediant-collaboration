@@ -37,14 +37,14 @@ A musician uploads a video of themselves playing sheet music and receives specif
 
 **Success criteria:** Measure numbers on flags are correct (verified manually against 3 test recordings). No more off-by-2 or off-by-3 measure errors.
 
-### 0.4 — Cleanup 🔄 ← CURRENT
-- [ ] Delete dead code: `geminiTranscribePromise` path in Edge Function, `api/analyze-performance.js` Vercel stub
-- [ ] Disable Audiveris OMR path in `analyze_async` (too slow; Claude vision is better for images)
-- [ ] `Analysis.jsx`: handle `job_status = processing` state when navigating directly to a pending take
+### 0.4 — Cleanup ✅
+- [x] Delete dead `api/analyze-performance.js` Vercel stub
+- [x] Disable Audiveris OMR path in `analyze` endpoint (visual scores handled by Claude vision in async path)
+- [x] `Analysis.jsx`: polls every 4s when `job_status = processing`, shows waiting screen automatically
 
 ---
 
-## Phase 1 — Analyzer Quality (Days 3–7)
+## Phase 1 — Analyzer Quality (Days 3–7) 🔄 ← CURRENT
 **Goal:** Make the output genuinely useful to a musician. Flags should be specific, correct, and actionable.
 
 ### 1.1 — Score Reading Accuracy

@@ -67,14 +67,16 @@ export default function Analysis() {
   const takeId = searchParams.get('takeId')
 
   // Load take from Supabase when takeId is present; otherwise fall back to localStorage.
+  // If the take is still processing, poll every 4s until it finishes.
   useEffect(() => {
     let cancelled = false
+    let pollTimer = null
 
     async function loadTake() {
       if (takeId) {
         const { data, error } = await supabase
           .from('takes')
-          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, analysis_quality, analysis_backend, created_at')
+          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, analysis_quality, analysis_backend, job_status, job_error, created_at')
           .eq('id', takeId)
           .single()
 
@@ -82,6 +84,10 @@ export default function Analysis() {
           if (error) {
             console.error('Could not load take from Supabase:', error)
             setTake(null)
+          } else if (data?.job_status === 'processing') {
+            // Job still running — show a waiting screen and poll again in 4s
+            setTake({ ...data, _polling: true })
+            pollTimer = setTimeout(loadTake, 4000)
           } else {
             setTake(data)
           }
@@ -98,7 +104,7 @@ export default function Analysis() {
     }
 
     loadTake()
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(pollTimer) }
   }, [takeId])
 
   // Generate signed URL for uploaded score (if stored in Supabase)
@@ -315,6 +321,21 @@ export default function Analysis() {
         <div className={styles.analyzeScreen}>
           <div className={styles.analyzeIcon}>♩</div>
           <p className={styles.analyzeSub}>Loading your analysis…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (take?._polling) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.analyzeScreen}>
+          <div className={styles.analyzeIcon}>♪</div>
+          <h2 className={styles.analyzeTitle}>Analysis in progress…</h2>
+          <p className={styles.analyzeSub}>Running full AI analysis — this takes 1–3 minutes. This page will update automatically.</p>
+          {take.job_error && (
+            <p style={{ color: 'var(--coral)', marginTop: 12, fontSize: 14 }}>{take.job_error}</p>
+          )}
         </div>
       </div>
     )

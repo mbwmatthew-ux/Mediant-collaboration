@@ -872,8 +872,9 @@ def analyze(body: dict) -> dict:
                 print("[analyze] parsing structured MusicXML/MXL score")
                 score_result = parse_score_document(score_bytes, start_measure)
             elif score_kind == "visual":
-                print("[analyze] visual score detected; converting with Audiveris OMR")
-                score_result = convert_visual_score_to_musicxml(score_bytes, score_mime, score_url, start_measure)
+                # Audiveris OMR disabled — takes 60-120s and produces noisy output.
+                # Visual scores are read by Claude vision in run_full_analysis instead.
+                print(f"[analyze] visual score — skipping Audiveris (handled by Claude vision in async path)")
             else:
                 print(f"[analyze] score MIME '{score_mime}' is not supported for score parsing")
 
