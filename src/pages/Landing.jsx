@@ -268,7 +268,6 @@ export default function Landing() {
                           className={`${styles.previewNote} ${i===1?styles.previewNoteFlagged:''} ${parseFloat(n.y)<=50?'':styles.previewNoteStemDown}`}
                           style={{left:n.x,top:n.y}}/>
                       ))}
-                      {i === 1 && <div className={styles.previewInlineAnnotation}><div className={styles.previewAnnotationCaret}/>Rushing</div>}
                     </div>
                   ))}
                 </div>
