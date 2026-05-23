@@ -77,29 +77,38 @@ async function runGeminiVideo(opts: {
     ? `measures ${opts.safeStart}–${opts.safeEnd}`
     : `from measure ${opts.safeStart}`
 
-  const prompt = `You are an expert music performance coach analysing a video recording.
+  const prompt = `You are an expert music performance coach analysing a video recording of a student practicing.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
-Recording: ${measureRange}
+Recording covers: ${measureRange}
 
-Watch the video carefully. Identify specific performance issues with exact timestamps.
+Watch the ENTIRE video. Listen and observe carefully for:
+- Rhythmic accuracy and steadiness
+- Intonation / pitch accuracy
+- Bow technique, bow speed, bow pressure (for strings), or equivalent
+- Articulation, dynamics, and musical expression
+- Any hesitations, memory slips, or technique breakdowns
 
-Return ONLY valid JSON (no markdown):
+IMPORTANT: Every point deducted from 100 must be explained as a flag. A score of 70 means 30 points of issues — you must list them. Only return an empty flags array if the performance is genuinely flawless (score 95+).
+
+Return ONLY valid JSON (no markdown fences):
 {
-  "score": <integer 0-100>,
+  "score": <integer 0-100, where 100 = flawless professional performance>,
   "flags": [
     {
-      "measure": <integer>,
+      "measure": <integer — the measure where this issue occurs>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
-      "title": "<8 words max>",
-      "detail": "<2-3 sentences of specific coaching advice>",
-      "timestamp_start": <seconds>,
-      "timestamp_end": <seconds>
+      "title": "<8 words max — name the specific issue>",
+      "detail": "<2-3 sentences: what went wrong, why it matters, how to fix it>",
+      "timestamp_start": <video time in seconds when issue begins>,
+      "timestamp_end": <video time in seconds when issue ends>
     }
   ]
-}`
+}
+
+List every meaningful issue you observe, minimum 3 flags for any score below 90.`
 
   // Try models in order of preference — stop on first success
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash']
@@ -137,7 +146,10 @@ Return ONLY valid JSON (no markdown):
   }
 
   const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 70)))
-  const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
+
+  // Gemini sometimes returns a score with no flags — treat as parse failure
+  const rawFlags = Array.isArray(parsed.flags) ? parsed.flags : []
+  const flags = rawFlags.map((f: any) => ({
     measure:         Number(f.measure)         || opts.safeStart,
     type:            String(f.type             || 'technique'),
     title:           String(f.title            || 'Issue detected'),
@@ -145,6 +157,12 @@ Return ONLY valid JSON (no markdown):
     timestamp_start: Number(f.timestamp_start) || 0,
     timestamp_end:   Number(f.timestamp_end)   || 0,
   }))
+
+  // If score < 90 and no flags, the video was probably too short/unclear for Gemini
+  // but we still got a score — throw so the caller falls back to Claude coaching
+  if (score < 90 && flags.length === 0) {
+    throw new Error(`Gemini returned score ${score} with no flags — falling back to coaching`)
+  }
 
   return { score, flags }
 }
