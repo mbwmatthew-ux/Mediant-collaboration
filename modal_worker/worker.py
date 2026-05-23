@@ -918,7 +918,7 @@ Return JSON only (no markdown):
         client = ac.Anthropic(api_key=anthropic_api_key)
         msg = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=16000,
+            max_tokens=4000,
             messages=[{"role": "user", "content": [vision_part, {"type": "text", "text": prompt}]}],
         )
         raw    = msg.content[0].text
@@ -1127,7 +1127,7 @@ Return JSON only (no markdown):
     try:
         client = ac.Anthropic(api_key=anthropic_api_key)
         msg    = client.messages.create(
-            model=CLAUDE_MODEL, max_tokens=8000,
+            model="claude-haiku-4-5-20251001", max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
         raw    = msg.content[0].text
