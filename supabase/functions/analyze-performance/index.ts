@@ -9,7 +9,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash'
+const GEMINI_MODEL = 'gemini-2.0-flash'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 // Supabase platform limit is 150s. Budget breakdown:
 // Modal (CREPE + download + FFmpeg) takes 35-90s for typical recordings → cap at 110s.
@@ -22,7 +22,7 @@ const MODAL_TIMEOUT_MS = 75_000
 const GEMINI_EVAL_TIMEOUT_MS = 90_000
 const SCORE_READ_TIMEOUT_MS = 15_000
 const COACH_TIMEOUT_MS = 20_000
-const GLOBAL_TIMEOUT_MS = 280_000
+const GLOBAL_TIMEOUT_MS = 140_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([
@@ -1155,20 +1155,9 @@ async function handleRequest(req: Request): Promise<Response> {
         : null
     )
 
-    // ── Gemini transcription — starts in parallel with eval (and Modal when active).
-    // Chaining off the same upload promise means we don't pay upload time twice.
-    // Running it even on the Modal path means we have results ready if Modal times out.
-    const geminiTranscribePromise: Promise<AudioTranscription | null> = googleApiKey
-      ? geminiUploadPromise.then(fileUri =>
-          fileUri
-            ? transcribeAudio(fileUri, videoMimeType, instrument ?? 'instrument', googleApiKey)
-                .catch(err => {
-                  console.error('[analyze-performance] Gemini transcription pre-compute failed:', (err as Error).message)
-                  return null
-                })
-            : null
-        )
-      : Promise.resolve(null)
+    // Transcription removed — Gemini eval covers timing/pitch/technique sufficiently
+    // and the extra API call was pushing past Supabase's 150s platform limit.
+    const geminiTranscribePromise: Promise<AudioTranscription | null> = Promise.resolve(null)
 
     // ── Claude reads score only when the worker cannot attempt structured parsing.
     // If Modal has the score URL, let Audiveris/music21 try first; Claude becomes
