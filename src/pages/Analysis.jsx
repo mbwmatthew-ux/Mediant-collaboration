@@ -172,6 +172,31 @@ export default function Analysis() {
   // Stop loop when active flag changes
   useEffect(() => { stopLoop() }, [activeFlag, stopLoop])
 
+  // Auto-seek video to flag's timestamp when a flag is selected
+  useEffect(() => {
+    if (!activeFlagRaw) return
+    const start = Number(activeFlagRaw.timestamp_start)
+    const end   = Number(activeFlagRaw.timestamp_end)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return
+
+    function seek() {
+      const video = videoRef.current
+      if (video) video.currentTime = start
+    }
+
+    // Video may not be in DOM yet — wait one frame for React to commit
+    const raf = requestAnimationFrame(() => {
+      const video = videoRef.current
+      if (!video) return
+      if (video.readyState >= 1) {
+        seek()
+      } else {
+        video.addEventListener('loadedmetadata', seek, { once: true })
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [activeFlagRaw])
+
   // Determine if score is a visual file (photo/PDF) vs MusicXML
   const isVisualScore = scoreUrl && (() => {
     const p = (take?.score_path ?? '').toLowerCase()
@@ -183,6 +208,8 @@ export default function Analysis() {
     if (take === undefined) return
     if (!scoreEl.current) return
     if (scoreReady) return
+    // If the take has a score_path, wait for the signed URL before deciding
+    if (take?.score_path && !scoreUrl) return
     if (isVisualScore) { setScoreReady(true); return }
 
     const pieceTitle = take?.piece_title ?? ''
