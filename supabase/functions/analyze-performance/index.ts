@@ -7,13 +7,11 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ── Claude coaching fallback (no video, uses piece metadata) ─────────────────
-// Used when Modal is unavailable. Generates real coaching notes without timestamps.
-async function runClaudeCoaching(opts: {
-  admin:        ReturnType<typeof createClient>
+// ── Gemini video analysis via Files API ───────────────────────────────────────
+async function runGeminiVideo(opts: {
   takeId:       string
-  scoreUrl:     string | null
-  scoreMimeType: string | null
+  videoUrl:     string
+  videoMimeType: string
   pieceTitle:   string
   composer:     string
   instrument:   string
@@ -21,81 +19,214 @@ async function runClaudeCoaching(opts: {
   keySignature: string
   safeStart:    number
   safeEnd:      number | null
-}) {
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
-  if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
+}): Promise<{ score: number; flags: unknown[] }> {
+  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
+  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured')
 
-  const anthropic = new Anthropic({ apiKey: anthropicKey })
+  // Download video
+  const videoResp = await fetch(opts.videoUrl)
+  if (!videoResp.ok) throw new Error(`Video download failed: ${videoResp.status}`)
+  const videoBytes = new Uint8Array(await videoResp.arrayBuffer())
+
+  // Upload to Gemini Files API (v1beta is the only version that has the Files API)
+  const initResp = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol':              'resumable',
+        'X-Goog-Upload-Command':               'start',
+        'X-Goog-Upload-Header-Content-Length': videoBytes.length.toString(),
+        'X-Goog-Upload-Header-Content-Type':   opts.videoMimeType,
+        'Content-Type':                         'application/json',
+      },
+      body: JSON.stringify({ file: { displayName: 'performance' } }),
+    }
+  )
+  if (!initResp.ok) {
+    const t = await initResp.text()
+    throw new Error(`Files API init failed ${initResp.status}: ${t.slice(0, 200)}`)
+  }
+  const uploadUrl = initResp.headers.get('X-Goog-Upload-URL')
+  if (!uploadUrl) throw new Error('No Gemini upload URL')
+
+  const uploadResp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Command': 'upload, finalize',
+      'X-Goog-Upload-Offset':  '0',
+    },
+    body: videoBytes,
+  })
+  if (!uploadResp.ok) throw new Error(`File upload failed: ${uploadResp.status}`)
+  const fileInfo = await uploadResp.json()
+  const fileUri  = fileInfo.file?.uri
+  const fileName = fileInfo.file?.name
+  if (!fileUri) throw new Error('No fileUri from Gemini upload')
+
+  // Wait until ACTIVE
+  let state = fileInfo.file?.state ?? 'PROCESSING'
+  for (let i = 0; i < 20 && state === 'PROCESSING'; i++) {
+    await new Promise(r => setTimeout(r, 5000))
+    const s = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`)
+    state = (await s.json()).state ?? 'FAILED'
+  }
+  if (state !== 'ACTIVE') throw new Error(`File never became ACTIVE (state: ${state})`)
 
   const measureRange = opts.safeEnd
     ? `measures ${opts.safeStart}–${opts.safeEnd}`
     : `from measure ${opts.safeStart}`
 
-  const keyNote = opts.keySignature ? `Key: ${opts.keySignature}. ` : ''
+  const prompt = `You are an expert music performance coach analysing a video recording.
 
-  // Build content — include score image if available and it's an image
-  const userContent: Anthropic.MessageParam['content'] = []
+Piece: "${opts.pieceTitle}" by ${opts.composer}
+Instrument: ${opts.instrument}
+${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
+Recording: ${measureRange}
 
-  if (opts.scoreUrl && opts.scoreMimeType?.startsWith('image/')) {
-    try {
-      const imgResp = await fetch(opts.scoreUrl)
-      if (imgResp.ok) {
-        const imgBytes = new Uint8Array(await imgResp.arrayBuffer())
-        const b64 = btoa(String.fromCharCode(...imgBytes))
-        userContent.push({
-          type: 'image',
-          source: {
-            type:       'base64',
-            media_type: opts.scoreMimeType as 'image/jpeg' | 'image/png' | 'image/webp',
-            data:       b64,
-          },
-        })
+Watch the video carefully. Identify specific performance issues with exact timestamps.
+
+Return ONLY valid JSON (no markdown):
+{
+  "score": <integer 0-100>,
+  "flags": [
+    {
+      "measure": <integer>,
+      "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
+      "title": "<8 words max>",
+      "detail": "<2-3 sentences of specific coaching advice>",
+      "timestamp_start": <seconds>,
+      "timestamp_end": <seconds>
+    }
+  ]
+}`
+
+  // Try models in order of preference — stop on first success
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash']
+  let genData: any = null
+
+  for (const model of models) {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ fileData: { mimeType: opts.videoMimeType, fileUri } }, { text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.1, maxOutputTokens: 2048 },
+        }),
       }
-    } catch { /* skip image if fetch fails */ }
+    )
+    if (r.ok) { genData = await r.json(); break }
+    const errTxt = await r.text()
+    console.warn(`[gemini] model ${model} failed (${r.status}): ${errTxt.slice(0, 120)}`)
+    if (r.status !== 404) throw new Error(`Gemini error ${r.status}: ${errTxt.slice(0, 200)}`)
+    // 404 = model not found, try next
   }
 
+  // Cleanup file (non-fatal)
+  if (fileName) fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
+
+  if (!genData) throw new Error('No Gemini model available for this API key')
+
+  const rawText = genData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+  let parsed: any = {}
+  try { parsed = JSON.parse(rawText) } catch {
+    const m = rawText.match(/\{[\s\S]*\}/)
+    if (m) try { parsed = JSON.parse(m[0]) } catch { /* empty */ }
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 70)))
+  const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
+    measure:         Number(f.measure)         || opts.safeStart,
+    type:            String(f.type             || 'technique'),
+    title:           String(f.title            || 'Issue detected'),
+    detail:          String(f.detail           || ''),
+    timestamp_start: Number(f.timestamp_start) || 0,
+    timestamp_end:   Number(f.timestamp_end)   || 0,
+  }))
+
+  return { score, flags }
+}
+
+// ── Claude coaching fallback (piece-aware, no video scoring) ─────────────────
+async function runClaudeCoaching(opts: {
+  scoreUrl:      string | null
+  scoreMimeType: string | null
+  pieceTitle:    string
+  composer:      string
+  instrument:    string
+  timeSig:       string
+  keySignature:  string
+  safeStart:     number
+  safeEnd:       number | null
+}): Promise<{ flags: unknown[] }> {
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+  if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
+
+  const anthropic = new Anthropic({ apiKey: anthropicKey })
+  const measureRange = opts.safeEnd ? `measures ${opts.safeStart}–${opts.safeEnd}` : `from measure ${opts.safeStart}`
+  const keyNote = opts.keySignature ? `Key: ${opts.keySignature}. ` : ''
+
+  const userContent: Anthropic.MessageParam['content'] = []
+
+  // Include score image if we have one
+  if (opts.scoreUrl && opts.scoreMimeType?.startsWith('image/')) {
+    try {
+      const r = await fetch(opts.scoreUrl)
+      if (r.ok) {
+        const bytes = new Uint8Array(await r.arrayBuffer())
+        const b64 = btoa(String.fromCharCode(...bytes))
+        userContent.push({
+          type: 'image',
+          source: { type: 'base64', media_type: opts.scoreMimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: b64 },
+        })
+      }
+    } catch { /* skip */ }
+  }
+
+  const hasImage = userContent.length > 0
   userContent.push({
     type: 'text',
-    text: `You are an expert music performance coach reviewing a student's practice session.
+    text: `You are an expert music performance coach. A student just recorded themselves playing the following passage.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
-Passage recorded: ${measureRange}
+Passage: ${measureRange}
+${hasImage ? '\nThe sheet music for this passage is shown above.' : ''}
 
-${userContent.length > 1 ? 'The sheet music is attached above. ' : ''}Based on this piece, instrument, and passage, identify the most likely technical and musical challenges a student would face. Give specific, actionable coaching notes.
+Give specific, technical coaching notes for this exact passage on this instrument. Focus on the real challenges a student would face in measures ${opts.safeStart}${opts.safeEnd ? `–${opts.safeEnd}` : '+'}.
 
 Return ONLY valid JSON (no markdown):
 {
-  "score": null,
   "flags": [
     {
-      "measure": <integer — the measure this note applies to>,
+      "measure": <integer — the specific measure this applies to>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
-      "title": "<8 words max>",
-      "detail": "<2-3 sentences of specific coaching advice for this passage>",
+      "title": "<8 words max — specific to this passage>",
+      "detail": "<2-3 sentences of actionable coaching specific to this piece, instrument, and measure>",
       "timestamp_start": 0,
       "timestamp_end": 0
     }
   ]
 }
 
-Include 3–6 flags covering the most important areas to work on. Be specific to this piece and instrument, not generic.`,
+Give 4–6 flags. Be very specific: name exact notes, intervals, fingerings, bowings, or rhythmic patterns in this passage. Do not give generic advice.`,
   })
 
   const message = await anthropic.messages.create({
-    model:      'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
+    model:      'claude-sonnet-4-6',
+    max_tokens: 1200,
     messages:   [{ role: 'user', content: userContent }],
   })
 
-  const rawText = ((message.content[0] as { type: string; text: string }).text ?? '{}').trim()
-
-  let parsed: { score?: unknown; flags?: unknown[] } = {}
+  const raw = ((message.content[0] as { type: string; text: string }).text ?? '{}').trim()
+  let parsed: any = {}
   try {
-    const jsonStr = rawText.startsWith('{') ? rawText : rawText.slice(rawText.indexOf('{'), rawText.lastIndexOf('}') + 1)
+    const jsonStr = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
     parsed = JSON.parse(jsonStr)
-  } catch { /* leave empty */ }
+  } catch { /* empty */ }
 
   const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
     measure:         Number(f.measure)         || opts.safeStart,
@@ -106,16 +237,7 @@ Include 3–6 flags covering the most important areas to work on. Be specific to
     timestamp_end:   0,
   }))
 
-  await opts.admin.from('takes').update({
-    job_status:       'done',
-    score:            null,
-    flags,
-    analysis_quality: 'low',
-    analysis_backend: 'claude-coaching',
-    job_error:        null,
-  }).eq('id', opts.takeId)
-
-  console.log('[analyze-performance] Claude coaching done for take', opts.takeId, '—', flags.length, 'flags')
+  return { flags }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -138,10 +260,10 @@ serve(async (req: Request) => {
 
     const body = await req.json()
     const {
-      videoPath,    videoMimeType,
-      scorePath,    scoreMimeType,
-      pieceTitle,   composer,
-      timeSig,      instrument,   keySignature,
+      videoPath, videoMimeType,
+      scorePath, scoreMimeType,
+      pieceTitle, composer,
+      timeSig, instrument, keySignature,
       startMeasure, endMeasure,
     } = body
 
@@ -180,102 +302,109 @@ serve(async (req: Request) => {
       .select('id')
       .single()
 
-    if (insertError || !take) {
-      throw new Error(`DB insert failed: ${insertError?.message}`)
-    }
-
+    if (insertError || !take) throw new Error(`DB insert failed: ${insertError?.message}`)
     const takeId = take.id
 
-    // Generate 2-hour signed URLs
-    const { data: vSigned } = await admin.storage
-      .from('recordings')
-      .createSignedUrl(videoPath, 7200)
+    // Signed URLs
+    const { data: vSigned } = await admin.storage.from('recordings').createSignedUrl(videoPath, 7200)
     const videoSignedUrl = vSigned?.signedUrl ?? null
 
     let scoreSignedUrl: string | null = null
     if (scorePath) {
-      const { data: sSigned } = await admin.storage
-        .from('sheet-music')
-        .createSignedUrl(scorePath, 7200)
+      const { data: sSigned } = await admin.storage.from('sheet-music').createSignedUrl(scorePath, 7200)
       scoreSignedUrl = sSigned?.signedUrl ?? null
     }
 
-    // ── Try Modal first ───────────────────────────────────────────
+    // ── 1. Try Modal (full async video analysis) ──────────────────
     const modalUrl = Deno.env.get('MODAL_WORKER_URL')
-    let modalSucceeded = false
-
     if (modalUrl) {
-      const dispatchPayload = {
-        take_id:           takeId,
-        webhook_url:       `${Deno.env.get('SUPABASE_URL')}/functions/v1/analysis-webhook`,
-        webhook_secret:    Deno.env.get('MODAL_WEBHOOK_SECRET'),
-        video_url:         videoSignedUrl,
-        video_mime_type:   videoMimeType,
-        score_url:         scoreSignedUrl,
-        score_mime_type:   scoreMimeType   ?? null,
-        instrument:        instrument      ?? 'instrument',
-        piece_title:       pieceTitle      ?? 'this piece',
-        composer:          composer        ?? 'the composer',
-        time_sig:          timeSig         ?? '4/4',
-        key_signature:     keySignature    ?? '',
-        start_measure:     safeStart,
-        end_measure:       safeEnd,
-        gemini_api_key:    Deno.env.get('GOOGLE_AI_API_KEY'),
-        anthropic_api_key: Deno.env.get('ANTHROPIC_API_KEY'),
-      }
-
       const dispatchRes = await fetch(`${modalUrl}/analyze_async`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(dispatchPayload),
-        signal:  AbortSignal.timeout(8000),
-      }).catch((err) => {
-        console.warn('[analyze-performance] Modal dispatch error:', (err as Error).message)
-        return null
-      })
+        body: JSON.stringify({
+          take_id:           takeId,
+          webhook_url:       `${Deno.env.get('SUPABASE_URL')}/functions/v1/analysis-webhook`,
+          webhook_secret:    Deno.env.get('MODAL_WEBHOOK_SECRET'),
+          video_url:         videoSignedUrl,
+          video_mime_type:   videoMimeType,
+          score_url:         scoreSignedUrl,
+          score_mime_type:   scoreMimeType   ?? null,
+          instrument:        instrument      ?? 'instrument',
+          piece_title:       pieceTitle      ?? 'this piece',
+          composer:          composer        ?? 'the composer',
+          time_sig:          timeSig         ?? '4/4',
+          key_signature:     keySignature    ?? '',
+          start_measure:     safeStart,
+          end_measure:       safeEnd,
+          gemini_api_key:    Deno.env.get('GOOGLE_AI_API_KEY'),
+          anthropic_api_key: Deno.env.get('ANTHROPIC_API_KEY'),
+        }),
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null)
 
       if (dispatchRes?.ok) {
-        modalSucceeded = true
-        console.log('[analyze-performance] dispatched take', takeId, 'to Modal')
-      } else {
-        const status = dispatchRes?.status ?? 'no response'
-        console.warn(`[analyze-performance] Modal unavailable (${status}), falling back to Claude coaching`)
+        console.log('[analyze-performance] dispatched to Modal:', takeId)
+        return new Response(JSON.stringify({ jobId: takeId, status: 'processing' }), {
+          headers: { 'Content-Type': 'application/json', ...CORS },
+        })
+      }
+      console.warn('[analyze-performance] Modal unavailable, running inline')
+    }
+
+    // ── 2. Inline: try Gemini video first, fall back to Claude ────
+    const sharedOpts = {
+      pieceTitle:   pieceTitle   ?? 'Unknown Piece',
+      composer:     composer     ?? 'Unknown',
+      instrument:   instrument   ?? 'instrument',
+      timeSig:      timeSig      ?? '4/4',
+      keySignature: keySignature ?? '',
+      safeStart,
+      safeEnd,
+    }
+
+    let score: number | null = null
+    let flags: unknown[]     = []
+    let backend              = 'claude-coaching'
+    let quality              = 'low'
+
+    if (videoSignedUrl) {
+      try {
+        const geminiResult = await runGeminiVideo({ takeId, videoUrl: videoSignedUrl, videoMimeType, ...sharedOpts })
+        score   = geminiResult.score
+        flags   = geminiResult.flags
+        backend = 'gemini-inline'
+        quality = 'medium'
+        console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
+      } catch (geminiErr) {
+        console.warn('[analyze-performance] Gemini failed, falling back to Claude:', (geminiErr as Error).message)
+        try {
+          const claudeResult = await runClaudeCoaching({ scoreUrl: scoreSignedUrl, scoreMimeType: scoreMimeType ?? null, ...sharedOpts })
+          flags = claudeResult.flags
+        } catch (claudeErr) {
+          console.error('[analyze-performance] Claude also failed:', (claudeErr as Error).message)
+        }
+      }
+    } else {
+      // No video URL — Claude coaching only
+      try {
+        const claudeResult = await runClaudeCoaching({ scoreUrl: scoreSignedUrl, scoreMimeType: scoreMimeType ?? null, ...sharedOpts })
+        flags = claudeResult.flags
+      } catch (err) {
+        console.error('[analyze-performance] Claude coaching failed:', (err as Error).message)
       }
     }
 
-    // ── Claude coaching fallback ──────────────────────────────────
-    if (!modalSucceeded) {
-      const fallbackTask = runClaudeCoaching({
-        admin,
-        takeId,
-        scoreUrl:     scoreSignedUrl,
-        scoreMimeType: scoreMimeType ?? null,
-        pieceTitle:   pieceTitle   ?? 'Unknown Piece',
-        composer:     composer     ?? 'Unknown',
-        instrument:   instrument   ?? 'instrument',
-        timeSig:      timeSig      ?? '4/4',
-        keySignature: keySignature ?? '',
-        safeStart,
-        safeEnd,
-      }).catch(async (err) => {
-        console.error('[analyze-performance] Claude coaching error:', (err as Error).message)
-        await admin.from('takes').update({
-          job_status: 'failed',
-          job_error:  `Coaching analysis failed: ${(err as Error).message}`,
-        }).eq('id', takeId)
-      })
+    await admin.from('takes').update({
+      job_status:       'done',
+      score,
+      flags,
+      analysis_quality: quality,
+      analysis_backend: backend,
+      job_error:        null,
+    }).eq('id', takeId)
 
-      // Return response now; analysis continues in background
-      // @ts-ignore — Supabase Edge Runtime global
-      if (typeof EdgeRuntime !== 'undefined') {
-        // @ts-ignore
-        EdgeRuntime.waitUntil(fallbackTask)
-      } else {
-        await fallbackTask  // local dev: wait synchronously
-      }
-    }
-
-    return new Response(JSON.stringify({ jobId: takeId, status: 'processing' }), {
+    // Return jobId — polling loop will see status=done on first check
+    return new Response(JSON.stringify({ jobId: takeId, status: 'done' }), {
       headers: { 'Content-Type': 'application/json', ...CORS },
     })
 
