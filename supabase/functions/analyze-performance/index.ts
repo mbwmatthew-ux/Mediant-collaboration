@@ -187,9 +187,13 @@ function assessAnalysisQuality(
   }
 
   if (reasons.length === 0) return { trust: 'high', canProceed: true, reasons }
-  // Allow medium-trust analysis when Modal ran, score has a usable skeleton,
-  // and enough events were aligned — even if Gemini timed out.
+  // Allow medium-trust analysis when Modal ran with enough aligned events.
   if (usedModal && score.measures.length >= 2 && aligned.length >= 8) {
+    return { trust: 'medium', canProceed: true, reasons }
+  }
+  // Allow medium-trust eval-only analysis when Gemini assessment is present —
+  // it covers pitch, rhythm and technique without requiring audio transcription.
+  if (geminiAssessment) {
     return { trust: 'medium', canProceed: true, reasons }
   }
   return { trust: 'low', canProceed: false, reasons }
@@ -1120,23 +1124,23 @@ async function handleRequest(req: Request): Promise<Response> {
       : Promise.resolve({ data: null }))
     const scoreBytesForClaude = scoreBlobRes.data
       ? new Uint8Array(await scoreBlobRes.data.arrayBuffer()) : null
-    const videoBytes: Uint8Array | null = null
 
-    // ── Gemini direct eval — streams from signed URL when Modal is available,
-    //    falls back to uploading downloaded bytes when Modal is not.
+    // Download video bytes for Gemini upload (bytes-based upload is reliable in Deno edge).
+    const { data: videoBlob } = await admin.storage.from('recordings').download(videoPath).catch(() => ({ data: null }))
+    const videoBytes = videoBlob ? new Uint8Array(await videoBlob.arrayBuffer()) : null
+
+    // ── Gemini upload — try streaming first, fall back to bytes if it fails.
     const geminiUploadPromise: Promise<string | null> = googleApiKey
       ? (videoSignedUrl
           ? uploadVideoToGeminiFromUrl(videoSignedUrl, videoMimeType, googleApiKey)
-              .catch(err => {
-                console.error('[analyze-performance] Gemini stream upload failed:', (err as Error).message)
-                return null
-              })
+              .catch(() => videoBytes
+                ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
+                    .catch(err => { console.error('[analyze-performance] Gemini bytes upload failed:', (err as Error).message); return null })
+                : null
+              )
           : videoBytes
             ? uploadVideoToGemini(videoBytes, videoMimeType, googleApiKey)
-                .catch(err => {
-                  console.error('[analyze-performance] Gemini upload failed:', (err as Error).message)
-                  return null
-                })
+                .catch(err => { console.error('[analyze-performance] Gemini upload failed:', (err as Error).message); return null })
             : Promise.resolve(null))
       : Promise.resolve(null)
 
