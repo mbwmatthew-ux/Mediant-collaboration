@@ -131,26 +131,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Pose tracking placeholder */}
-          <div className={styles.poseArea}>
-            <span className={styles.poseLabel}>◉ POSE TRACKING</span>
-            <svg className={styles.poseLine} viewBox="0 0 400 60" fill="none" preserveAspectRatio="none">
-              <path
-                d="M0 45 C40 45 60 20 100 22 C140 24 160 32 200 18 C240 4 260 28 300 30 C340 32 370 22 400 18"
-                stroke="var(--accent)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                fill="none"
-                opacity="0.6"
-              />
-              {[100, 160, 200, 260, 300].map((x, i) => (
-                <circle key={i} cx={x} cy={[22,32,18,30,30][i]} r="4" fill="var(--accent)" opacity="0.8" />
-              ))}
-              <text x="220" y="14" fill="var(--accent)" fontSize="9" fontWeight="600" opacity="0.7">WRIST · OK</text>
-              <text x="310" y="44" fill="var(--gold)" fontSize="9" fontWeight="600" opacity="0.7">FINGER 4 · TENSE</text>
-            </svg>
-          </div>
-
           {/* Waveform */}
           <div className={styles.waveformWrap}>
             {bars.map((h, i) => (

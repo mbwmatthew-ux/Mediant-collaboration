@@ -87,26 +87,6 @@
 }
 .heroCardAction:hover { color: rgba(232,240,235,0.75); }
 
-/* Pose tracking */
-.poseArea {
-  border-top: 1px solid rgba(255,255,255,0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 20px 10px;
-}
-
-.poseLabel {
-  color: var(--accent);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.poseLine {
-  height: 60px;
-  width: 100%;
-}
 
 /* Waveform */
 .waveformWrap {
