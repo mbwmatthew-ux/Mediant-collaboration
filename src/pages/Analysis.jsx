@@ -172,6 +172,12 @@ export default function Analysis() {
   // Stop loop when active flag changes
   useEffect(() => { stopLoop() }, [activeFlag, stopLoop])
 
+  // Derive activeFlagRaw here so hooks below can reference it without TDZ
+  const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
+  const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
+  const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
+    && Number(activeFlagRaw.timestamp_end) > Number(activeFlagRaw.timestamp_start)
+
   // Auto-seek video to flag's timestamp when a flag is selected
   useEffect(() => {
     if (!activeFlagRaw) return
@@ -338,12 +344,6 @@ export default function Analysis() {
   const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
   const analysisQuality = take?.analysis_quality ?? null
   const analysisBackend = take?.analysis_backend ?? null
-
-  // Raw flag data for the active flag (has timestamps, bbox, etc.)
-  const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
-  const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
-  const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
-    && Number(activeFlagRaw.timestamp_end) > Number(activeFlagRaw.timestamp_start)
 
   const info = activeFlag ? flagsMap[activeFlag] : null
 
