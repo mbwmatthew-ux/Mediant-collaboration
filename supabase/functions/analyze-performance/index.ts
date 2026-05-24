@@ -91,8 +91,6 @@ Instrument: ${opts.instrument}
 ${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
 Recording covers: ${measureRange}
 
-CRITICAL — MEASURE NUMBERING: This recording begins at measure ${opts.safeStart} of the full score. The first bar you hear is measure ${opts.safeStart}, the second bar is measure ${opts.safeStart + 1}, and so on. NEVER use measure numbers below ${opts.safeStart}. Any flag with measure < ${opts.safeStart} is wrong.
-
 Watch the ENTIRE video. Listen and observe carefully for:
 - Rhythmic accuracy and steadiness
 - Intonation / pitch accuracy
@@ -107,7 +105,7 @@ Return ONLY valid JSON (no markdown fences):
   "score": <integer 0-100, where 100 = flawless professional performance>,
   "flags": [
     {
-      "measure": <integer — score measure number starting from ${opts.safeStart}>,
+      "bar": <integer — which bar of THIS recording the issue occurs in, counting from 1 (so bar 1 = first bar you hear, bar 2 = second bar, etc.)>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
       "title": "<8 words max — name the specific issue>",
       "detail": "<2-3 sentences: what went wrong, why it matters, how to fix it>",
@@ -171,7 +169,8 @@ List every meaningful issue you observe, minimum 3 flags for any score below 90.
   // Gemini sometimes returns a score with no flags — treat as parse failure
   const rawFlags = Array.isArray(parsed.flags) ? parsed.flags : []
   const flags = rawFlags.map((f: any) => ({
-    measure:         Number(f.measure)         || opts.safeStart,
+    // AI counts bars from 1 within the clip; we convert to absolute score measure
+    measure:         (Math.max(1, Number(f.bar) || 1) - 1) + opts.safeStart,
     type:            String(f.type             || 'technique'),
     title:           String(f.title            || 'Issue detected'),
     detail:          String(f.detail           || ''),
@@ -185,7 +184,7 @@ List every meaningful issue you observe, minimum 3 flags for any score below 90.
     throw new Error(`Gemini returned score ${score} with no flags — falling back to coaching`)
   }
 
-  return { score, flags: normalizeMeasures(flags, opts.safeStart) }
+  return { score, flags }
 }
 
 // ── Claude vision analysis (from browser-extracted video frames) ─────────────
@@ -235,14 +234,12 @@ Analyze what is VISIBLE in the frames. Look carefully for:
 
 Score the performance 0–100 based on visible technique quality. 90+ = excellent visible technique, 70–89 = solid with minor issues, below 70 = clear technique problems visible.
 
-CRITICAL — MEASURE NUMBERING: This passage begins at measure ${opts.safeStart}. The first frame corresponds to approximately measure ${opts.safeStart}. NEVER output measure numbers below ${opts.safeStart}. Any flag with measure < ${opts.safeStart} is wrong.
-
 Return ONLY valid JSON (no markdown fences):
 {
   "score": <integer 0-100>,
   "flags": [
     {
-      "measure": <integer — score measure number, must be ≥ ${opts.safeStart}>,
+      "bar": <integer — which bar of this recording the issue is from, counting from 1 (bar 1 = first bar in the clip, bar 2 = second, etc.)>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
       "title": "<8 words max — name the specific issue you observed>",
       "detail": "<2-3 sentences: what you see in the frame, why it matters, how to fix it>",
@@ -270,7 +267,8 @@ Give 4–6 flags based on what you observe. Be specific about what is visible in
 
   const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 72)))
   const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
-    measure:         Number(f.measure)         || opts.safeStart,
+    // AI counts bars from 1 within the clip; we convert to absolute score measure
+    measure:         (Math.max(1, Number(f.bar) || 1) - 1) + opts.safeStart,
     type:            String(f.type             || 'technique'),
     title:           String(f.title            || 'Technique issue'),
     detail:          String(f.detail           || ''),
@@ -278,7 +276,7 @@ Give 4–6 flags based on what you observe. Be specific about what is visible in
     timestamp_end:   Number(f.timestamp_end)   || 0,
   }))
 
-  return { score, flags: normalizeMeasures(flags, opts.safeStart) }
+  return { score, flags }
 }
 
 // ── Claude coaching fallback (piece-aware, no video scoring) ─────────────────
