@@ -597,7 +597,7 @@ export default function Analysis() {
                         <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
                           ■ Stop loop
                         </button>
-                      ))}
+                      )}
                       <span className={styles.excerptTime}>
                         {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
                       </span>
