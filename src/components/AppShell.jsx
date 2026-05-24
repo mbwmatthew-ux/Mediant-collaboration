@@ -154,7 +154,7 @@ export default function AppShell() {
                   </div>
                 )}
 
-                <button className={styles.acctRow} onClick={() => toggle('plan')}>
+                <button className={styles.acctRow} onClick={() => { setPanel(null); nav('/pricing') }}>
                   <span className={`${styles.acctRowIcon} ${styles.iconGold}`}>◈</span>
                   <div className={styles.acctRowText}>
                     <span className={styles.acctRowLabel}>Plan & billing</span>
@@ -164,37 +164,8 @@ export default function AppShell() {
                         : 'Free plan · Upgrade for unlimited analyses'}
                     </span>
                   </div>
-                  <span className={styles.acctRowChevron}>{expanded === 'plan' ? '∨' : '›'}</span>
+                  <span className={styles.acctRowChevron}>›</span>
                 </button>
-                {expanded === 'plan' && (
-                  <div className={styles.acctExpanded}>
-                    {subscription?.plan ? (
-                      <div className={`${styles.planCard} ${styles.planCardPro}`}>
-                        <strong className={`${styles.planCardName} ${styles.planCardNamePro}`}>{subscription.plan}</strong>
-                        <p className={styles.planCardDesc}>
-                          {subscription.current_period_end
-                            ? `Renews ${new Date(subscription.current_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                            : 'Active subscription'}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className={styles.planCard}>
-                          <strong className={styles.planCardName}>Free</strong>
-                          <p className={styles.planCardDesc}>10 analyses per day · Performance feedback</p>
-                        </div>
-                        <button
-                          className={`${styles.planCard} ${styles.planCardPro}`}
-                          style={{ cursor: 'pointer', textAlign: 'left', border: 'none', width: '100%' }}
-                          onClick={() => { setPanel(null); nav('/pricing') }}
-                        >
-                          <strong className={`${styles.planCardName} ${styles.planCardNamePro}`}>Upgrade to Pro →</strong>
-                          <p className={styles.planCardDesc}>Unlimited analyses · Priority queue · PDF export</p>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
 
                 <button className={styles.acctRow} onClick={() => toggle('privacy')}>
                   <span className={`${styles.acctRowIcon} ${styles.iconGreen}`}>⊙</span>
