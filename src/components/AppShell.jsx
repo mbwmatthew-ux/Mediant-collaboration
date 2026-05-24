@@ -13,23 +13,19 @@ const NAV_SECTIONS = [
     key: 'workspace',
     label: 'WORKSPACE',
     items: [
-      { to: '/home',     label: 'Dashboard',        icon: HomeIcon,     live: true  },
-      { to: '/record',   label: 'Record',            icon: UploadIcon,   live: true  },
-      { to: '/search',   label: 'Library',           icon: SearchIcon,   live: true  },
-      { to: '/takes',    label: 'Sessions',          icon: SavedIcon,    live: true  },
-      { to: '/progress', label: 'Progress',          icon: ProgressIcon, live: true  },
+      { to: '/home',     label: 'Dashboard', icon: HomeIcon,     live: true },
+      { to: '/record',   label: 'Record',     icon: UploadIcon,   live: true },
+      { to: '/search',   label: 'Library',    icon: SearchIcon,   live: true },
+      { to: '/takes',    label: 'Sessions',   icon: SavedIcon,    live: true },
+      { to: '/progress', label: 'Progress',   icon: ProgressIcon, live: true },
     ],
   },
   {
     key: 'tools',
-    label: 'PRACTICE TOOLS',
+    label: 'TOOLS',
     items: [
-      { to: null,          label: 'Soundcheck',    icon: SoundcheckIcon,  live: false },
-      { to: null,          label: 'Metronome',     icon: MetronomeIcon,   live: false },
-      { action: 'tuner',   label: 'Tuner',         icon: TunerNavIcon,    live: true  },
-      { to: null,          label: 'Duet',          icon: DuetIcon,        live: false },
-      { to: null,          label: 'Mock audition', icon: MicIcon,         live: false },
-      { to: '/coach',      label: 'Discussion',    icon: DiscussIcon,     live: true  },
+      { action: 'tuner', label: 'Tuner',      icon: TunerNavIcon, live: true },
+      { to: '/coach',    label: 'Discussion', icon: DiscussIcon,  live: true },
     ],
   },
   {
@@ -341,14 +337,6 @@ export default function AppShell() {
               <div key={section.key} className={styles.navSection}>
                 <span className={styles.navSectionLabel}>{section.label}</span>
                 {section.items.map(item => {
-                  if (!item.live) {
-                    return (
-                      <span key={item.label} className={styles.navLinkStub}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </span>
-                    )
-                  }
                   if (item.action) {
                     return (
                       <button
@@ -381,7 +369,9 @@ export default function AppShell() {
 
         <main className={styles.main}>
           <ErrorBoundary key={location.pathname}>
-            <Outlet />
+            <div key={location.pathname} className={styles.pageIn}>
+              <Outlet />
+            </div>
           </ErrorBoundary>
         </main>
       </div>
@@ -491,52 +481,12 @@ function ProgressIcon() {
   )
 }
 
-function SoundcheckIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    </svg>
-  )
-}
-
-function MetronomeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2L4 20h16L12 2z"/>
-      <line x1="12" y1="12" x2="16" y2="8"/>
-    </svg>
-  )
-}
 
 function TunerNavIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <path d="M12 8v4l3 3"/>
-    </svg>
-  )
-}
-
-function DuetIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  )
-}
-
-function MicIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-      <line x1="12" y1="19" x2="12" y2="23"/>
-      <line x1="8"  y1="23" x2="16" y2="23"/>
     </svg>
   )
 }

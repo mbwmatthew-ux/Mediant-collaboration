@@ -1,3 +1,9 @@
+/* ── Dashboard entrance animations ──────────────────────────── */
+@keyframes dashIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* ── Dashboard layout ───────────────────────────────────────── */
 .dashboard {
   display: grid;
@@ -22,7 +28,12 @@
 }
 
 /* ── Greeting ───────────────────────────────────────────────── */
-.greeting { display: flex; flex-direction: column; gap: 4px; }
+.greeting {
+  animation: dashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 0ms;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 .greetTitle {
   color: var(--text);
@@ -41,6 +52,7 @@
 
 /* ── Hero card (live analysis) ──────────────────────────────── */
 .heroCard {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 80ms;
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius-lg);
@@ -99,10 +111,17 @@
 }
 
 .waveBar {
+  animation: barRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(130ms + var(--bi, 0) * 6ms);
   border-radius: 2px 2px 0 0;
   flex: 1;
   min-width: 3px;
   transition: opacity 300ms ease;
+}
+
+@keyframes barRise {
+  from { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+  to   { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
 }
 
 .waveFooter {
@@ -136,6 +155,7 @@
 
 /* ── Technique tips ─────────────────────────────────────────── */
 .tipsSection {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 160ms;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -182,6 +202,7 @@
 
 /* ── Stats card ─────────────────────────────────────────────── */
 .statsCard {
+  animation: dashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 60ms;
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius-md);
@@ -243,6 +264,7 @@
 
 /* ── Recent sessions card ───────────────────────────────────── */
 .recentCard {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 140ms;
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius-md);

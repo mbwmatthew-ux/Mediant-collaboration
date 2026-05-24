@@ -152,6 +152,7 @@ export default function Home() {
                     key={i}
                     className={styles.waveBar}
                     style={{
+                      '--bi': i,
                       height: `${h}px`,
                       opacity: i < bars.length * 0.55 ? 0.85 : 0.35,
                       background: i < bars.length * 0.55 ? 'var(--accent)' : 'var(--gold)',

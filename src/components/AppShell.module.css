@@ -1,7 +1,13 @@
 .shell {
+  animation: shellIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+@keyframes shellIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── Top bar ────────────────────────────────────────────────── */
@@ -305,6 +311,15 @@
   background: var(--bg);
   min-height: calc(100vh - 48px);
   overflow-x: hidden;
+}
+
+.pageIn {
+  animation: pageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Full-screen account overlay ────────────────────────────── */

@@ -94,38 +94,49 @@ async function runGeminiVideo(opts: {
     ? `measures ${opts.safeStart}–${opts.safeEnd}`
     : `from measure ${opts.safeStart}`
 
-  const prompt = `You are an expert music performance coach analysing a video recording of a student practicing.
+  const prompt = `You are an expert music performance coach with conservatory-level training, analysing a student's video recording.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
 Recording covers: ${measureRange}
+${opts.tempo > 0 ? `Tempo: ${opts.tempo} BPM` : ''}
 
-Watch the ENTIRE video. Listen and observe carefully for:
-- Rhythmic accuracy and steadiness
-- Intonation / pitch accuracy
-- Bow technique, bow speed, bow pressure (for strings), or equivalent
-- Articulation, dynamics, and musical expression
-- Any hesitations, memory slips, or technique breakdowns
+Watch the ENTIRE video from start to finish. Listen carefully and observe:
+- Rhythmic accuracy: rushed or dragged beats, unsteady pulse, incorrect subdivisions
+- Intonation: out-of-tune notes, especially in exposed passages, high positions, or awkward intervals
+- Bow technique (strings): bow distribution, contact point, bow speed, excessive pressure, flying bow, frog/tip control
+- Finger technique: late arrivals, slides, missed shifts, collapsed joints
+- Articulation and phrasing: slurring errors, staccato uniformity, accent placement
+- Dynamics: failing to execute marked crescendos/diminuendos, lack of tonal contrast
+- Expression and musicality: metronomic playing, no phrase shaping, missed character
+- Memory slips, hesitations, or structural errors
 
-IMPORTANT: Every point deducted from 100 must be explained as a flag. A score of 70 means 30 points of issues — you must list them. Only return an empty flags array if the performance is genuinely flawless (score 95+).
+SCORING RULES:
+- 95–100: Genuinely professional, near-flawless. Empty flags array is allowed.
+- 85–94: Very strong with minor issues. Minimum 2 flags.
+- 70–84: Solid but with clear problems. Minimum 3–4 flags.
+- 55–69: Noticeable issues throughout. Minimum 4–5 flags.
+- Below 55: Significant technical or musical problems. Minimum 5+ flags.
+Every point deducted from 100 MUST correspond to a specific, timestamped flag.
 
 Return ONLY valid JSON (no markdown fences):
 {
-  "score": <integer 0-100, where 100 = flawless professional performance>,
+  "score": <integer 0-100>,
   "flags": [
     {
-      "bar": <integer — which bar of THIS recording the issue occurs in, counting from 1 (so bar 1 = first bar you hear, bar 2 = second bar, etc.)>,
+      "bar": <integer — bar of THIS recording, counting from 1>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
-      "title": "<8 words max — name the specific issue>",
-      "detail": "<2-3 sentences: what went wrong, why it matters, how to fix it>",
-      "timestamp_start": <video time in seconds when issue begins>,
-      "timestamp_end": <video time in seconds when issue ends>
+      "confidence": <integer 70-100 — how certain you are about this flag>,
+      "title": "<8 words max — name the specific issue precisely>",
+      "detail": "<2-4 sentences: exactly what went wrong, the musical consequence, and a specific actionable fix>",
+      "timestamp_start": <seconds when issue begins>,
+      "timestamp_end": <seconds when issue resolves>
     }
   ]
 }
 
-List every meaningful issue you observe, minimum 3 flags for any score below 90.`
+Be specific and musical — name exact notes, intervals, beats, or bow strokes. Avoid vague feedback like "work on this passage." Tell the student what to listen for and how to practise it.`
 
   // Use confirmed-available models (v1beta only — v1 doesn't have these models)
   const candidates = [
@@ -187,6 +198,7 @@ List every meaningful issue you observe, minimum 3 flags for any score below 90.
     return {
       measure,
       type:            String(f.type  || 'technique'),
+      confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 85))),
       title:           String(f.title || 'Issue detected'),
       detail:          String(f.detail || ''),
       timestamp_start: ts,
@@ -235,38 +247,45 @@ async function runClaudeVision(opts: {
 
   content.push({
     type: 'text',
-    text: `You are an expert music performance coach. You are seeing ${opts.frames.length} frames extracted from a student's video recording.
+    text: `You are an expert music performance coach with conservatory-level training. You are seeing ${opts.frames.length} frames extracted from a student's video recording at evenly spaced timestamps.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
+${opts.tempo > 0 ? `Tempo: ${opts.tempo} BPM` : ''}
 
-Analyze what is VISIBLE in the frames. Look carefully for:
-- Bow/arm/wrist technique (strings): bow placement, bow speed, bow pressure, arm weight, wrist flexibility
-- Hand position and finger placement: collapsed knuckles, locked joints, incorrect finger curvature, thumb position
-- Instrument hold and body posture: shoulder tension, hunching, head position
-- Any visible signs of tension, discomfort, or technical breakdown
-- Posture and relaxation of the whole body
+Study each frame carefully. Assess visible technique:
+- Bow arm (strings): bow placement relative to the bridge, bow speed, contact point, arm weight, elbow height, wrist flexibility
+- Left hand: finger curvature, collapsed joints, thumb position, hand frame, shift preparation
+- Instrument hold: chin rest contact, shoulder rest use, scroll height, body angle
+- Body and posture: shoulder elevation, back hunching, head tilt, jaw tension
+- Facial expression and overall tension
+- Any visible preparation problems that could affect upcoming passages
 
-Score the performance 0–100 based on visible technique quality. 90+ = excellent visible technique, 70–89 = solid with minor issues, below 70 = clear technique problems visible.
+Score the visible technique 0–100. Be honest and calibrated:
+- 90+: consistently excellent visible technique throughout all frames
+- 75–89: good technique with one or two minor visible issues
+- 60–74: clear technique problems visible in multiple frames
+- Below 60: significant, recurring technical problems
 
 Return ONLY valid JSON (no markdown fences):
 {
   "score": <integer 0-100>,
   "flags": [
     {
-      "bar": <integer — which bar of this recording the issue is from, counting from 1 (bar 1 = first bar in the clip, bar 2 = second, etc.)>,
-      "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
-      "title": "<8 words max — name the specific issue you observed>",
-      "detail": "<2-3 sentences: what you see in the frame, why it matters, how to fix it>",
-      "timestamp_start": <seconds — timestamp of the frame where issue is visible>,
+      "bar": <integer — bar of this recording where issue is visible, counting from 1>,
+      "type": "technique"|"timing"|"dynamics"|"intonation"|"error",
+      "confidence": <integer 70-100 — confidence based on frame clarity>,
+      "title": "<8 words max — name the specific technique issue you see>",
+      "detail": "<2-3 sentences: what exactly is visible at that timestamp, why it causes problems, and a specific exercise or fix>",
+      "timestamp_start": <seconds of the frame where issue is most visible>,
       "timestamp_end": <timestamp_start + 2.5>
     }
   ]
 }
 
-Give 4–6 flags based on what you observe. Be specific about what is visible in the frames — name the exact frame timestamp, what body part, what the problem looks like.`,
+Give 4–6 flags. Cite the frame timestamp and the specific body part. Avoid generic advice — be as specific as the frames allow.`,
   })
 
   const message = await anthropic.messages.create({
@@ -292,6 +311,7 @@ Give 4–6 flags based on what you observe. Be specific about what is visible in
     return {
       measure,
       type:            String(f.type  || 'technique'),
+      confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 78))),
       title:           String(f.title || 'Technique issue'),
       detail:          String(f.detail || ''),
       timestamp_start: ts,
@@ -341,15 +361,15 @@ async function runClaudeCoaching(opts: {
   const hasImage = userContent.length > 0
   userContent.push({
     type: 'text',
-    text: `You are an expert music performance coach. A student just recorded themselves playing the following passage.
+    text: `You are an expert music performance coach with conservatory-level knowledge. A student just recorded themselves playing the following passage.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
-${hasImage ? '\nThe sheet music for this passage is shown above.' : ''}
+${hasImage ? '\nThe sheet music for this passage is shown above. Study it carefully before giving feedback.' : ''}
 
-Give specific, technical coaching notes for this exact passage on this instrument. Focus on the real challenges a student would face in measures ${opts.safeStart}${opts.safeEnd ? `–${opts.safeEnd}` : '+'}.
+Identify the 4–6 most important technical and musical challenges a student would commonly encounter in THIS specific passage on THIS instrument. Base your flags on the actual notes, rhythms, and technical demands visible in the score${hasImage ? ' above' : ' (which you know from your training)'}. Do not give generic advice that could apply to any piece.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -357,15 +377,16 @@ Return ONLY valid JSON (no markdown):
     {
       "measure": <integer — the specific measure this applies to>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
-      "title": "<8 words max — specific to this passage>",
-      "detail": "<2-3 sentences of actionable coaching specific to this piece, instrument, and measure>",
+      "confidence": 72,
+      "title": "<8 words max — name the precise issue in this measure>",
+      "detail": "<3 sentences: describe the specific technical demand in this measure, why students struggle with it on this instrument, and a precise practice strategy — e.g. specific fingering, bowing pattern, rhythmic subdivision, or listening target>",
       "timestamp_start": 0,
       "timestamp_end": 0
     }
   ]
 }
 
-Give 4–6 flags. Be very specific: name exact notes, intervals, fingerings, bowings, or rhythmic patterns in this passage. Do not give generic advice.`,
+Examples of good specificity: "The leap from E♭5 to B4 in m.12 often goes sharp — listen for the half-step relationship and drop the elbow slightly on arrival." Not: "Work on intonation in the higher register."`,
   })
 
   const message = await anthropic.messages.create({
@@ -384,6 +405,7 @@ Give 4–6 flags. Be very specific: name exact notes, intervals, fingerings, bow
   const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
     measure:         Number(f.measure)         || opts.safeStart,
     type:            String(f.type             || 'technique'),
+    confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 72))),
     title:           String(f.title            || 'Coaching note'),
     detail:          String(f.detail           || ''),
     timestamp_start: 0,
@@ -560,7 +582,7 @@ serve(async (req: Request) => {
         score   = geminiResult.score
         flags   = geminiResult.flags
         backend = 'gemini-inline'
-        quality = { trust: 'medium', reasons: ['Full video analyzed — timestamps are approximate.'] }
+        quality = { trust: 'high', reasons: [] }
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
         console.warn('[analyze-performance] Gemini failed:', (geminiErr as Error).message)
