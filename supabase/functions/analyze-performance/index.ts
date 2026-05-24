@@ -414,19 +414,6 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Rate limit: 10 analyses per 24h on free plan
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { count: todayCount } = await admin
-      .from('takes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', since)
-    if ((todayCount ?? 0) >= 10) {
-      return new Response(JSON.stringify({
-        error: 'Daily limit reached — you\'ve run 10 analyses in the last 24 hours. Upgrade to Pro for unlimited analyses.',
-      }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } })
-    }
-
     // Insert take row in processing state
     const { data: take, error: insertError } = await admin
       .from('takes')
