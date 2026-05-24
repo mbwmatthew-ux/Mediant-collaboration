@@ -297,8 +297,12 @@ export default function AppShell() {
       {/* Top bar */}
       <header className={styles.topBar}>
         <div className={styles.topBarLeft}>
-          <LogoMark />
-          <span className={styles.topBarBrand}>Mediant</span>
+          <img
+            src="/logo-wordmark.png"
+            alt="Mediant"
+            height={20}
+            style={{ display: 'block', mixBlendMode: 'screen' }}
+          />
         </div>
 
         <div className={styles.topBarRight} ref={notifRef}>
@@ -454,20 +458,14 @@ function BackIcon() {
 }
 
 function LogoMark() {
-  const S = 4.5
-  const C = 'rgba(255,255,255,0.92)'
-  const top = 14, bot = 72
-  const xL = 14, xC = 42, xR = 70
   return (
-    <svg width="22" height="26" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="6"  y1={top} x2="78" y2={top} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1="6"  y1={bot} x2="78" y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xL} y1={top} x2={xL} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xC} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xR} y1={top} x2={xR} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xL} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-      <line x1={xR} y1={top} x2={xC} y2={bot} stroke={C} strokeWidth={S} strokeLinecap="square"/>
-    </svg>
+    <img
+      src="/logo-mark.png"
+      alt="Mediant"
+      width={22}
+      height={22}
+      style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 3 }}
+    />
   )
 }
 

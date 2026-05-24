@@ -36,52 +36,32 @@ const STEPS = [
 
 const INSTRUMENTS = ['Piano', 'Violin', 'Viola', 'Cello', 'Voice', 'Flute', 'Clarinet', 'Guitar', 'Harp', 'Trumpet']
 
-/* ── Animated logo that draws itself in ──────────────────────── */
+/* ── Logo mark (M icon) ──────────────────────────────────────── */
 function AnimatedLogo({ size = 28 }) {
-  const vb = 84
-  const w = size
-  const h = Math.round(size * (vb / vb))
   return (
-    <svg width={w} height={h} viewBox="0 0 84 84" fill="none" className={styles.logoSvg}>
-      <line x1="6"  y1="14" x2="78" y2="14" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '0ms',   '--l': 72 }} />
-      <line x1="6"  y1="72" x2="78" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '55ms',  '--l': 72 }} />
-      <line x1="14" y1="14" x2="14" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '110ms', '--l': 58 }} />
-      <line x1="42" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '155ms', '--l': 58 }} />
-      <line x1="70" y1="14" x2="70" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '200ms', '--l': 58 }} />
-      <line x1="14" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '255ms', '--l': 65 }} />
-      <line x1="70" y1="14" x2="42" y2="72" stroke="currentColor" strokeWidth="5" strokeLinecap="square"
-        className={styles.ll} style={{ '--d': '310ms', '--l': 65 }} />
-    </svg>
+    <img
+      src="/logo-mark.png"
+      alt="Mediant"
+      width={size}
+      height={size}
+      style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 4 }}
+    />
   )
 }
 
-/* ── Large glowing hero logo ─────────────────────────────────── */
+/* ── Large hero logo mark ────────────────────────────────────── */
 function HeroLogo() {
   return (
     <div className={styles.heroLogoWrap}>
       <div className={styles.heroLogoGlow} />
-      <svg width="80" height="80" viewBox="0 0 84 84" fill="none" className={styles.heroLogoSvg}>
-        <line x1="6"  y1="14" x2="78" y2="14" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '100ms', '--l': 72 }} />
-        <line x1="6"  y1="72" x2="78" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '160ms', '--l': 72 }} />
-        <line x1="14" y1="14" x2="14" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '220ms', '--l': 58 }} />
-        <line x1="42" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '270ms', '--l': 58 }} />
-        <line x1="70" y1="14" x2="70" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '320ms', '--l': 58 }} />
-        <line x1="14" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '380ms', '--l': 65 }} />
-        <line x1="70" y1="14" x2="42" y2="72" stroke="rgba(232,240,235,0.9)" strokeWidth="5" strokeLinecap="square"
-          className={styles.ll} style={{ '--d': '435ms', '--l': 65 }} />
-      </svg>
+      <img
+        src="/logo-mark.png"
+        alt="Mediant"
+        width={80}
+        height={80}
+        style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 8 }}
+        className={styles.heroLogoSvg}
+      />
     </div>
   )
 }
@@ -89,9 +69,13 @@ function HeroLogo() {
 /* ── Brand wordmark ──────────────────────────────────────────── */
 function Wordmark({ className }) {
   return (
-    <span className={`${styles.wordmark} ${className || ''}`}>
-      Mediant
-    </span>
+    <img
+      src="/logo-wordmark.png"
+      alt="Mediant"
+      height={22}
+      style={{ display: 'block', mixBlendMode: 'screen' }}
+      className={className || ''}
+    />
   )
 }
 
