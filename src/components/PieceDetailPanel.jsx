@@ -30,6 +30,7 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   const [pastSessions,   setPastSessions]   = useState([])
   const [deletingId,     setDeletingId]     = useState(null)
   const [deletingPiece,  setDeletingPiece]  = useState(false)
+  const [confirmDialog,  setConfirmDialog]  = useState(null) // { message, onConfirm }
 
   // Load past sessions for this piece from Supabase
   useEffect(() => {
@@ -104,7 +105,13 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   }, [piece.id, piece.title, piece.composer, piece.userUploaded])
 
   async function deleteSession(take) {
-    if (!window.confirm(`Delete this recording from ${formatDate(take.created_at || take.date)}? This cannot be undone.`)) return
+    setConfirmDialog({
+      message: `Delete this recording from ${formatDate(take.created_at || take.date)}?`,
+      onConfirm: () => doDeleteSession(take),
+    })
+  }
+
+  async function doDeleteSession(take) {
     setDeletingId(take.id)
     try {
       setPastSessions(prev => prev.filter(t => t.id !== take.id))
@@ -125,7 +132,13 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   }
 
   async function deletePiece() {
-    if (!window.confirm(`Delete "${piece.title}" from your library? This cannot be undone.`)) return
+    setConfirmDialog({
+      message: `Delete "${piece.title}" from your library?`,
+      onConfirm: doDeletePiece,
+    })
+  }
+
+  async function doDeletePiece() {
     setDeletingPiece(true)
     try {
       await supabase.from('user_pieces').delete().eq('id', piece.id)
@@ -152,7 +165,29 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   }
 
   return (
-    <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && !confirmDialog && onClose()}>
+      {confirmDialog && (
+        <div className={styles.confirmOverlay} onClick={e => e.stopPropagation()}>
+          <div className={styles.confirmBox}>
+            <p className={styles.confirmMsg}>{confirmDialog.message}</p>
+            <p className={styles.confirmSub}>This cannot be undone.</p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setConfirmDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmDelete}
+                onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null) }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={styles.panel}>
 
         {/* ── Header ─────────────────────────────────────────── */}
