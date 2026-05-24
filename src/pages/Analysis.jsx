@@ -577,8 +577,8 @@ export default function Analysis() {
                 <h3 className={styles.detailTitle}>{info.title}</h3>
                 <p className={styles.detailBody}>{info.body}</p>
 
-                {/* Video player — always show when video exists */}
-                {videoUrl && (
+                {/* Video player */}
+                {videoUrl && hasTimestamps && (
                   <div className={styles.excerptPlayer}>
                     <video
                       ref={videoRef}
@@ -589,7 +589,7 @@ export default function Analysis() {
                       controls={!isLooping}
                     />
                     <div className={styles.excerptControls}>
-                      {hasTimestamps && (!isLooping ? (
+                      {!isLooping ? (
                         <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
                           ▶ Loop m.{activeFlagRaw.measure}
                         </button>
@@ -598,13 +598,18 @@ export default function Analysis() {
                           ■ Stop loop
                         </button>
                       ))}
-                      {hasTimestamps && (
-                        <span className={styles.excerptTime}>
-                          {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
-                        </span>
-                      )}
+                      <span className={styles.excerptTime}>
+                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
+                      </span>
                     </div>
                   </div>
+                )}
+
+                {videoUrl && !hasTimestamps && (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.5 }}>
+                    Video timestamps unavailable — this is a coaching note based on the sheet music.
+                    Re-upload your recording for measure-level video looping.
+                  </p>
                 )}
 
                 <button className={styles.dismissBtn} onClick={() => setActiveFlag(null)}>Dismiss</button>

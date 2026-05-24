@@ -385,7 +385,7 @@ serve(async (req: Request) => {
     let score: number | null = null
     let flags: unknown[]     = []
     let backend              = 'claude-coaching'
-    let quality              = 'low'
+    let quality: unknown     = { trust: 'low', reasons: ['Video analysis unavailable — coaching notes are based on the sheet music only. No performance score or timestamps.'] }
 
     if (videoSignedUrl) {
       try {
@@ -393,7 +393,7 @@ serve(async (req: Request) => {
         score   = geminiResult.score
         flags   = geminiResult.flags
         backend = 'gemini-inline'
-        quality = 'medium'
+        quality = { trust: 'medium', reasons: ['Analyzed with inline Gemini — timestamps are approximate.'] }
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
         console.warn('[analyze-performance] Gemini failed, falling back to Claude:', (geminiErr as Error).message)
