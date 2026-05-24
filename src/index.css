@@ -9,10 +9,11 @@
   --accent-dim: rgba(92,184,107,0.14);
   --cream: #f7f3ee;
   --cream-strong: #fdf9f5;
-  --text: #2f3440;
-  --text-soft: #66707a;
-  --text-inverse: #e8f0eb;
-  --text-muted: rgba(232,240,235,0.45);
+  --text: #e8f0eb;
+  --text-soft: rgba(232,240,235,0.65);
+  --text-inverse: #2f3440;
+  --text-muted: rgba(232,240,235,0.38);
+  --border: rgba(255,255,255,0.09);
   --gold: #d6b168;
   --gold-soft: #e8d7a8;
   --coral: #e18676;
