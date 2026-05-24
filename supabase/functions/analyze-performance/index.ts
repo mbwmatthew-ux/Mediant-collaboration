@@ -91,7 +91,7 @@ Instrument: ${opts.instrument}
 ${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
 Recording covers: ${measureRange}
 
-MEASURE NUMBERING: The video starts at measure ${opts.safeStart} of the score. Number your flags using the actual score measure numbers (${opts.safeStart}, ${opts.safeStart + 1}, ${opts.safeStart + 2}...), NOT starting from 1.
+CRITICAL — MEASURE NUMBERING: This recording begins at measure ${opts.safeStart} of the full score. The first bar you hear is measure ${opts.safeStart}, the second bar is measure ${opts.safeStart + 1}, and so on. NEVER use measure numbers below ${opts.safeStart}. Any flag with measure < ${opts.safeStart} is wrong.
 
 Watch the ENTIRE video. Listen and observe carefully for:
 - Rhythmic accuracy and steadiness
@@ -185,7 +185,7 @@ List every meaningful issue you observe, minimum 3 flags for any score below 90.
     throw new Error(`Gemini returned score ${score} with no flags — falling back to coaching`)
   }
 
-  return { score, flags }
+  return { score, flags: normalizeMeasures(flags, opts.safeStart) }
 }
 
 // ── Claude vision analysis (from browser-extracted video frames) ─────────────
@@ -235,12 +235,14 @@ Analyze what is VISIBLE in the frames. Look carefully for:
 
 Score the performance 0–100 based on visible technique quality. 90+ = excellent visible technique, 70–89 = solid with minor issues, below 70 = clear technique problems visible.
 
+CRITICAL — MEASURE NUMBERING: This passage begins at measure ${opts.safeStart}. The first frame corresponds to approximately measure ${opts.safeStart}. NEVER output measure numbers below ${opts.safeStart}. Any flag with measure < ${opts.safeStart} is wrong.
+
 Return ONLY valid JSON (no markdown fences):
 {
   "score": <integer 0-100>,
   "flags": [
     {
-      "measure": <integer — estimated score measure number starting from ${opts.safeStart}>,
+      "measure": <integer — score measure number, must be ≥ ${opts.safeStart}>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
       "title": "<8 words max — name the specific issue you observed>",
       "detail": "<2-3 sentences: what you see in the frame, why it matters, how to fix it>",
@@ -276,7 +278,7 @@ Give 4–6 flags based on what you observe. Be specific about what is visible in
     timestamp_end:   Number(f.timestamp_end)   || 0,
   }))
 
-  return { score, flags }
+  return { score, flags: normalizeMeasures(flags, opts.safeStart) }
 }
 
 // ── Claude coaching fallback (piece-aware, no video scoring) ─────────────────
@@ -367,7 +369,21 @@ Give 4–6 flags. Be very specific: name exact notes, intervals, fingerings, bow
     timestamp_end:   0,
   }))
 
-  return { flags }
+  return { flags: normalizeMeasures(flags, opts.safeStart) }
+}
+
+// ── Measure normalizer ────────────────────────────────────────────────────────
+// AIs often count from measure 1 regardless of the score position instruction.
+// If every flag is below safeStart, the model counted from 1 within the clip —
+// offset them so the lowest measure maps to safeStart.
+function normalizeMeasures(flags: any[], safeStart: number): any[] {
+  if (flags.length === 0 || safeStart <= 1) return flags
+  const min = Math.min(...flags.map((f: any) => Number(f.measure) || safeStart))
+  if (min < safeStart) {
+    const offset = safeStart - min
+    return flags.map((f: any) => ({ ...f, measure: (Number(f.measure) || safeStart) + offset }))
+  }
+  return flags
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
