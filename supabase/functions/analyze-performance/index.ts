@@ -184,6 +184,97 @@ List every meaningful issue you observe, minimum 3 flags for any score below 90.
   return { score, flags }
 }
 
+// ── Claude vision analysis (from browser-extracted video frames) ─────────────
+async function runClaudeVision(opts: {
+  frames:       { base64: string; timestamp: number }[]
+  pieceTitle:   string
+  composer:     string
+  instrument:   string
+  timeSig:      string
+  keySignature: string
+  safeStart:    number
+  safeEnd:      number | null
+}): Promise<{ score: number; flags: unknown[] }> {
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+  if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
+
+  const anthropic = new Anthropic({ apiKey: anthropicKey })
+  const measureRange = opts.safeEnd ? `measures ${opts.safeStart}–${opts.safeEnd}` : `from measure ${opts.safeStart}`
+  const keyNote = opts.keySignature ? `Key: ${opts.keySignature}. ` : ''
+
+  const content: Anthropic.MessageParam['content'] = []
+
+  // Add each frame with its timestamp label
+  for (const frame of opts.frames) {
+    content.push({ type: 'text', text: `Frame at ${frame.timestamp.toFixed(1)}s:` })
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg', data: frame.base64 },
+    })
+  }
+
+  content.push({
+    type: 'text',
+    text: `You are an expert music performance coach. You are seeing ${opts.frames.length} frames extracted from a student's video recording.
+
+Piece: "${opts.pieceTitle}" by ${opts.composer}
+Instrument: ${opts.instrument}
+${keyNote}Time signature: ${opts.timeSig}
+Passage: ${measureRange}
+
+Analyze what is VISIBLE in the frames. Look carefully for:
+- Bow/arm/wrist technique (strings): bow placement, bow speed, bow pressure, arm weight, wrist flexibility
+- Hand position and finger placement: collapsed knuckles, locked joints, incorrect finger curvature, thumb position
+- Instrument hold and body posture: shoulder tension, hunching, head position
+- Any visible signs of tension, discomfort, or technical breakdown
+- Posture and relaxation of the whole body
+
+Score the performance 0–100 based on visible technique quality. 90+ = excellent visible technique, 70–89 = solid with minor issues, below 70 = clear technique problems visible.
+
+Return ONLY valid JSON (no markdown fences):
+{
+  "score": <integer 0-100>,
+  "flags": [
+    {
+      "measure": <integer — estimated score measure number starting from ${opts.safeStart}>,
+      "type": "timing"|"intonation"|"dynamics"|"technique"|"error",
+      "title": "<8 words max — name the specific issue you observed>",
+      "detail": "<2-3 sentences: what you see in the frame, why it matters, how to fix it>",
+      "timestamp_start": <seconds — timestamp of the frame where issue is visible>,
+      "timestamp_end": <timestamp_start + 2.5>
+    }
+  ]
+}
+
+Give 4–6 flags based on what you observe. Be specific about what is visible in the frames — name the exact frame timestamp, what body part, what the problem looks like.`,
+  })
+
+  const message = await anthropic.messages.create({
+    model:      'claude-sonnet-4-6',
+    max_tokens: 1500,
+    messages:   [{ role: 'user', content }],
+  })
+
+  const raw = ((message.content[0] as { type: string; text: string }).text ?? '{}').trim()
+  let parsed: any = {}
+  try {
+    const jsonStr = raw.startsWith('{') ? raw : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+    parsed = JSON.parse(jsonStr)
+  } catch { /* empty */ }
+
+  const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 72)))
+  const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => ({
+    measure:         Number(f.measure)         || opts.safeStart,
+    type:            String(f.type             || 'technique'),
+    title:           String(f.title            || 'Technique issue'),
+    detail:          String(f.detail           || ''),
+    timestamp_start: Number(f.timestamp_start) || 0,
+    timestamp_end:   Number(f.timestamp_end)   || 0,
+  }))
+
+  return { score, flags }
+}
+
 // ── Claude coaching fallback (piece-aware, no video scoring) ─────────────────
 async function runClaudeCoaching(opts: {
   scoreUrl:      string | null
@@ -300,6 +391,7 @@ serve(async (req: Request) => {
       pieceTitle, composer,
       timeSig, instrument, keySignature,
       startMeasure, endMeasure,
+      videoFrames,
     } = body
 
     if (!videoPath || !videoMimeType) {
@@ -386,7 +478,7 @@ serve(async (req: Request) => {
       console.warn('[analyze-performance] Modal unavailable, running inline')
     }
 
-    // ── 2. Inline: try Gemini video first, fall back to Claude ────
+    // ── 2. Inline analysis: vision → Gemini → coaching ───────────
     const sharedOpts = {
       pieceTitle:   pieceTitle   ?? 'Unknown Piece',
       composer:     composer     ?? 'Unknown',
@@ -402,25 +494,37 @@ serve(async (req: Request) => {
     let backend              = 'claude-coaching'
     let quality: unknown     = { trust: 'low', reasons: ['Video analysis unavailable — coaching notes are based on the sheet music only. No performance score or timestamps.'] }
 
-    if (videoSignedUrl) {
+    // Path A: browser-extracted video frames → Claude vision (preferred, no memory limits)
+    const frames = Array.isArray(videoFrames) && videoFrames.length > 0 ? videoFrames : null
+    if (frames) {
+      try {
+        const visionResult = await runClaudeVision({ frames, ...sharedOpts })
+        score   = visionResult.score
+        flags   = visionResult.flags
+        backend = 'claude-vision'
+        quality = { trust: 'medium', reasons: ['Analyzed from video frames — visual technique scored; intonation and precise timing not assessed.'] }
+        console.log('[analyze-performance] Claude vision done:', takeId, 'score:', score, 'flags:', flags.length)
+      } catch (visionErr) {
+        console.warn('[analyze-performance] Claude vision failed:', (visionErr as Error).message)
+      }
+    }
+
+    // Path B: Gemini full-video analysis (if vision didn't succeed and we have a signed URL)
+    if (score === null && videoSignedUrl) {
       try {
         const geminiResult = await runGeminiVideo({ takeId, videoUrl: videoSignedUrl, videoMimeType, ...sharedOpts })
         score   = geminiResult.score
         flags   = geminiResult.flags
         backend = 'gemini-inline'
-        quality = { trust: 'medium', reasons: ['Analyzed with inline Gemini — timestamps are approximate.'] }
+        quality = { trust: 'medium', reasons: ['Analyzed with Gemini — timestamps are approximate.'] }
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
-        console.warn('[analyze-performance] Gemini failed, falling back to Claude:', (geminiErr as Error).message)
-        try {
-          const claudeResult = await runClaudeCoaching({ scoreUrl: scoreSignedUrl, scoreMimeType: scoreMimeType ?? null, ...sharedOpts })
-          flags = claudeResult.flags
-        } catch (claudeErr) {
-          console.error('[analyze-performance] Claude also failed:', (claudeErr as Error).message)
-        }
+        console.warn('[analyze-performance] Gemini failed:', (geminiErr as Error).message)
       }
-    } else {
-      // No video URL — Claude coaching only
+    }
+
+    // Path C: Claude coaching fallback (sheet music only, no score)
+    if (score === null) {
       try {
         const claudeResult = await runClaudeCoaching({ scoreUrl: scoreSignedUrl, scoreMimeType: scoreMimeType ?? null, ...sharedOpts })
         flags = claudeResult.flags

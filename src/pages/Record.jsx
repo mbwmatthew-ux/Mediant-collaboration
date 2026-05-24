@@ -133,6 +133,64 @@ export default function Record() {
     applyVideoFile(e.target.files[0])
   }
 
+  // ── Frame extraction for Claude vision analysis ──────────────
+
+  function extractVideoFrames(videoFile, count = 5) {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      const objectURL = URL.createObjectURL(videoFile)
+      video.src = objectURL
+      video.muted = true
+      video.preload = 'metadata'
+
+      video.addEventListener('error', () => {
+        URL.revokeObjectURL(objectURL)
+        resolve([])
+      })
+
+      video.addEventListener('loadedmetadata', () => {
+        const duration = video.duration
+        if (!duration || !isFinite(duration) || video.videoWidth === 0) {
+          URL.revokeObjectURL(objectURL)
+          resolve([])
+          return
+        }
+
+        const timestamps = Array.from({ length: count }, (_, i) =>
+          parseFloat(((i / (count - 1)) * duration).toFixed(1))
+        )
+        const frames = []
+        let index = 0
+
+        function seekNext() {
+          if (index >= timestamps.length) {
+            URL.revokeObjectURL(objectURL)
+            resolve(frames)
+            return
+          }
+          video.currentTime = timestamps[index]
+        }
+
+        video.addEventListener('seeked', () => {
+          try {
+            const scale = Math.min(1, 640 / video.videoWidth)
+            const canvas = document.createElement('canvas')
+            canvas.width  = Math.round(video.videoWidth  * scale)
+            canvas.height = Math.round(video.videoHeight * scale)
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const dataURL = canvas.toDataURL('image/jpeg', 0.65)
+            frames.push({ base64: dataURL.split(',')[1], timestamp: timestamps[index] })
+          } catch { /* skip malformed frame */ }
+          index++
+          seekNext()
+        })
+
+        seekNext()
+      })
+    })
+  }
+
   // ── Submit ────────────────────────────────────────────────────
 
   async function handleSubmit() {
@@ -176,9 +234,15 @@ export default function Record() {
       clearInterval(progressTick)
       if (uploadError) throw new Error(uploadError.message || 'Upload failed')
 
-      // Analyzing phase — dispatch job then poll for completion
+      // Analyzing phase — extract frames then dispatch job
       setProgress(50)
       setPhase('analyzing')
+
+      // Extract video frames for Claude vision analysis (best-effort, non-fatal)
+      let videoFrames = []
+      try {
+        videoFrames = await extractVideoFrames(file)
+      } catch { /* skip if extraction fails */ }
 
       const { data: jobResult, error: fnError } = await supabase.functions.invoke('analyze-performance', {
         body: {
@@ -194,6 +258,7 @@ export default function Record() {
           keySignature:   keySignature.trim() || undefined,
           startMeasure:   startMeasure || undefined,
           endMeasure:     endMeasure || undefined,
+          videoFrames:    videoFrames.length > 0 ? videoFrames : undefined,
         },
       })
 
