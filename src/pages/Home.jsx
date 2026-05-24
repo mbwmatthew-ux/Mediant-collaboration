@@ -151,7 +151,7 @@ export default function Home() {
               </div>
               <div className={styles.waveFooter}>
                 <span>0:00</span>
-                <span>TEMPO · {lastTake.bpm ?? 72} BPM</span>
+                {lastTake.bpm ? <span>TEMPO · {lastTake.bpm} BPM</span> : <span />}
                 <span>—:——</span>
               </div>
             </>

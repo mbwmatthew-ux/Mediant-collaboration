@@ -44,7 +44,7 @@ const NAV_SECTIONS = [
 ]
 
 export default function AppShell() {
-  const { user, logout } = useAuth()
+  const { user, subscription, logout } = useAuth()
   const nav = useNavigate()
   const location = useLocation()
   const [panel, setPanel]                   = useState(null)
@@ -115,7 +115,9 @@ export default function AppShell() {
               <div>
                 <strong className={styles.acctName}>{user?.name ?? 'Guest'}</strong>
                 <span className={styles.acctEmail}>{user?.email}</span>
-                <span className={styles.acctPlanBadge}>Free plan</span>
+                <span className={styles.acctPlanBadge}>
+                  {subscription?.plan ? `${subscription.plan} plan` : 'Free plan'}
+                </span>
               </div>
             </div>
 
@@ -158,20 +160,41 @@ export default function AppShell() {
                   <span className={`${styles.acctRowIcon} ${styles.iconGold}`}>◈</span>
                   <div className={styles.acctRowText}>
                     <span className={styles.acctRowLabel}>Plan & billing</span>
-                    <span className={styles.acctRowSub}>Free plan · Upgrade to Pro</span>
+                    <span className={styles.acctRowSub}>
+                      {subscription?.plan
+                        ? `${subscription.plan} plan · Active`
+                        : 'Free plan · Upgrade for unlimited analyses'}
+                    </span>
                   </div>
                   <span className={styles.acctRowChevron}>{expanded === 'plan' ? '∨' : '›'}</span>
                 </button>
                 {expanded === 'plan' && (
                   <div className={styles.acctExpanded}>
-                    <div className={styles.planCard}>
-                      <strong className={styles.planCardName}>Free</strong>
-                      <p className={styles.planCardDesc}>Unlimited uploads · Performance feedback · Community support</p>
-                    </div>
-                    <div className={`${styles.planCard} ${styles.planCardPro}`}>
-                      <strong className={`${styles.planCardName} ${styles.planCardNamePro}`}>Pro — coming soon</strong>
-                      <p className={styles.planCardDesc}>Priority analysis · PDF export · Advanced history · Early access features</p>
-                    </div>
+                    {subscription?.plan ? (
+                      <div className={`${styles.planCard} ${styles.planCardPro}`}>
+                        <strong className={`${styles.planCardName} ${styles.planCardNamePro}`}>{subscription.plan}</strong>
+                        <p className={styles.planCardDesc}>
+                          {subscription.current_period_end
+                            ? `Renews ${new Date(subscription.current_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                            : 'Active subscription'}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={styles.planCard}>
+                          <strong className={styles.planCardName}>Free</strong>
+                          <p className={styles.planCardDesc}>10 analyses per day · Performance feedback</p>
+                        </div>
+                        <button
+                          className={`${styles.planCard} ${styles.planCardPro}`}
+                          style={{ cursor: 'pointer', textAlign: 'left', border: 'none', width: '100%' }}
+                          onClick={() => { setPanel(null); nav('/pricing') }}
+                        >
+                          <strong className={`${styles.planCardName} ${styles.planCardNamePro}`}>Upgrade to Pro →</strong>
+                          <p className={styles.planCardDesc}>Unlimited analyses · Priority queue · PDF export</p>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -338,7 +361,9 @@ export default function AppShell() {
             <div className={styles.sidebarAvatar}>{initials}</div>
             <div className={styles.sidebarUserInfo}>
               <span className={styles.sidebarUserName}>{user?.name?.split(' ')[0] ?? 'Guest'}</span>
-              <span className={styles.sidebarUserLevel}>INTERMEDIATE</span>
+              <span className={styles.sidebarUserLevel}>
+                {user?.instrument ? user.instrument.toUpperCase() : subscription?.plan ? subscription.plan.toUpperCase() : 'FREE'}
+              </span>
             </div>
           </button>
 

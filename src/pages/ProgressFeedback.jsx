@@ -52,8 +52,20 @@ export default function ProgressFeedback() {
 
   const allTakes = useTakes() ?? []
 
-  // Reset feedback when period changes
-  useEffect(() => { setFeedback(null); setError(null) }, [period])
+  // Auto-regenerate when period changes if feedback was already shown
+  const [prevPeriod, setPrevPeriod] = useState(period)
+  useEffect(() => {
+    if (period === prevPeriod) return
+    setPrevPeriod(period)
+    setError(null)
+    if (feedback) {
+      setFeedback(null)
+      generateFeedback()
+    } else {
+      setFeedback(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period])
 
   const takes = filterTakesByPeriod(allTakes, period)
   const { avgScore, totalFlags, pieces } = computeStats(takes)

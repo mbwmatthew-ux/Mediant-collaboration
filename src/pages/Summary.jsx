@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
 
 function scoreColor(n) {
@@ -12,16 +13,38 @@ function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
 export default function Summary() {
   const nav = useNavigate()
+  const [params] = useSearchParams()
   const [take, setTake] = useState(undefined)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mediant_last_take')
-      setTake(stored ? JSON.parse(stored) : null)
-    } catch {
-      setTake(null)
+    const takeId = params.get('takeId')
+
+    async function load() {
+      // Try Supabase first — by URL param, then most recent take
+      try {
+        let query = supabase
+          .from('takes')
+          .select('id, piece_title, piece_composer, instrument, score, flags, created_at, video_path')
+        if (takeId) {
+          query = query.eq('id', takeId)
+        } else {
+          query = query.order('created_at', { ascending: false }).limit(1)
+        }
+        const { data } = await query.maybeSingle()
+        if (data) { setTake(data); return }
+      } catch { /* fall through */ }
+
+      // localStorage fallback
+      try {
+        const stored = localStorage.getItem('mediant_last_take')
+        setTake(stored ? JSON.parse(stored) : null)
+      } catch {
+        setTake(null)
+      }
     }
-  }, [])
+
+    load()
+  }, [params])
 
   if (take === undefined) {
     return (
@@ -78,6 +101,8 @@ export default function Summary() {
     take.instrument && { label: 'Instrument', text: take.instrument },
   ].filter(Boolean)
 
+  const takeId = take.id
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -85,7 +110,9 @@ export default function Summary() {
           <p className={styles.label}>Session Summary</p>
           <h1 className={styles.title}>Session recap</h1>
         </div>
-        <button className={styles.ghostBtn} onClick={() => nav('/analysis')}>← Back to score</button>
+        <button className={styles.ghostBtn} onClick={() => nav(takeId ? `/analysis?takeId=${takeId}` : '/analysis')}>
+          ← Back to score
+        </button>
       </div>
 
       <div className={styles.summaryGrid}>

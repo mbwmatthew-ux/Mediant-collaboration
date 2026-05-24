@@ -24,8 +24,7 @@ export default function Search() {
 
   useEffect(() => {
     if (!user?.id) {
-      try { setUserPieces(JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]')) }
-      catch { setUserPieces([]) }
+      setUserPieces([])
       setLoadingPieces(false)
       return
     }
@@ -35,8 +34,15 @@ export default function Search() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .then(({ data }) => { setUserPieces(data ?? []); setLoadingPieces(false) })
-      .catch(() => setLoadingPieces(false))
+      .then(({ data, error }) => {
+        if (error) console.warn('[Search] fetch error:', error.message)
+        setUserPieces(data ?? [])
+        setLoadingPieces(false)
+      })
+      .catch(err => {
+        console.warn('[Search] fetch failed:', err.message)
+        setLoadingPieces(false)
+      })
   }, [user?.id])
 
   function handlePieceAdded(piece) {

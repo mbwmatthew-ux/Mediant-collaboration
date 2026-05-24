@@ -83,8 +83,7 @@ export default function Coach() {
   }
 
   function handleSuggestion(s) {
-    setInput(s)
-    inputRef.current?.focus()
+    send(s)
   }
 
   const hasContext = take?.piece_title
