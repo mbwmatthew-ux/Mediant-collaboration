@@ -29,7 +29,8 @@
 }
 
 .card {
-  background: var(--cream-strong);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 44px 40px;
@@ -38,7 +39,7 @@
 }
 
 .eyebrow {
-  color: var(--hero-green);
+  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -82,8 +83,8 @@
 
 .input,
 .select {
-  background: white;
-  border: 1.5px solid var(--line);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
   font: inherit;
@@ -92,31 +93,31 @@
   padding: 13px 16px;
   transition: border-color 180ms ease;
 }
-.input::placeholder { color: var(--text-soft); }
+.input::placeholder { color: var(--text-muted); }
 .input:focus,
-.select:focus { border-color: var(--hero-green); }
+.select:focus { border-color: var(--accent); }
 
 .error {
   background: rgba(225, 134, 118, 0.1);
   border: 1px solid rgba(225, 134, 118, 0.35);
   border-radius: var(--radius-sm);
-  color: #a94a37;
+  color: var(--coral);
   font-size: 0.88rem;
   padding: 11px 14px;
 }
 
 .submitBtn {
-  background: var(--gold);
+  background: var(--accent);
   border: 0;
   border-radius: 999px;
-  color: #3d4138;
+  color: #0d120f;
   font-size: 1rem;
   font-weight: 600;
   margin-top: 6px;
   padding: 15px;
   transition: filter 160ms ease, transform 160ms ease;
 }
-.submitBtn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.submitBtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
 .footer {
   color: var(--text-soft);
@@ -126,7 +127,7 @@
 }
 
 .footerLink {
-  color: var(--hero-green);
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
