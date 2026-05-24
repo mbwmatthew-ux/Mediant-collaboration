@@ -297,12 +297,7 @@ export default function AppShell() {
       {/* Top bar */}
       <header className={styles.topBar}>
         <div className={styles.topBarLeft}>
-          <img
-            src="/logo-wordmark.png"
-            alt="Mediant"
-            height={20}
-            style={{ display: 'block', mixBlendMode: 'screen' }}
-          />
+          <LogoMark />
         </div>
 
         <div className={styles.topBarRight} ref={notifRef}>
@@ -459,13 +454,14 @@ function BackIcon() {
 
 function LogoMark() {
   return (
-    <img
-      src="/logo-mark.png"
-      alt="Mediant"
-      width={22}
-      height={22}
-      style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 3 }}
-    />
+    <div style={{
+      width: 26, height: 26, flexShrink: 0,
+      background: 'white',
+      WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
+      WebkitMaskMode: 'luminance',
+      mask: `url('/logo-mark.png') center/contain no-repeat`,
+      maskMode: 'luminance',
+    }} />
   )
 }
 

@@ -36,16 +36,17 @@ const STEPS = [
 
 const INSTRUMENTS = ['Piano', 'Violin', 'Viola', 'Cello', 'Voice', 'Flute', 'Clarinet', 'Guitar', 'Harp', 'Trumpet']
 
-/* ── Logo mark (M icon) ──────────────────────────────────────── */
+/* ── Logo mark (M icon) — luminance mask so black bg is transparent ── */
 function AnimatedLogo({ size = 28 }) {
   return (
-    <img
-      src="/logo-mark.png"
-      alt="Mediant"
-      width={size}
-      height={size}
-      style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 4 }}
-    />
+    <div style={{
+      width: size, height: size, flexShrink: 0,
+      background: 'white',
+      WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
+      WebkitMaskMode: 'luminance',
+      mask: `url('/logo-mark.png') center/contain no-repeat`,
+      maskMode: 'luminance',
+    }} />
   )
 }
 
@@ -54,13 +55,16 @@ function HeroLogo() {
   return (
     <div className={styles.heroLogoWrap}>
       <div className={styles.heroLogoGlow} />
-      <img
-        src="/logo-mark.png"
-        alt="Mediant"
-        width={80}
-        height={80}
-        style={{ display: 'block', mixBlendMode: 'screen', borderRadius: 8 }}
+      <div
         className={styles.heroLogoSvg}
+        style={{
+          width: 80, height: 80,
+          background: 'rgba(232,240,235,0.92)',
+          WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
+          WebkitMaskMode: 'luminance',
+          mask: `url('/logo-mark.png') center/contain no-repeat`,
+          maskMode: 'luminance',
+        }}
       />
     </div>
   )
@@ -69,13 +73,9 @@ function HeroLogo() {
 /* ── Brand wordmark ──────────────────────────────────────────── */
 function Wordmark({ className }) {
   return (
-    <img
-      src="/logo-wordmark.png"
-      alt="Mediant"
-      height={22}
-      style={{ display: 'block', mixBlendMode: 'screen' }}
-      className={className || ''}
-    />
+    <span className={`${styles.wordmark} ${className || ''}`}>
+      Mediant
+    </span>
   )
 }
 
