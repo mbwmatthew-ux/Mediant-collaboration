@@ -1,0 +1,73 @@
+.page {
+  background: var(--bg);
+  min-height: 100vh;
+  padding: 60px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 680px;
+  width: 100%;
+  padding: 48px 52px;
+}
+
+.back {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 28px;
+}
+.back:hover { text-decoration: underline; }
+
+.title {
+  color: var(--text);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.updated {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  margin: 0 0 40px;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section h2 {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.section p,
+.section li {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin: 0 0 8px;
+}
+
+.section ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.section a {
+  color: var(--accent);
+}
+.section a:hover { text-decoration: underline; }
+
+@media (max-width: 600px) {
+  .card { padding: 32px 24px; }
+}

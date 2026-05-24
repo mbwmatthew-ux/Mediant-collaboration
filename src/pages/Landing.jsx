@@ -353,9 +353,9 @@ export default function Landing() {
           <p className={styles.footerTagline}>Intelligent music performance analysis.</p>
         </div>
         <div className={styles.footerLinks}>
-          <a href="#" className={styles.footerLink}>Privacy</a>
-          <a href="#" className={styles.footerLink}>Terms</a>
-          <a href="#" className={styles.footerLink}>Contact</a>
+          <Link to="/privacy" className={styles.footerLink}>Privacy</Link>
+          <Link to="/terms"   className={styles.footerLink}>Terms</Link>
+          <a href="mailto:hello@mediant.app" className={styles.footerLink}>Contact</a>
         </div>
         <p className={styles.footerCopy}>© 2026 Mediant</p>
       </footer>

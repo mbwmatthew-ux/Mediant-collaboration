@@ -16,6 +16,8 @@ import Takes from './pages/Takes'
 import Profile from './pages/Profile'
 import Coach from './pages/Coach'
 import ProgressFeedback from './pages/ProgressFeedback'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 export default function App() {
   return (
@@ -27,6 +29,8 @@ export default function App() {
           <Route path="/signup"        element={<Signup />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/pricing"       element={<Pricing />} />
+          <Route path="/privacy"       element={<Privacy />} />
+          <Route path="/terms"         element={<Terms />} />
           <Route element={<RequireSubscription><AppShell /></RequireSubscription>}>
             <Route path="/home"     element={<Home />} />
             <Route path="/search"   element={<Search />} />
