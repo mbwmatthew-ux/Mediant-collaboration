@@ -17,18 +17,19 @@ function formatDate(iso) {
   catch { return iso }
 }
 
-export default function PieceDetailPanel({ piece, onClose }) {
+export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   const nav        = useNavigate()
   const { user }   = useAuth()
   const scoreEl    = useRef(null)
   const osmdRef    = useRef(null)
 
-  const [scoreFetching, setScoreFetching] = useState(false)
-  const [scoreReady,    setScoreReady]    = useState(false)
-  const [scoreSource,   setScoreSource]   = useState(null)
-  const [fileURL,       setFileURL]       = useState(null)
-  const [pastSessions,  setPastSessions]  = useState([])
-  const [deletingId,    setDeletingId]    = useState(null)
+  const [scoreFetching,  setScoreFetching]  = useState(false)
+  const [scoreReady,     setScoreReady]     = useState(false)
+  const [scoreSource,    setScoreSource]    = useState(null)
+  const [fileURL,        setFileURL]        = useState(null)
+  const [pastSessions,   setPastSessions]   = useState([])
+  const [deletingId,     setDeletingId]     = useState(null)
+  const [deletingPiece,  setDeletingPiece]  = useState(false)
 
   // Load past sessions for this piece from Supabase
   useEffect(() => {
@@ -123,6 +124,19 @@ export default function PieceDetailPanel({ piece, onClose }) {
     finally { setDeletingId(null) }
   }
 
+  async function deletePiece() {
+    if (!window.confirm(`Delete "${piece.title}" from your library? This cannot be undone.`)) return
+    setDeletingPiece(true)
+    try {
+      await supabase.from('user_pieces').delete().eq('id', piece.id)
+      if (piece.file_path) await supabase.storage.from('sheet-music').remove([piece.file_path]).catch(() => {})
+      onDeleted?.(piece.id)
+      onClose()
+    } catch {
+      setDeletingPiece(false)
+    }
+  }
+
   function startRecording() {
     sessionStorage.setItem('mediant_prefill', JSON.stringify({
       pieceTitle: piece.title,
@@ -151,9 +165,19 @@ export default function PieceDetailPanel({ piece, onClose }) {
               {piece.time && piece.time !== '—' ? ` · ${piece.time}` : ''}
             </p>
           </div>
-          <button className={styles.recordBtn} onClick={startRecording}>
-            Start Recording →
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              className={styles.deletePieceBtn}
+              onClick={deletePiece}
+              disabled={deletingPiece}
+              title="Delete this piece from your library"
+            >
+              {deletingPiece ? 'Deleting…' : 'Delete piece'}
+            </button>
+            <button className={styles.recordBtn} onClick={startRecording}>
+              Start Recording →
+            </button>
+          </div>
         </div>
 
         {/* ── Body ───────────────────────────────────────────── */}

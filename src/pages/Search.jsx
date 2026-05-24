@@ -78,6 +78,7 @@ export default function Search() {
         <PieceDetailPanel
           piece={selectedPiece}
           onClose={() => setSelectedPiece(null)}
+          onDeleted={id => setUserPieces(prev => prev.filter(p => p.id !== id))}
         />
       )}
 

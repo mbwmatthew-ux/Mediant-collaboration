@@ -68,6 +68,32 @@
   margin: 3px 0 0;
 }
 
+.headerActions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.deletePieceBtn {
+  background: none;
+  border: 1px solid rgba(171,101,89,0.28);
+  border-radius: 999px;
+  color: rgba(171,101,89,0.8);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 0.83rem;
+  padding: 8px 16px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  white-space: nowrap;
+}
+.deletePieceBtn:hover:not(:disabled) {
+  background: rgba(171,101,89,0.08);
+  border-color: rgba(171,101,89,0.5);
+  color: #c06454;
+}
+.deletePieceBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .recordBtn {
   background: var(--hero-green);
   border: none;
