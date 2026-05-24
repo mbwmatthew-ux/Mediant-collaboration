@@ -166,17 +166,17 @@
   text-align: center;
 }
 
-/* Stagger children fade-up (skip canvas, logo, wordmark) */
-.hero > *:not(.waveCanvas):not(.heroLogoLarge):not(.heroWordmark) {
+/* Stagger children fade-up (skip canvas and logo) */
+.hero > *:not(.waveCanvas):not(.heroLogoLarge) {
   animation: heroFadeUp 1.0s cubic-bezier(0.16, 1, 0.3, 1) both;
   position: relative;
   z-index: 1;
 }
-/* child order: 1=canvas 2=logo 3=wordmark 4=heading 5=sub 6=ctas 7=note */
-.hero > *:nth-child(4) { animation-delay: 640ms; }
-.hero > *:nth-child(5) { animation-delay: 740ms; }
-.hero > *:nth-child(6) { animation-delay: 820ms; }
-.hero > *:nth-child(7) { animation-delay: 890ms; }
+/* child order: 1=canvas 2=logo 3=heading 4=sub 5=ctas 6=note */
+.hero > *:nth-child(3) { animation-delay: 380ms; }
+.hero > *:nth-child(4) { animation-delay: 480ms; }
+.hero > *:nth-child(5) { animation-delay: 560ms; }
+.hero > *:nth-child(6) { animation-delay: 630ms; }
 
 @keyframes heroFadeUp {
   from { opacity: 0; transform: translateY(24px); }

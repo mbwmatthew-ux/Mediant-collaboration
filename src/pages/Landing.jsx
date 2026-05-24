@@ -278,12 +278,6 @@ export default function Landing() {
           <AnimatedLogo size={88} />
         </div>
 
-        <div className={styles.heroWordmark} aria-label="Mediant">
-          {'MEDIANT'.split('').map((char, i) => (
-            <span key={i} className={styles.heroWChar} style={{ '--wi': i }}>{char}</span>
-          ))}
-        </div>
-
         <h1 className={styles.heroHeading}>
           <span className={styles.heroLine}>
             <span className={styles.heroStatic}>We</span>
