@@ -18,8 +18,6 @@ const NAV_SECTIONS = [
       { to: '/search',   label: 'Library',           icon: SearchIcon,   live: true  },
       { to: '/takes',    label: 'Sessions',          icon: SavedIcon,    live: true  },
       { to: '/progress', label: 'Progress',          icon: ProgressIcon, live: true  },
-      { to: null,        label: 'Other instruments', icon: OtherIcon,    live: false },
-      { to: null,        label: 'Lessons',           icon: LessonsIcon,  live: false },
     ],
   },
   {
