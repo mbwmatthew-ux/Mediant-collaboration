@@ -20,10 +20,10 @@
   padding: 6px 14px;
   transition: background 140ms ease, color 140ms ease;
 }
-.toggleBtn:hover { color: var(--text-inverse); }
+.toggleBtn:hover { color: var(--text); }
 .toggleBtnActive {
   background: rgba(255,255,255,0.09);
-  color: var(--text-inverse);
+  color: var(--text);
 }
 
 /* ── Sessions table ─────────────────────────────────────── */
@@ -50,7 +50,7 @@
 }
 
 .sessionPiece {
-  color: var(--text-inverse);
+  color: var(--text);
   font-size: 0.87rem;
   font-weight: 500;
   overflow: hidden;
@@ -115,7 +115,7 @@
 }
 
 .feedbackHeadline {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.35rem;
   font-weight: 400;
@@ -142,7 +142,7 @@
 
 .feedbackSectionTitle {
   align-items: center;
-  color: var(--text-inverse);
+  color: var(--text);
   display: flex;
   font-size: 0.83rem;
   font-weight: 600;

@@ -25,7 +25,7 @@
 .greeting { display: flex; flex-direction: column; gap: 4px; }
 
 .greetTitle {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.9rem;
   font-weight: 400;
@@ -163,13 +163,13 @@
 }
 
 .tipTitle {
-  color: var(--text-inverse);
+  color: var(--text);
   font-size: 0.88rem;
   font-weight: 600;
 }
 
 .tipBody {
-  color: rgba(232,240,235,0.5);
+  color: rgba(232,240,235,0.78);
   font-size: 0.8rem;
   line-height: 1.5;
 }
@@ -205,7 +205,7 @@
 }
 
 .statValue {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.7rem;
   font-weight: 400;
@@ -319,7 +319,7 @@
 }
 
 .sessionPiece {
-  color: var(--text-inverse);
+  color: var(--text);
   font-size: 0.82rem;
   font-weight: 500;
   overflow: hidden;

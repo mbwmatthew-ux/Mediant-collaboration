@@ -1,7 +1,7 @@
 /* ── Page ─────────────────────────────────────────────────── */
 .page {
   background: var(--bg-deep);
-  color: var(--text-inverse);
+  color: var(--text);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -29,7 +29,7 @@
 .navRight { align-items: center; display: flex; gap: 8px; }
 
 .brand {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.1rem;
   letter-spacing: -0.02em;
@@ -52,7 +52,7 @@
   text-decoration: none;
   transition: background 150ms ease;
 }
-.navBtn:hover { background: rgba(255,255,255,0.1); color: var(--text-inverse); }
+.navBtn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
 
 .navCta {
   background: var(--gold);
@@ -89,7 +89,7 @@
 }
 
 .title {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: clamp(2.2rem, 5vw, 3.4rem);
   font-weight: 400;
@@ -218,7 +218,7 @@
 }
 
 .price {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 2.8rem;
   font-weight: 400;
