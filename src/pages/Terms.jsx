@@ -46,7 +46,7 @@ export default function Terms() {
 
         <section className={styles.section}>
           <h2>Contact</h2>
-          <p>Questions? Email <a href="mailto:hello@mediant.app">hello@mediant.app</a>.</p>
+          <p>Questions? Email <a href="mailto:mediantteam@gmail.com">mediantteam@gmail.com</a>.</p>
         </section>
       </div>
     </div>

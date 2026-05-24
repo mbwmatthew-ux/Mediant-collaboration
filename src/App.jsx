@@ -18,6 +18,7 @@ import Coach from './pages/Coach'
 import ProgressFeedback from './pages/ProgressFeedback'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Contact from './pages/Contact'
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/pricing"       element={<Pricing />} />
           <Route path="/privacy"       element={<Privacy />} />
           <Route path="/terms"         element={<Terms />} />
+          <Route path="/contact"       element={<Contact />} />
           <Route element={<RequireSubscription><AppShell /></RequireSubscription>}>
             <Route path="/home"     element={<Home />} />
             <Route path="/search"   element={<Search />} />

@@ -237,11 +237,11 @@ export default function AppShell() {
                   </div>
                 )}
 
-                <a className={styles.acctRow} href="mailto:support@mediant.app">
+                <a className={styles.acctRow} href="mailto:mediantteam@gmail.com">
                   <span className={`${styles.acctRowIcon} ${styles.iconMuted}`}>✉</span>
                   <div className={styles.acctRowText}>
                     <span className={styles.acctRowLabel}>Contact support</span>
-                    <span className={styles.acctRowSub}>support@mediant.app</span>
+                    <span className={styles.acctRowSub}>mediantteam@gmail.com</span>
                   </div>
                   <span className={styles.acctRowChevron}>›</span>
                 </a>

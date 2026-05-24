@@ -47,12 +47,12 @@ export default function Privacy() {
 
         <section className={styles.section}>
           <h2>Your rights</h2>
-          <p>You may request a copy of your data or ask for it to be deleted at any time by emailing us at <a href="mailto:privacy@mediant.app">privacy@mediant.app</a>.</p>
+          <p>You may request a copy of your data or ask for it to be deleted at any time by emailing us at <a href="mailto:mediantteam@gmail.com">mediantteam@gmail.com</a>.</p>
         </section>
 
         <section className={styles.section}>
           <h2>Contact</h2>
-          <p>Questions about this policy? Email <a href="mailto:privacy@mediant.app">privacy@mediant.app</a>.</p>
+          <p>Questions about this policy? Email <a href="mailto:mediantteam@gmail.com">mediantteam@gmail.com</a>.</p>
         </section>
       </div>
     </div>
