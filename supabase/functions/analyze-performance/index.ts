@@ -119,43 +119,49 @@ Return ONLY valid JSON (no markdown fences):
 
 List every meaningful issue you observe, minimum 3 flags for any score below 90.`
 
-  // Try models across both API versions — stop on first success
-  const candidates: { ver: string; model: string }[] = [
-    { ver: 'v1beta', model: 'gemini-2.5-flash' },
-    { ver: 'v1beta', model: 'gemini-2.0-flash' },
-    { ver: 'v1',     model: 'gemini-2.0-flash' },
-    { ver: 'v1',     model: 'gemini-1.5-flash' },
-    { ver: 'v1beta', model: 'gemini-1.5-flash' },
-    { ver: 'v1',     model: 'gemini-1.5-pro' },
-    { ver: 'v1beta', model: 'gemini-1.5-pro' },
+  // Use confirmed-available models (v1beta only — v1 doesn't have these models)
+  const candidates = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
   ]
   let genData: any = null
 
-  for (const { ver, model } of candidates) {
+  for (const model of candidates) {
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ fileData: { mimeType: opts.videoMimeType, fileUri } }, { text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.1, maxOutputTokens: 2048 },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+          },
+          // Disable thinking tokens on 2.5 series — faster response, simpler parsing
+          thinkingConfig: { thinkingBudget: 0 },
         }),
       }
     )
-    if (r.ok) { genData = await r.json(); console.log(`[gemini] success: ${model} (${ver})`); break }
+    if (r.ok) { genData = await r.json(); console.log(`[gemini] success: ${model}`); break }
     const errTxt = await r.text()
-    console.warn(`[gemini] ${model} (${ver}) → ${r.status}: ${errTxt.slice(0, 160)}`)
+    console.warn(`[gemini] ${model} → ${r.status}: ${errTxt.slice(0, 160)}`)
     if (r.status !== 404) throw new Error(`Gemini ${model} error ${r.status}: ${errTxt.slice(0, 200)}`)
-    // 404 = model not found on this version, try next
+    // 404 = model not available on this key, try next
   }
 
   // Cleanup file (non-fatal)
   if (fileName) fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
 
-  if (!genData) throw new Error('No Gemini model available — all candidates returned 404. Check GOOGLE_AI_API_KEY has Gemini API access.')
+  if (!genData) throw new Error('No Gemini model available — check GOOGLE_AI_API_KEY has Gemini API access.')
 
-  const rawText = genData.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+  // Skip thinking parts (gemini-2.5 series may include thought:true parts)
+  const parts: any[] = genData.candidates?.[0]?.content?.parts ?? []
+  const textPart = parts.find((p: any) => !p.thought && typeof p.text === 'string' && p.text.trim())
+  const rawText = textPart?.text ?? '{}'
   let parsed: any = {}
   try { parsed = JSON.parse(rawText) } catch {
     const m = rawText.match(/\{[\s\S]*\}/)
