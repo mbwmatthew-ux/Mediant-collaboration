@@ -279,6 +279,7 @@
 
 .heroComma {
   color: rgba(232,240,235,0.85);
+  margin-left: -0.18em;
 }
 
 /* ── Per-character materialization ── */

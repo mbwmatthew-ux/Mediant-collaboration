@@ -284,10 +284,7 @@ export default function Landing() {
             <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
               <AnimatedWord word={current.we} visible={wordVisible} color={current.color} />
             </span>
-            <span className={styles.heroComma}>,</span>
-          </span>
-          <span className={styles.heroLine}>
-            <span className={styles.heroStatic}>you</span>
+            <span className={styles.heroComma}>,&nbsp;you</span>
             <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
               <AnimatedWord word={current.you} visible={wordVisible} color={current.color} />
             </span>
