@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 84 84" fill="none">
-  <rect width="84" height="84" rx="12" fill="#ffffff"/>
-  <line x1="6"  y1="14" x2="78" y2="14" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="6"  y1="70" x2="78" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="14" y1="14" x2="14" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="42" y1="14" x2="42" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="70" y1="14" x2="70" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="14" y1="14" x2="42" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
-  <line x1="70" y1="14" x2="42" y2="70" stroke="#1B3A2D" stroke-width="5.5" stroke-linecap="square"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 84 84" fill="none">
+  <rect width="84" height="84" fill="#000000"/>
+  <line x1="6"  y1="14" x2="78" y2="14" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="6"  y1="70" x2="78" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="14" y1="14" x2="14" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="42" y1="14" x2="42" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="70" y1="14" x2="70" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="14" y1="14" x2="42" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
+  <line x1="70" y1="14" x2="42" y2="70" stroke="#ffffff" stroke-width="5.5" stroke-linecap="square"/>
 </svg>

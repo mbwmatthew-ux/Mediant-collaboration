@@ -114,7 +114,7 @@ export default function Landing() {
       {/* ── Nav ─────────────────────────────────────────────── */}
       <nav className={styles.nav}>
         <Link to="/" className={styles.navBrand}>
-          <AnimatedLogo size={22} />
+          <AnimatedLogo size={34} />
           <Wordmark />
         </Link>
         <div className={styles.navRight}>
@@ -331,7 +331,7 @@ export default function Landing() {
       <footer className={styles.footer}>
         <div className={styles.footerLeft}>
           <Link to="/" className={styles.navBrand} style={{ opacity: 0.6 }}>
-            <AnimatedLogo size={18} />
+            <AnimatedLogo size={28} />
             <Wordmark />
           </Link>
           <p className={styles.footerTagline}>Intelligent music performance analysis.</p>

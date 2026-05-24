@@ -455,7 +455,7 @@ function BackIcon() {
 function LogoMark() {
   return (
     <div style={{
-      width: 26, height: 26, flexShrink: 0,
+      width: 38, height: 38, flexShrink: 0,
       background: 'white',
       WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
       WebkitMaskMode: 'luminance',
