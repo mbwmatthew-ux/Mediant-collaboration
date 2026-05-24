@@ -157,7 +157,7 @@ export default function Onboarding({ onClose }) {
       {/* Description card */}
       <div style={cardStyle}>
         <div style={{
-          background: 'var(--surface)',
+          background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: 16,
           padding: hasNav ? '22px 24px' : '40px 36px',
