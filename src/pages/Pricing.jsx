@@ -80,11 +80,13 @@ export default function Pricing() {
   const { user, logout } = useAuth()
   const nav = useNavigate()
   const [billing, setBilling] = useState('yearly')
+  const [pendingPlan, setPendingPlan] = useState(null)
 
   function handleCta(plan) {
     if (plan.id === 'free') return
     if (!user) { nav('/signup'); return }
-    nav('/home')
+    setPendingPlan(plan.id)
+    setTimeout(() => setPendingPlan(null), 3000)
   }
 
   return (
@@ -168,6 +170,11 @@ export default function Pricing() {
             >
               {plan.id === 'free' && user ? 'Current plan' : plan.cta}
             </button>
+            {pendingPlan === plan.id && (
+              <p style={{ color: 'rgba(248,246,242,0.55)', fontSize: '0.8rem', margin: '8px 0 0', textAlign: 'center' }}>
+                Stripe checkout coming soon — we'll notify you when it's ready.
+              </p>
+            )}
 
             <ul className={styles.featureList}>
               {plan.features.map(f => (

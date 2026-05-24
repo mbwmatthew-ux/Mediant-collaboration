@@ -27,9 +27,21 @@ export default function Takes() {
   if (takes === undefined) {
     return (
       <div className={styles.page}>
-        <div className={styles.analyzeScreen}>
-          <div className={styles.analyzeIcon}>♩</div>
-          <p className={styles.analyzeSub}>Loading…</p>
+        <div className={styles.header}>
+          <div>
+            <p className={styles.label}>Saved Takes</p>
+            <h1 className={styles.title}>Your recordings</h1>
+          </div>
+        </div>
+        <div className={styles.takesGrid}>
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className={`${styles.takeCard} ${i === 0 ? styles.takeCardFeatured : ''}`} style={{ gap: 10 }}>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 10, width: 60, animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 4, height: 14, width: '70%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 4, height: 10, width: '50%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 6, height: 30, width: 120, marginTop: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />
+            </div>
+          ))}
         </div>
       </div>
     )

@@ -19,31 +19,31 @@ export default function Search() {
   const [difficulty, setDifficulty] = useState(null)
   const [userPieces,    setUserPieces]    = useState([])
   const [loadingPieces, setLoadingPieces] = useState(true)
+  const [fetchError,    setFetchError]    = useState(null)
   const [showUpload,    setShowUpload]    = useState(false)
   const [selectedPiece, setSelectedPiece] = useState(null)
 
-  useEffect(() => {
-    if (!user?.id) {
-      setUserPieces([])
-      setLoadingPieces(false)
-      return
-    }
+  async function fetchPieces() {
+    if (!user?.id) { setUserPieces([]); setLoadingPieces(false); return }
     setLoadingPieces(true)
-    supabase
-      .from('user_pieces')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) console.warn('[Search] fetch error:', error.message)
-        setUserPieces(data ?? [])
-        setLoadingPieces(false)
-      })
-      .catch(err => {
-        console.warn('[Search] fetch failed:', err.message)
-        setLoadingPieces(false)
-      })
-  }, [user?.id])
+    setFetchError(null)
+    try {
+      const { data, error } = await supabase
+        .from('user_pieces')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setUserPieces(data ?? [])
+    } catch (err) {
+      console.warn('[Search] fetch error:', err.message)
+      setFetchError('Could not load your library. Check your connection and try again.')
+    } finally {
+      setLoadingPieces(false)
+    }
+  }
+
+  useEffect(() => { fetchPieces() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePieceAdded(piece) {
     setUserPieces(prev => [piece, ...prev])
@@ -169,6 +169,39 @@ export default function Search() {
         )}
       </div>
 
+      {fetchError && (
+        <div className={styles.errorBanner}>
+          <span>⚠</span>
+          <span>{fetchError}</span>
+          <button className={styles.errorRetry} onClick={fetchPieces}>Retry</button>
+        </div>
+      )}
+
+      {loadingPieces && !fetchError ? (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead className={styles.tableHead}>
+              <tr>
+                {['Title','Composer','Instrument','Era','Level','Key · Time'].map(h => (
+                  <th key={h} className={styles.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[0,1,2,3,4].map(i => (
+                <tr key={i} className={styles.tableRow} style={{ pointerEvents: 'none' }}>
+                  {[70,55,50,42,36,48].map((w, j) => (
+                    <td key={j} className={styles.td}>
+                      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, height: 10, width: w, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+      <>
       <div className={styles.sectionHeader}>
         <span className={styles.sectionHeaderTitle}>
           {results.length} result{results.length !== 1 ? 's' : ''}
@@ -221,6 +254,8 @@ export default function Search() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   )
