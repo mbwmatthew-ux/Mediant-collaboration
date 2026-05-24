@@ -311,7 +311,18 @@
 
 /* ── Per-character materialization ── */
 .heroChar {
-  color: var(--w-color, var(--accent));
+  animation: staticShimmer 6s ease-in-out infinite;
+  background: linear-gradient(
+    110deg,
+    var(--w-color, var(--accent)) 0%,
+    rgba(255,255,255,0.88) 45%,
+    var(--w-color, var(--accent)) 55%,
+    var(--w-color, var(--accent)) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   display: inline-block;
   will-change: opacity, transform, filter;
 }
