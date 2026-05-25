@@ -464,6 +464,21 @@ export default function Analysis() {
         }
       </div>
 
+      {/* ── Persistent video player ── */}
+      {videoUrl && (
+        <div className={styles.videoBar}>
+          <span className={styles.videoBarLabel}>Recording</span>
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className={styles.videoBarPlayer}
+            controls
+            playsInline
+            preload="metadata"
+          />
+        </div>
+      )}
+
       <div className={styles.reviewBody}>
         <div className={styles.scoreArea}>
           {/* Photo or PDF uploaded by user — with bbox overlays */}
@@ -577,31 +592,21 @@ export default function Analysis() {
                 <h3 className={styles.detailTitle}>{info.title}</h3>
                 <p className={styles.detailBody}>{info.body}</p>
 
-                {/* Video player */}
+                {/* Loop controls — video is in the persistent player above */}
                 {videoUrl && hasTimestamps && (
-                  <div className={styles.excerptPlayer}>
-                    <video
-                      ref={videoRef}
-                      src={videoUrl}
-                      className={styles.excerptVideo}
-                      playsInline
-                      preload="metadata"
-                      controls={!isLooping}
-                    />
-                    <div className={styles.excerptControls}>
-                      {!isLooping ? (
-                        <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
-                          ▶ Loop m.{activeFlagRaw.measure}
-                        </button>
-                      ) : (
-                        <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
-                          ■ Stop loop
-                        </button>
-                      )}
-                      <span className={styles.excerptTime}>
-                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
-                      </span>
-                    </div>
+                  <div className={styles.excerptControls}>
+                    {!isLooping ? (
+                      <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                        ▶ Loop m.{activeFlagRaw.measure}
+                      </button>
+                    ) : (
+                      <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
+                        ■ Stop loop
+                      </button>
+                    )}
+                    <span className={styles.excerptTime}>
+                      {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
+                    </span>
                   </div>
                 )}
 

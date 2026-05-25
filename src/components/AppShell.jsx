@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
 import { useState, useEffect, useRef } from 'react'
 import TunerModal from './Tuner'
+import MetronomeModal from './Metronome'
 import ErrorBoundary from './ErrorBoundary'
 import styles from './AppShell.module.css'
 
@@ -25,7 +26,8 @@ const NAV_SECTIONS = [
     key: 'tools',
     label: 'TOOLS',
     items: [
-      { action: 'tuner', label: 'Tuner',      icon: TunerNavIcon, live: true },
+      { action: 'tuner',      label: 'Tuner',      icon: TunerNavIcon,      live: true },
+      { action: 'metronome', label: 'Metronome', icon: MetronomeNavIcon, live: true },
       { to: '/coach',    label: 'Discussion', icon: DiscussIcon,  live: true },
     ],
   },
@@ -48,7 +50,8 @@ export default function AppShell() {
   const [expanded, setExpanded]             = useState(null)
   const [editName, setEditName]             = useState(user?.name ?? '')
   const [editInstrument, setEditInstrument] = useState(user?.instrument ?? 'Piano')
-  const [showTuner, setShowTuner]           = useState(false)
+  const [showTuner,      setShowTuner]      = useState(false)
+  const [showMetronome,  setShowMetronome]  = useState(false)
   const notifRef = useRef(null)
 
   function handleLogout() {
@@ -65,8 +68,9 @@ export default function AppShell() {
   }
 
   function handleNavAction(action) {
-    if (action === 'tuner') setShowTuner(true)
-    if (action === 'account') setPanel(p => p === 'account' ? null : 'account')
+    if (action === 'tuner')      setShowTuner(true)
+    if (action === 'metronome') setShowMetronome(true)
+    if (action === 'account')   setPanel(p => p === 'account' ? null : 'account')
   }
 
   useEffect(() => {
@@ -283,6 +287,9 @@ export default function AppShell() {
 
       {/* Tuner modal */}
       {showTuner && <TunerModal onClose={() => setShowTuner(false)} />}
+
+      {/* Metronome modal */}
+      {showMetronome && <MetronomeModal onClose={() => setShowMetronome(false)} />}
 
       {/* Top bar */}
       <header className={styles.topBar}>
@@ -512,6 +519,16 @@ function TunerNavIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <path d="M12 8v4l3 3"/>
+    </svg>
+  )
+}
+
+function MetronomeNavIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 20 22 4 22"/>
+      <line x1="12" y1="2" x2="12" y2="22"/>
+      <line x1="8" y1="13" x2="16" y2="13"/>
     </svg>
   )
 }

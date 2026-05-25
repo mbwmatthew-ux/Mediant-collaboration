@@ -848,6 +848,34 @@
   width: 100%;
 }
 
+/* ── Persistent video bar ──────────────────────────────────── */
+.videoBar {
+  background: #000;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.videoBarLabel {
+  color: rgba(248,246,242,0.35);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  padding: 8px 14px 6px;
+  text-transform: uppercase;
+}
+
+.videoBarPlayer {
+  background: #000;
+  display: block;
+  max-height: 300px;
+  object-fit: contain;
+  width: 100%;
+}
+
 /* ── Excerpt video player ───────────────────────────────────── */
 .excerptPlayer {
   border: 1px solid rgba(255,255,255,0.08);
