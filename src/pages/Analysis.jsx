@@ -72,8 +72,7 @@ export default function Analysis() {
   // Sticky score boundary refs
   const scoreColRef     = useRef(null)   // the outer sticky column
   const scoreInnerRef   = useRef(null)   // inner wrapper that gets translateY'd
-  const sentinelRef     = useRef(null)   // placed right after confidence notices
-  const summaryRef      = useRef(null)   // placed on the summary section
+  const summaryRef      = useRef(null)   // bottom boundary: placed on the summary section
   const reviewLayoutRef = useRef(null)   // the two-column grid
 
   const [take, setTake]               = useState(undefined)
@@ -339,43 +338,37 @@ export default function Analysis() {
     if (videoRef.current) videoRef.current.playbackRate = videoSpeed
   }, [videoSpeed])
 
-  // Scroll-driven sticky score: top boundary = below confidence notice,
-  // bottom boundary = before summary section, auto-pan when score is taller than viewport.
+  // Scroll-driven sticky score: fixed top offset from viewport, bottom boundary before summary.
+  // CSS sticky handles the top-of-container constraint; JS only adjusts maxHeight and pans tall content.
   useEffect(() => {
     const col   = scoreColRef.current
     const inner = scoreInnerRef.current
     if (!col || !inner) return
 
-    const TOP_GAP    = 12
+    const TOP        = 16  // fixed px from top of viewport
     const BOTTOM_GAP = 16
 
     function update() {
-      const sentinel = sentinelRef.current
-      const summary  = summaryRef.current
-      const layout   = reviewLayoutRef.current
-      if (!sentinel || !summary || !layout) return
+      const summary = summaryRef.current
+      const layout  = reviewLayoutRef.current
+      if (!summary || !layout) return
 
-      // Top boundary: just below the sentinel (= bottom of confidence notices block)
-      const sentinelBottom = sentinel.getBoundingClientRect().bottom
-      const topBound = Math.max(TOP_GAP, sentinelBottom + TOP_GAP)
+      // Bottom boundary: stop just above the summary section
+      const summaryTop = summary.getBoundingClientRect().top
+      const visibleH   = Math.max(80, summaryTop - TOP - BOTTOM_GAP)
 
-      // Bottom boundary: just above the summary section
-      const summaryTop  = summary.getBoundingClientRect().top
-      const visibleH    = Math.max(80, summaryTop - topBound - BOTTOM_GAP)
-
-      col.style.top       = `${topBound}px`
+      col.style.top       = `${TOP}px`
       col.style.maxHeight = `${visibleH}px`
 
-      // Auto-pan the inner content when taller than the visible window
+      // Pan tall content so it tracks scroll position within the layout
       const contentH = inner.scrollHeight
       const overflow = Math.max(0, contentH - visibleH)
 
       if (overflow > 0) {
-        // Progress: how far have we scrolled through the review layout?
-        const layoutTop    = layout.getBoundingClientRect().top
-        const scrolled     = Math.max(0, -layoutTop + topBound)
-        const maxScroll    = Math.max(1, layout.offsetHeight - visibleH)
-        const progress     = Math.min(1, scrolled / maxScroll)
+        const layoutTop = layout.getBoundingClientRect().top
+        const scrolled  = Math.max(0, TOP - layoutTop)
+        const maxScroll = Math.max(1, layout.offsetHeight - visibleH)
+        const progress  = Math.min(1, scrolled / maxScroll)
         inner.style.transform = `translateY(-${overflow * progress}px)`
       } else {
         inner.style.transform = 'translateY(0)'
@@ -663,9 +656,6 @@ export default function Analysis() {
           <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
         </div>
       )}
-
-      {/* Sentinel: placed right here so JS knows where the confidence block ends */}
-      <div ref={sentinelRef} style={{ height: 0, margin: 0, padding: 0 }} />
 
       {/* ── Two-column: score left (sticky) + issues right ── */}
       <div className={aStyles.reviewLayout} ref={reviewLayoutRef}>
