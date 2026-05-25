@@ -3,17 +3,20 @@
   display: grid;
   gap: 32px;
   grid-template-columns: 1.15fr 1fr;
+  max-width: 100%;
+  overflow-x: clip;
   /* default align-items: stretch so left cell fills right column's full height */
 }
 
 .reviewLayoutImageScore {
-  gap: 24px;
-  grid-template-columns: minmax(360px, 680px) minmax(0, 1fr);
+  gap: 16px;
+  grid-template-columns: minmax(320px, 600px) minmax(0, 1fr);
 }
 
 .scoreColumnWrap {
   align-self: stretch;
   min-height: 0;
+  min-width: 0;
 }
 
 .scoreColumn {
@@ -33,6 +36,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 /* ── Issue section (replaces chip strip) ───────────────────── */
