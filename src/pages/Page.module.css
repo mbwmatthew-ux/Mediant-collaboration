@@ -838,8 +838,16 @@
 .scorePhoto {
   border-radius: 6px;
   display: block;
-  max-width: 100%;
   height: auto;
+  margin: 0 auto;
+  max-width: min(100%, 820px);
+  width: 82%;
+}
+
+.scoreArea iframe,
+.scoreArea svg {
+  height: auto;
+  max-width: 100%;
 }
 
 .scorePdf {
