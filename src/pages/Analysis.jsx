@@ -357,8 +357,8 @@ export default function Analysis() {
       const summaryTop = summary.getBoundingClientRect().top
       const visibleH   = Math.max(80, summaryTop - TOP - BOTTOM_GAP)
 
-      col.style.top       = `${TOP}px`
-      col.style.maxHeight = `${visibleH}px`
+      col.style.top    = `${TOP}px`
+      col.style.height = `${visibleH}px`
 
       // Pan tall content so it tracks scroll position within the layout
       const contentH = inner.scrollHeight
@@ -660,10 +660,12 @@ export default function Analysis() {
       {/* ── Two-column: score left (sticky) + issues right ── */}
       <div className={aStyles.reviewLayout} ref={reviewLayoutRef}>
 
-        {/* Left: sheet music — sticky, JS drives top/maxHeight/pan */}
-        <div className={aStyles.scoreColumn} ref={scoreColRef}>
-          <div className={aStyles.scoreInner} ref={scoreInnerRef}>
-            {scoreAreaContent}
+        {/* Left: outer cell stretches to full row height; inner sticky div is the viewport */}
+        <div className={aStyles.scoreColumnWrap}>
+          <div className={aStyles.scoreColumn} ref={scoreColRef}>
+            <div className={aStyles.scoreInner} ref={scoreInnerRef}>
+              {scoreAreaContent}
+            </div>
           </div>
         </div>
 

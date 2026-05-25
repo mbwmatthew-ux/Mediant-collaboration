@@ -1,11 +1,17 @@
 /* ── Two-column review layout ──────────────────────────────── */
 .reviewLayout {
-  align-items: start;
   display: grid;
   gap: 32px;
   grid-template-columns: 1.15fr 1fr;
+  /* default align-items: stretch so left cell fills right column's full height */
 }
 
+/* Outer grid cell — stretches to the full height of the taller (right) column */
+.scoreColumnWrap {
+  min-height: 0;
+}
+
+/* Inner sticky window — JS sets height and top to define the visible region */
 .scoreColumn {
   overflow: hidden;
   position: sticky;
@@ -421,9 +427,10 @@
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 1024px) {
-  .reviewLayout { grid-template-columns: 1fr; }
-  .scoreColumn  { max-height: none !important; overflow: visible; position: static; top: auto !important; }
-  .scoreInner   { transform: none !important; }
+  .reviewLayout      { grid-template-columns: 1fr; }
+  .scoreColumnWrap   { height: auto !important; }
+  .scoreColumn       { height: auto !important; overflow: visible; position: static; top: auto !important; }
+  .scoreInner        { transform: none !important; }
 }
 
 @media (max-width: 700px) {
