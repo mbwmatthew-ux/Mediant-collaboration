@@ -43,75 +43,8 @@ const STATS = [
   { value: 100, suffix: '%', label: 'Your recordings stay private' },
 ]
 
-/* ── Instrument section helpers ── */
+/* ── Instrument helpers ── */
 const NOTES = ['♩', '♪', '♫', '♬']
-
-function FloatingNotes({ count = 6, color = '#5cb86b' }) {
-  return (
-    <div className={styles.notesContainer} aria-hidden>
-      {Array.from({ length: count }).map((_, i) => (
-        <span
-          key={i}
-          className={styles.floatingNote}
-          style={{
-            '--note-delay': `${i * 0.55}s`,
-            '--note-x':     `${12 + (i * 15) % 74}%`,
-            '--note-dur':   `${2.6 + (i % 3) * 0.8}s`,
-            color,
-            fontSize: `${0.9 + (i % 3) * 0.35}rem`,
-          }}
-        >
-          {NOTES[i % NOTES.length]}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-function TypeBox({ lines, accentColor = '#5cb86b', active }) {
-  const [displayed, setDisplayed] = useState('')
-  const [charIdx, setCharIdx]     = useState(0)
-  const [done, setDone]           = useState(false)
-  const timerRef = useRef(null)
-  const fullText = lines.join('\n')
-
-  useEffect(() => {
-    if (!active) return
-    setDisplayed('')
-    setCharIdx(0)
-    setDone(false)
-  }, [active])
-
-  useEffect(() => {
-    if (!active || done) return
-    if (charIdx < fullText.length) {
-      timerRef.current = setTimeout(() => {
-        setDisplayed(fullText.slice(0, charIdx + 1))
-        setCharIdx(c => c + 1)
-      }, 24 + Math.random() * 20)
-    } else {
-      setDone(true)
-    }
-    return () => clearTimeout(timerRef.current)
-  }, [active, charIdx, done, fullText])
-
-  return (
-    <div className={styles.typeBox}>
-      <div className={styles.typeBoxBar}>
-        <div className={styles.typeBoxDot} />
-        <div className={styles.typeBoxDot} />
-        <div className={styles.typeBoxDot} />
-        <span className={styles.typeBoxLabel} style={{ color: accentColor }}>Mediant Analysis</span>
-      </div>
-      <div className={styles.typeBoxBody}>
-        <pre className={styles.typeBoxText}>
-          {displayed}
-          {!done && active && <span className={styles.typeCursor} style={{ background: accentColor }} />}
-        </pre>
-      </div>
-    </div>
-  )
-}
 
 function useInView(threshold = 0.12) {
   const ref = useRef(null)
@@ -129,98 +62,342 @@ function useInView(threshold = 0.12) {
   return [ref, inView]
 }
 
-/* ── SVG instruments ── */
+/* Notes that drift upward from the bell area */
+function BellNotes({ count = 5, color = '#5cb86b', fromBottom = true }) {
+  return (
+    <div className={styles.bellNotes} aria-hidden>
+      {Array.from({ length: count }).map((_, i) => (
+        <span
+          key={i}
+          className={styles.bellNote}
+          style={{
+            '--nd': `${i * 0.7}s`,
+            '--nx': `${-16 + (i * 11) % 36}px`,
+            '--ndur': `${2.4 + (i % 3) * 0.6}s`,
+            color,
+            fontSize: `${0.82 + (i % 3) * 0.28}rem`,
+            bottom: fromBottom ? 0 : 'auto',
+            top: fromBottom ? 'auto' : 0,
+          }}
+        >
+          {NOTES[i % NOTES.length]}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/* Google-Docs-style collaborative cursor */
+function DocTyping({ text, color, name = 'Mediant', active, delay = 0 }) {
+  const [displayed, setDisplayed] = useState('')
+  const [phase, setPhase]         = useState('idle') // idle | forward | deleting | finishing | done
+  const timerRef = useRef(null)
+
+  // Type to ~65% → delete back ~15% → retype to end
+  const pauseAt  = Math.floor(text.length * 0.65)
+  const minLen   = Math.floor(text.length * 0.50)
+
+  useEffect(() => {
+    if (!active) return
+    const t = setTimeout(() => { setDisplayed(''); setPhase('forward') }, delay)
+    return () => clearTimeout(t)
+  }, [active, delay])
+
+  useEffect(() => {
+    clearTimeout(timerRef.current)
+    if (phase === 'idle' || phase === 'done') return
+
+    if (phase === 'forward') {
+      if (displayed.length < pauseAt) {
+        timerRef.current = setTimeout(
+          () => setDisplayed(text.slice(0, displayed.length + 1)),
+          95 + Math.random() * 55
+        )
+      } else {
+        timerRef.current = setTimeout(() => setPhase('deleting'), 750)
+      }
+    } else if (phase === 'deleting') {
+      if (displayed.length > minLen) {
+        timerRef.current = setTimeout(
+          () => setDisplayed(text.slice(0, displayed.length - 1)),
+          60 + Math.random() * 32
+        )
+      } else {
+        timerRef.current = setTimeout(() => setPhase('finishing'), 480)
+      }
+    } else if (phase === 'finishing') {
+      if (displayed.length < text.length) {
+        timerRef.current = setTimeout(
+          () => setDisplayed(text.slice(0, displayed.length + 1)),
+          82 + Math.random() * 48
+        )
+      } else {
+        setPhase('done')
+      }
+    }
+
+    return () => clearTimeout(timerRef.current)
+  }, [phase, displayed, text, pauseAt, minLen])
+
+  const isTyping = phase === 'forward' || phase === 'deleting' || phase === 'finishing'
+
+  return (
+    <div className={styles.docTyping}>
+      <p className={styles.docText}>
+        {displayed}
+        {phase !== 'idle' && (
+          <span className={styles.docCaret} style={{ '--cc': color }}>
+            {isTyping && (
+              <span className={styles.docCaretLabel} style={{ background: color }}>{name}</span>
+            )}
+          </span>
+        )}
+      </p>
+    </div>
+  )
+}
+
+/* ── Clarinet SVG ── */
 function ClarinetSVG() {
+  const s  = 'rgba(232,240,235,0.28)'   // main stroke
+  const sf = 'rgba(232,240,235,0.05)'   // main fill
+  const ks = 'rgba(232,240,235,0.38)'   // key stroke
+  const kf = 'rgba(232,240,235,0.07)'   // key fill
+  const gs = 'rgba(214,177,104,0.5)'    // gold (ligature) stroke
+  const gf = 'rgba(214,177,104,0.15)'   // gold fill
   return (
-    <svg viewBox="0 0 80 380" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.instrumentSvg} style={{ height: 300, width: 'auto' }}>
-      <rect x="33" y="18" width="14" height="300" rx="7" fill="rgba(232,240,235,0.04)" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5"/>
-      <path d="M26 318 Q40 375 54 318" fill="rgba(232,240,235,0.04)" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5"/>
-      <rect x="35" y="4" width="10" height="16" rx="3" fill="rgba(232,240,235,0.08)" stroke="rgba(232,240,235,0.25)" strokeWidth="1.5"/>
-      {[60,98,136,174,212,250,288].map((y, i) => (
-        <ellipse key={i} cx={i % 2 === 0 ? 28 : 52} cy={y} rx="5" ry="3.5" fill="rgba(92,184,107,0.25)" stroke="rgba(92,184,107,0.5)" strokeWidth="1"/>
+    <svg viewBox="0 0 72 390" fill="none" xmlns="http://www.w3.org/2000/svg"
+         style={{ height: 340, width: 'auto', filter: 'drop-shadow(0 0 18px rgba(232,240,235,0.06))' }}>
+      {/* Mouthpiece */}
+      <path d="M27 2 L45 2 L47 10 L45 32 L27 32 L25 10 Z" fill={sf} stroke={s} strokeWidth="1.2" strokeLinejoin="round"/>
+      {/* Reed */}
+      <rect x="30" y="5" width="12" height="25" rx="1" fill="rgba(232,240,235,0.09)" stroke="rgba(232,240,235,0.18)" strokeWidth="0.7"/>
+      {/* Ligature bands */}
+      <rect x="25" y="13" width="22" height="3.5" rx="1.5" fill={gf} stroke={gs} strokeWidth="0.9"/>
+      <rect x="25" y="20" width="22" height="3.5" rx="1.5" fill={gf} stroke={gs} strokeWidth="0.9"/>
+      {/* Barrel */}
+      <rect x="27" y="34" width="18" height="28" rx="2.5" fill={sf} stroke={s} strokeWidth="1.2"/>
+      <line x1="27" y1="37" x2="45" y2="37" stroke="rgba(232,240,235,0.14)" strokeWidth="0.7"/>
+      <line x1="27" y1="59" x2="45" y2="59" stroke="rgba(232,240,235,0.14)" strokeWidth="0.7"/>
+      {/* Upper joint */}
+      <rect x="27" y="64" width="18" height="128" rx="2" fill={sf} stroke={s} strokeWidth="1.2"/>
+      {/* Register (octave) key — left side */}
+      <path d="M27 82 L19 78 L16 82 L19 86 L27 86 Z" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      <circle cx="15" cy="82" r="4" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      {/* 3 left-hand tone holes */}
+      {[98, 122, 146].map(y => (
+        <circle key={y} cx="36" cy={y} r="5" fill="rgba(232,240,235,0.04)" stroke={s} strokeWidth="1.3"/>
       ))}
-      {[80,118,156,194,232].map((y, i) => (
-        <circle key={i} cx="40" cy={y} r="3" fill="rgba(232,240,235,0.06)" stroke="rgba(232,240,235,0.15)" strokeWidth="1"/>
+      {/* Left side keys (right of body) */}
+      {[102, 116].map((y, i) => (
+        <path key={i} d={`M45 ${y} L54 ${y-3} L55 ${y+3} L46 ${y+6} Z`} fill={kf} stroke={ks} strokeWidth="0.8"/>
       ))}
+      {/* Left pinky keys */}
+      <rect x="45" y="166" width="13" height="6" rx="2" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      <rect x="45" y="175" width="13" height="6" rx="2" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      {/* Joint ring */}
+      <rect x="25" y="193" width="22" height="7" rx="1" fill="rgba(232,240,235,0.04)" stroke="rgba(232,240,235,0.2)" strokeWidth="1"/>
+      {/* Lower joint */}
+      <rect x="27" y="201" width="18" height="110" rx="2" fill={sf} stroke={s} strokeWidth="1.2"/>
+      {/* 3 right-hand tone holes */}
+      {[224, 248, 272].map(y => (
+        <circle key={y} cx="36" cy={y} r="5" fill="rgba(232,240,235,0.04)" stroke={s} strokeWidth="1.3"/>
+      ))}
+      {/* Right side keys */}
+      {[228, 244].map((y, i) => (
+        <path key={i} d={`M45 ${y} L54 ${y-3} L55 ${y+3} L46 ${y+6} Z`} fill={kf} stroke={ks} strokeWidth="0.8"/>
+      ))}
+      {/* Right pinky cluster */}
+      <rect x="45" y="283" width="13" height="6" rx="2" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      <rect x="45" y="292" width="11" height="6" rx="2" fill={kf} stroke={ks} strokeWidth="0.9"/>
+      {/* Bell socket */}
+      <rect x="25" y="312" width="22" height="7" rx="1" fill="rgba(232,240,235,0.05)" stroke="rgba(232,240,235,0.22)" strokeWidth="1.1"/>
+      {/* Bell */}
+      <path d="M27 321 Q23 348 12 372 Q10 377 10 380 L62 380 Q62 377 60 372 Q49 348 45 321 Z"
+            fill={sf} stroke={s} strokeWidth="1.2"/>
+      {/* Bell rim */}
+      <ellipse cx="36" cy="380" rx="26" ry="7" fill="rgba(232,240,235,0.03)" stroke={s} strokeWidth="1"/>
+      {/* Subtle inner bell shine */}
+      <path d="M16 348 Q14 362 13 374" stroke="rgba(232,240,235,0.08)" strokeWidth="1" fill="none"/>
     </svg>
   )
 }
 
+/* ── Cello SVG ── */
 function CelloSVG() {
+  const s  = 'rgba(232,240,235,0.26)'
+  const sf = 'rgba(232,240,235,0.04)'
+  const gs = 'rgba(214,177,104,0.48)'
   return (
-    <svg viewBox="0 0 160 440" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.instrumentSvg} style={{ height: 300, width: 'auto' }}>
-      <path d="M50 110 Q18 90 18 66 Q18 34 55 24 Q80 18 105 24 Q142 34 142 66 Q142 90 110 110" fill="rgba(232,240,235,0.03)" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5"/>
-      <path d="M50 110 Q34 144 38 176 Q42 208 50 212" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5" fill="none"/>
-      <path d="M110 110 Q126 144 122 176 Q118 208 110 212" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5" fill="none"/>
-      <path d="M50 212 Q14 232 14 278 Q14 334 80 348 Q146 334 146 278 Q146 232 110 212" fill="rgba(232,240,235,0.03)" stroke="rgba(232,240,235,0.18)" strokeWidth="1.5"/>
-      <rect x="70" y="0" width="20" height="28" rx="4" fill="rgba(232,240,235,0.05)" stroke="rgba(232,240,235,0.2)" strokeWidth="1.5"/>
-      <path d="M70 0 Q60 -8 65 -16 Q70 -22 80 -18 Q86 -12 80 -4" stroke="rgba(232,240,235,0.24)" strokeWidth="1.5" fill="none"/>
-      {[-5,-1,1,5].map((x, i) => (
-        <line key={i} x1={80+x} y1={-4} x2={80+x*0.3} y2={338} stroke="rgba(232,240,235,0.14)" strokeWidth="0.8"/>
+    <svg viewBox="0 0 160 500" fill="none" xmlns="http://www.w3.org/2000/svg"
+         style={{ height: 340, width: 'auto', filter: 'drop-shadow(0 0 18px rgba(232,240,235,0.05))' }}>
+      {/* Scroll */}
+      <path d="M73 14 C73 8 78 4 83 6 C89 8 90 14 86 18 C82 22 76 20 76 15 C76 11 80 9 83 11"
+            fill="none" stroke={s} strokeWidth="1.3"/>
+      {/* Pegbox */}
+      <rect x="72" y="18" width="16" height="28" rx="2" fill={sf} stroke={s} strokeWidth="1.2"/>
+      {/* Pegs */}
+      {[[68,24],[90,24],[68,36],[90,36]].map(([x,y],i) => (
+        <line key={i} x1={x} y1={y} x2={x === 68 ? 82 : 78} y2={y} stroke={s} strokeWidth="1.5"/>
       ))}
-      <path d="M57 248 Q54 258 57 270 Q59 274 56 282" stroke="rgba(232,240,235,0.28)" strokeWidth="1.2" fill="none"/>
-      <path d="M103 248 Q106 258 103 270 Q101 274 104 282" stroke="rgba(232,240,235,0.28)" strokeWidth="1.2" fill="none"/>
-      <path d="M65 302 L75 297 L85 297 L95 302" stroke="rgba(214,177,104,0.45)" strokeWidth="1.2" fill="none"/>
-      <line x1="80" y1="348" x2="80" y2="395" stroke="rgba(232,240,235,0.16)" strokeWidth="2"/>
+      {/* Nut */}
+      <rect x="71" y="46" width="18" height="4" rx="1" fill="rgba(232,240,235,0.1)" stroke={s} strokeWidth="0.9"/>
+      {/* Neck */}
+      <path d="M75 50 L85 50 L87 100 L73 100 Z" fill={sf} stroke={s} strokeWidth="1.2"/>
+      {/* Body — full outline using smooth bezier curves */}
+      {/* Right side */}
+      <path
+        d="M80 100
+           C 112 100, 132 118, 132 148
+           C 132 170, 118 182, 116 204
+           C 114 220, 130 234, 136 262
+           C 142 292, 138 340, 80 358"
+        fill="none" stroke={s} strokeWidth="1.5"/>
+      {/* Left side */}
+      <path
+        d="M80 100
+           C 48 100, 28 118, 28 148
+           C 28 170, 42 182, 44 204
+           C 46 220, 30 234, 24 262
+           C 18 292, 22 340, 80 358"
+        fill="none" stroke={s} strokeWidth="1.5"/>
+      {/* Body fill (two halves) */}
+      <path
+        d="M80 100 C112 100,132 118,132 148 C132 170,118 182,116 204 C114 220,130 234,136 262 C142 292,138 340,80 358 C22 340,18 292,24 262 C30 234,46 220,44 204 C42 182,28 170,28 148 C28 118,48 100,80 100 Z"
+        fill={sf}/>
+      {/* Top plate line (purfling hint) */}
+      <path
+        d="M80 106 C108 106,126 122,126 148 C126 168,114 180,112 202 C110 218,125 232,130 258"
+        fill="none" stroke="rgba(232,240,235,0.06)" strokeWidth="0.8"/>
+      <path
+        d="M80 106 C52 106,34 122,34 148 C34 168,46 180,48 202 C50 218,35 232,30 258"
+        fill="none" stroke="rgba(232,240,235,0.06)" strokeWidth="0.8"/>
+      {/* F-holes */}
+      <path d="M60 218 C55 228,54 238,60 246 C66 254,66 264,60 274" fill="none" stroke="rgba(232,240,235,0.35)" strokeWidth="1.3"/>
+      <circle cx="60" cy="217" r="2.5" fill="rgba(232,240,235,0.18)"/>
+      <circle cx="60" cy="275" r="2.5" fill="rgba(232,240,235,0.18)"/>
+      <path d="M100 218 C105 228,106 238,100 246 C94 254,94 264,100 274" fill="none" stroke="rgba(232,240,235,0.35)" strokeWidth="1.3"/>
+      <circle cx="100" cy="217" r="2.5" fill="rgba(232,240,235,0.18)"/>
+      <circle cx="100" cy="275" r="2.5" fill="rgba(232,240,235,0.18)"/>
+      {/* Bridge */}
+      <path d="M64 302 L68 296 L80 294 L92 296 L96 302 L88 302 L86 308 L74 308 L72 302 Z"
+            fill="rgba(232,240,235,0.06)" stroke={gs} strokeWidth="1"/>
+      {/* Strings */}
+      {[-4,-1.5,1.5,4].map((x,i) => (
+        <line key={i} x1={80+x} y1={48} x2={80+x*0.6} y2={350} stroke="rgba(232,240,235,0.15)" strokeWidth="0.8"/>
+      ))}
+      {/* Tailpiece */}
+      <path d="M68 350 L92 350 L94 360 L66 360 Z" fill="rgba(232,240,235,0.05)" stroke={s} strokeWidth="1"/>
+      {/* Endpin */}
+      <line x1="80" y1="360" x2="80" y2="420" stroke={s} strokeWidth="1.8"/>
+      <circle cx="80" cy="422" r="3" fill="rgba(232,240,235,0.06)" stroke={s} strokeWidth="1"/>
+
+      {/* ── Bow (crossing strings at playing position) ── */}
+      {/* Horsehair ribbon — slightly concave toward strings */}
+      <path d="M8 316 Q80 286 152 258" fill="none" stroke="rgba(232,240,235,0.24)" strokeWidth="3" strokeLinecap="round"/>
+      {/* Stick — gently arched above the horsehair */}
+      <path d="M6 308 Q80 274 154 248" fill="none" stroke={gs} strokeWidth="1.6" strokeLinecap="round"/>
+      {/* Frog (handle block at lower-left) */}
+      <rect x="0" y="300" width="16" height="12" rx="2.5" fill="rgba(214,177,104,0.15)" stroke={gs} strokeWidth="1.1"/>
+      <rect x="3" y="303" width="9" height="5" rx="1" fill="rgba(9,17,12,0.3)" stroke="rgba(214,177,104,0.28)" strokeWidth="0.7"/>
+      {/* Frog grip wrap lines */}
+      {[0, 4, 8].map(dx => (
+        <line key={dx} x1={4 + dx} y1="300" x2={4 + dx} y2="312" stroke="rgba(214,177,104,0.22)" strokeWidth="0.8"/>
+      ))}
+      {/* Tip (upper-right end of bow) */}
+      <path d="M150 251 L156 247 L155 256 L149 259 Z" fill="rgba(214,177,104,0.1)" stroke={gs} strokeWidth="0.9"/>
     </svg>
   )
 }
 
+/* ── Piano SVG — grand piano, 3/4 perspective ── */
 function PianoSVG() {
+  const s  = 'rgba(232,240,235,0.22)'
+  const sf = 'rgba(232,240,235,0.045)'
+  const ks = 'rgba(232,240,235,0.12)'
+  const gs = 'rgba(214,177,104,0.44)'
+  const wkW = 21; const wkCount = 26
+
   return (
-    <svg viewBox="0 0 600 160" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.instrumentSvg} style={{ width: '100%', height: 'auto', maxWidth: 600 }}>
-      <path d="M30 36 L130 8 L570 8 L570 36 Q570 46 560 46 L40 46 Q30 46 30 36Z" fill="rgba(232,240,235,0.04)" stroke="rgba(232,240,235,0.14)" strokeWidth="1.5"/>
-      <rect x="30" y="46" width="540" height="84" rx="4" fill="rgba(232,240,235,0.03)" stroke="rgba(232,240,235,0.12)" strokeWidth="1.5"/>
-      {Array.from({ length: 22 }).map((_, i) => (
-        <rect key={i} x={38 + i * 23} y="50" width="21" height="72" rx="2" fill="rgba(232,240,235,0.08)" stroke="rgba(232,240,235,0.1)" strokeWidth="1"/>
+    <svg viewBox="0 0 660 330" fill="none" xmlns="http://www.w3.org/2000/svg"
+         style={{ width: '100%', height: 'auto', maxWidth: 700 }}>
+
+      {/* === Rear case panel (top face visible from slightly above) === */}
+      <path d="M24 56 L24 16 Q24 4 46 4 L614 4 Q636 4 636 16 L636 56 Z"
+            fill="rgba(232,240,235,0.04)" stroke={s} strokeWidth="1.3"/>
+
+      {/* === Open lid surface === */}
+      {/* Primary lid panel — angled back-upward from the hinge */}
+      <path d="M24 56 L24 16 Q24 4 46 4 L614 4 Q636 4 636 16 L636 56 L490 -28 Q380 -44 140 -20 Z"
+            fill="rgba(232,240,235,0.038)" stroke={s} strokeWidth="1.1"/>
+      {/* Lid underside edge (inner face slightly darker) */}
+      <path d="M24 56 L140 -20 Q380 -44 490 -28 L636 56"
+            fill="none" stroke="rgba(232,240,235,0.1)" strokeWidth="0.7"/>
+      {/* Lid prop stick */}
+      <line x1="390" y1="8" x2="372" y2="56" stroke="rgba(232,240,235,0.38)" strokeWidth="1.8" strokeLinecap="round"/>
+      <circle cx="372" cy="57" r="3" fill="rgba(232,240,235,0.06)" stroke={s} strokeWidth="1"/>
+
+      {/* === Right side wall — gives 3D depth === */}
+      <path d="M636 56 L636 244 L614 256 L614 56 Z"
+            fill="rgba(232,240,235,0.03)" stroke={s} strokeWidth="0.9"/>
+
+      {/* === Fallboard / nameboard === */}
+      <path d="M24 56 L636 56 L614 70 L46 70 Z"
+            fill="rgba(232,240,235,0.055)" stroke={s} strokeWidth="1.1"/>
+
+      {/* Keybed back wall */}
+      <rect x="24" y="70" width="590" height="18" rx="1.5"
+            fill="rgba(232,240,235,0.07)" stroke={s} strokeWidth="1"/>
+
+      {/* White keys */}
+      {Array.from({ length: wkCount }).map((_, i) => (
+        <rect key={i}
+              x={27 + i * wkW} y="88" width={wkW - 1.5} height="118" rx="2"
+              fill="rgba(232,240,235,0.11)" stroke={ks} strokeWidth="0.8"/>
       ))}
-      {[1,2,4,5,6,8,9,11,12,13,15,16,18,19].map((pos, i) => (
-        <rect key={i} x={38 + pos * 23 + 13} y="50" width="14" height="48" rx="2" fill="rgba(9,17,12,0.9)" stroke="rgba(232,240,235,0.08)" strokeWidth="1"/>
+
+      {/* Black keys — 2+3 per octave, 3.5 octaves:
+          positions: 1,2,4,5,6 | 8,9,11,12,13 | 15,16,18,19,20 | 22,23,25 */}
+      {[1,2,4,5,6, 8,9,11,12,13, 15,16,18,19,20, 22,23,25].map((pos, i) => (
+        <rect key={i}
+              x={27 + pos * wkW + 13} y="88" width="13" height="76" rx="2"
+              fill="rgba(9,17,12,0.92)" stroke="rgba(232,240,235,0.09)" strokeWidth="0.7"/>
       ))}
-      <ellipse cx="248" cy="143" rx="13" ry="7" fill="rgba(214,177,104,0.2)" stroke="rgba(214,177,104,0.4)" strokeWidth="1"/>
-      <ellipse cx="280" cy="143" rx="13" ry="7" fill="rgba(214,177,104,0.2)" stroke="rgba(214,177,104,0.4)" strokeWidth="1"/>
-      <ellipse cx="312" cy="143" rx="13" ry="7" fill="rgba(214,177,104,0.2)" stroke="rgba(214,177,104,0.4)" strokeWidth="1"/>
+
+      {/* Key bottom edge (depth) */}
+      <rect x="24" y="206" width="590" height="13"
+            fill="rgba(232,240,235,0.04)" stroke="rgba(232,240,235,0.09)" strokeWidth="1"/>
+
+      {/* Front rail */}
+      <rect x="24" y="219" width="590" height="30" rx="4"
+            fill="rgba(232,240,235,0.03)" stroke="rgba(232,240,235,0.1)" strokeWidth="1.2"/>
+
+      {/* Right-side depth of front rail */}
+      <path d="M614 219 L636 207 L636 244 L614 249 Z"
+            fill="rgba(232,240,235,0.025)" stroke={s} strokeWidth="0.7"/>
+
+      {/* === Pedal lyre === */}
+      <path d="M226 249 Q224 264 234 276 L426 276 Q436 264 434 249 Z"
+            fill={sf} stroke={s} strokeWidth="1"/>
+      {[289, 330, 371].map((x, i) => (
+        <ellipse key={i} cx={x} cy="278" rx="16" ry="8"
+                 fill="rgba(214,177,104,0.12)" stroke={gs} strokeWidth="1"/>
+      ))}
+
+      {/* === Legs === */}
+      <path d="M30 249 L30 295 Q30 303 24 303 L24 308 L46 308 L46 303 Q40 303 40 295 L40 249 Z"
+            fill={sf} stroke={s} strokeWidth="1"/>
+      <path d="M608 249 L608 295 Q608 303 602 303 L602 308 L624 308 L624 303 Q618 303 618 295 L618 249 Z"
+            fill={sf} stroke={s} strokeWidth="1"/>
     </svg>
   )
 }
 
-const CLARINET_LINES = [
-  'Analyzing m.12 — clarinet entrance...',
-  '',
-  'Timing: 18ms early on the pickup.',
-  'Intonation: high D sits sharp.',
-  '',
-  '→ Ease into the triplet run.',
-  '  Let the phrase land on the beat.',
-]
-
-const CELLO_LINES = [
-  'Issue · m.24 — bow pressure',
-  '',
-  'Sustained G shows uneven tone —',
-  'bow speed drops mid-note.',
-  '',
-  '→ Keep arm weight constant.',
-  '  Contact point: middle of bow.',
-]
-
-const PIANO_LINES_1 = [
-  'Dynamics · m.8',
-  'Left hand too prominent.',
-  '→ Soften bass to mp.',
-]
-
-const PIANO_LINES_2 = [
-  'Voicing · m.16',
-  'Inner voices masking soprano.',
-  '→ Weight the top line.',
-]
-
-const PIANO_LINES_3 = [
-  'Timing · m.31',
-  'Rubato slightly rushed.',
-  '→ Hold the phrase peak.',
-]
+const CLARINET_TEXT = "m.12 — entrance is 18ms early. Ease into the pickup note and let the phrase settle onto the downbeat."
+const CELLO_TEXT    = "m.24 — bow pressure uneven on the sustained G. Keep arm weight consistent through the full stroke."
+const PIANO_TEXT_1  = "m.8 — left hand too prominent. Pull the bass back to mp."
+const PIANO_TEXT_2  = "m.16 — inner voices masking the soprano. Lift the top line."
+const PIANO_TEXT_3  = "m.31 — rubato slightly rushed. Hold the phrase peak a beat longer."
 
 /* ── Logo mark ── */
 function AnimatedLogo({ size = 28 }) {
@@ -458,69 +635,63 @@ export default function Landing() {
       {/* ── Instruments ── */}
       <section className={styles.instrumentsSection}>
 
-        {/* Clarinet — instrument on right */}
+        {/* Clarinet — text left, instrument+doc right */}
         <div className={`${styles.instrumentBand} ${styles.revealL}`} ref={clarinetRef}>
           <div className={styles.instrumentText}>
             <span className={styles.sectionLabel}>Woodwinds</span>
             <h2 className={styles.instrumentTitle}>Measure-by-measure<br />clarity for wind players</h2>
             <p className={styles.instrumentBody}>
-              Mediant catches timing drift, intonation shifts, and tonal inconsistencies that are easy to miss in the moment — flagged to the exact measure.
+              Mediant catches timing drift, intonation shifts, and tonal inconsistencies flagged to the exact measure — not a vague average.
             </p>
-            <TypeBox lines={CLARINET_LINES} accentColor="#5cb86b" active={clarinetInView} />
           </div>
           <div className={`${styles.instrumentVisual} ${styles.revealR}`} style={{ '--d': '80ms' }}>
-            <div className={styles.instrumentSvgWrap}>
-              <div className={styles.instrumentGlow} style={{ '--glow-color': 'rgba(92,184,107,0.12)' }} />
+            <div className={styles.instrumentGlow} style={{ '--glow-color': 'rgba(232,112,80,0.1)' }} />
+            <div className={styles.instrumentTilt} style={{ '--tilt': '-16deg' }}>
               <ClarinetSVG />
+              <BellNotes count={5} color="#e8706a" />
             </div>
-            <div className={styles.notesContainer} aria-hidden>
-              <FloatingNotes count={7} color="#5cb86b" />
-            </div>
+            <DocTyping text={CLARINET_TEXT} color="#e8706a" active={clarinetInView} />
           </div>
         </div>
 
-        {/* Cello — instrument on left */}
+        {/* Cello — instrument+doc left, text right */}
         <div className={`${styles.instrumentBand} ${styles.instrumentBandFlip} ${styles.revealR}`} ref={celloRef}>
           <div className={styles.instrumentText}>
             <span className={styles.sectionLabel}>Strings</span>
             <h2 className={styles.instrumentTitle}>Bow technique feedback<br />you can act on</h2>
             <p className={styles.instrumentBody}>
-              From bow pressure to phrasing shape — Mediant hears what your ear misses and tells you exactly what to adjust next session.
+              From bow pressure to phrasing shape — Mediant hears what your ear misses and tells you exactly what to change.
             </p>
-            <TypeBox lines={CELLO_LINES} accentColor="#d6b168" active={celloInView} />
           </div>
           <div className={`${styles.instrumentVisual} ${styles.revealL}`} style={{ '--d': '80ms' }}>
-            <div className={styles.instrumentSvgWrap}>
-              <div className={styles.instrumentGlow} style={{ '--glow-color': 'rgba(214,177,104,0.1)' }} />
+            <div className={styles.instrumentGlow} style={{ '--glow-color': 'rgba(157,133,217,0.1)' }} />
+            <div className={styles.instrumentTilt} style={{ '--tilt': '10deg' }}>
               <CelloSVG />
+              <BellNotes count={5} color="#9d85d9" fromBottom={false} />
             </div>
-            <div className={styles.notesContainer} aria-hidden>
-              <FloatingNotes count={6} color="#d6b168" />
-            </div>
+            <DocTyping text={CELLO_TEXT} color="#9d85d9" active={celloInView} />
           </div>
         </div>
 
-        {/* Piano — full width center */}
+        {/* Piano — center */}
         <div className={`${styles.pianoBand} ${styles.reveal}`} ref={pianoRef}>
           <div className={styles.pianoHead}>
             <span className={styles.sectionLabel}>Keyboard</span>
             <h2 className={styles.instrumentTitle}>Every voice, every hand,<br />every measure</h2>
-            <p className={styles.instrumentBody} style={{ maxWidth: 520, margin: '0 auto' }}>
-              Piano analysis tracks both hands independently — voicing balance, dynamic shaping, and rhythmic precision all at once.
+            <p className={styles.instrumentBody} style={{ maxWidth: 480, margin: '0 auto' }}>
+              Piano analysis tracks both hands independently — voicing balance, dynamic shaping, and rhythmic precision simultaneously.
             </p>
           </div>
           <div className={styles.pianoVisualWrap}>
             <div className={styles.pianoFadeLeft} />
             <div className={styles.pianoFadeRight} />
-            <div className={styles.notesContainer} aria-hidden>
-              <FloatingNotes count={10} color="#5cb86b" />
-            </div>
+            <BellNotes count={8} color="#5cb86b" />
             <PianoSVG />
           </div>
           <div className={styles.pianoBoxes}>
-            <TypeBox lines={PIANO_LINES_1} accentColor="#5cb86b"  active={pianoInView} />
-            <TypeBox lines={PIANO_LINES_2} accentColor="#d6b168" active={pianoInView} />
-            <TypeBox lines={PIANO_LINES_3} accentColor="#5cb86b"  active={pianoInView} />
+            <DocTyping text={PIANO_TEXT_1} color="#5cb86b"  active={pianoInView} delay={0} />
+            <DocTyping text={PIANO_TEXT_2} color="#d6b168"  active={pianoInView} delay={900} />
+            <DocTyping text={PIANO_TEXT_3} color="#5cb86b"  active={pianoInView} delay={1800} />
           </div>
         </div>
 
