@@ -20,8 +20,8 @@ const FEATURES = [
   {
     icon: CoachIcon,
     num: '02',
-    title: 'Feedback that sounds human',
-    body: 'Feedback reads like it came from a conservatory teacher — musical context, phrasing, and nuance. Not just correct vs. incorrect.',
+    title: 'Coaching, not just corrections',
+    body: 'Every note you play has context — the phrase it belongs to, the style it\'s drawn from, the habit behind it. Mediant addresses all three.',
   },
   {
     icon: ProgressIcon,
