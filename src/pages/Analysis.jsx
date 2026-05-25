@@ -183,6 +183,23 @@ export default function Analysis() {
   const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
     && Number(activeFlagRaw.timestamp_end) > Number(activeFlagRaw.timestamp_start)
 
+  const flagsMap = take?.flags?.length
+    ? Object.fromEntries(
+        take.flags.map((f, i) => [
+          `flag_${i}`,
+          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.detail ?? f.body ?? '', confidence: f.confidence ?? 100 },
+        ])
+      )
+    : {}
+
+  const chips = take?.flags?.length
+    ? take.flags.map((f, i) => ({
+        flag:       `flag_${i}`,
+        label:      `m.${f.measure} · ${capitalize(f.type)}`,
+        confidence: f.confidence ?? 100,
+      }))
+    : []
+
   // Auto-seek video to flag's timestamp when a flag is selected
   useEffect(() => {
     if (!activeFlagRaw) return
@@ -360,23 +377,6 @@ export default function Analysis() {
       setChatLoading(false)
     }
   }
-
-  const flagsMap = take?.flags?.length
-    ? Object.fromEntries(
-        take.flags.map((f, i) => [
-          `flag_${i}`,
-          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.detail ?? f.body ?? '', confidence: f.confidence ?? 100 },
-        ])
-      )
-    : {}
-
-  const chips = take?.flags?.length
-    ? take.flags.map((f, i) => ({
-        flag:       `flag_${i}`,
-        label:      `m.${f.measure} · ${capitalize(f.type)}`,
-        confidence: f.confidence ?? 100,
-      }))
-    : []
 
   const pieceTitle    = take?.piece_title    ?? ''
   const pieceComposer = take?.piece_composer ?? ''
