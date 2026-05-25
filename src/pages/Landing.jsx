@@ -37,18 +37,6 @@ const STEPS = [
   { num: '03', title: 'Get targeted feedback', body: 'Click any flagged measure for specific, actionable feedback.' },
 ]
 
-const STATS = [
-  { value: 200, suffix: '+', label: 'Sessions analyzed' },
-  { value: 50,    suffix: '+', label: 'Instruments supported' },
-  { value: 94,    suffix: '%', label: 'Satisfaction rate' },
-]
-
-const FEEDBACK_ITEMS = [
-  { measure: 'm.8',  type: 'Timing',   text: 'Rushing the pickup — let the phrase breathe before the downbeat.' },
-  { measure: 'm.13', type: 'Dynamics', text: 'Crescendo peaks two beats early. The climax should land on beat 3.' },
-  { measure: 'm.6',  type: 'Balance',  text: 'Left hand overpowers the melody. Aim for mp in the accompaniment.' },
-]
-
 /* ── Logo mark ── */
 function AnimatedLogo({ size = 28 }) {
   return (
@@ -81,83 +69,6 @@ function AnimatedWord({ word, visible, color }) {
         </span>
       ))}
     </>
-  )
-}
-
-/* ── Animated stat counter ── */
-function StatCard({ value, suffix, label, delay }) {
-  const [active, setActive] = useState(false)
-  const [count, setCount]   = useState(0)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setActive(true); obs.disconnect() }
-    }, { threshold: 0.4 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!active) return
-    const start = performance.now()
-    const dur   = 2200
-    function frame(now) {
-      const p    = Math.min((now - start) / dur, 1)
-      const ease = 1 - Math.pow(1 - p, 4)
-      setCount(Math.round(ease * value))
-      if (p < 1) requestAnimationFrame(frame)
-    }
-    requestAnimationFrame(frame)
-  }, [active, value])
-
-  return (
-    <div ref={ref} className={`${styles.statCard} ${styles.revealScale}`} style={{ '--d': delay }}>
-      <span className={styles.statValue}>{count.toLocaleString()}{suffix}</span>
-      <span className={styles.statLabel}>{label}</span>
-    </div>
-  )
-}
-
-/* ── Feedback preview card ── */
-function FeedbackPreview() {
-  return (
-    <div className={styles.feedCard}>
-      <div className={styles.feedHeader}>
-        <div>
-          <div className={styles.feedPiece}>Clair de Lune</div>
-          <div className={styles.feedMeta}>Debussy · Piano · Session #4</div>
-        </div>
-        <div className={styles.feedScore}>
-          <span className={styles.feedScoreNum}>78</span>
-          <span className={styles.feedScoreDen}>/100</span>
-        </div>
-      </div>
-
-      <div className={styles.feedProgress}>
-        <div className={styles.feedProgressLabels}>
-          <span>Measures analyzed</span>
-          <span>16 / 16</span>
-        </div>
-        <div className={styles.feedProgressTrack}>
-          <div className={styles.feedProgressFill} />
-        </div>
-      </div>
-
-      <div className={styles.feedItems}>
-        {FEEDBACK_ITEMS.map((item, i) => (
-          <div key={i} className={styles.feedItem} style={{ '--di': `${i * 140}ms` }}>
-            <div className={styles.feedItemMeta}>
-              <span className={styles.feedItemMeasure}>{item.measure}</span>
-              <span className={styles.feedItemType}>{item.type}</span>
-            </div>
-            <p className={styles.feedItemText}>{item.text}</p>
-          </div>
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -302,32 +213,6 @@ export default function Landing() {
         </div>
 
         <p className={styles.heroNote}>Free to start · No credit card · Any instrument</p>
-      </section>
-
-      {/* ── Stats ── */}
-      <section className={styles.statsSection}>
-        <div className={styles.statsGrid}>
-          {STATS.map((s, i) => (
-            <StatCard
-              key={s.label}
-              value={s.value}
-              suffix={s.suffix}
-              label={s.label}
-              delay={`${i * 130}ms`}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ── Feedback proof ── */}
-      <section className={styles.proofSection}>
-        <div className={`${styles.proofLabel} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>What it looks like</p>
-          <h2 className={styles.proofTitle}>Measure-level feedback,<br />like a professional teacher</h2>
-        </div>
-        <div className={`${styles.proofCardWrap} ${styles.revealScale}`} style={{ '--d': '80ms' }}>
-          <FeedbackPreview />
-        </div>
       </section>
 
       {/* ── Features ── */}
