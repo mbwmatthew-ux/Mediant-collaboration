@@ -7,6 +7,7 @@ import TunerModal from './Tuner'
 import MetronomeModal from './Metronome'
 import ErrorBoundary from './ErrorBoundary'
 import styles from './AppShell.module.css'
+import { playNav, playPop, playThud } from '../utils/sounds'
 
 const NOTIFICATIONS = []
 
@@ -68,6 +69,7 @@ export default function AppShell() {
   }
 
   function handleNavAction(action) {
+    playNav()
     if (action === 'tuner')      setShowTuner(true)
     if (action === 'metronome') setShowMetronome(true)
     if (action === 'account')   setPanel(p => p === 'account' ? null : 'account')
@@ -104,7 +106,7 @@ export default function AppShell() {
       {panel === 'account' && (
         <div className={styles.accountOverlay}>
           <div className={styles.accountHeader}>
-            <button className={styles.accountBackBtn} onClick={() => setPanel(null)}>
+            <button className={styles.accountBackBtn} onClick={() => { playThud(); setPanel(null) }}>
               <BackIcon /> Back
             </button>
           </div>
@@ -352,7 +354,7 @@ export default function AppShell() {
           {/* User profile */}
           <button
             className={styles.sidebarUser}
-            onClick={() => setPanel(p => p === 'account' ? null : 'account')}
+            onClick={() => { playNav(); setPanel(p => p === 'account' ? null : 'account') }}
           >
             <div className={styles.sidebarAvatar}>{initials}</div>
             <div className={styles.sidebarUserInfo}>
@@ -385,6 +387,7 @@ export default function AppShell() {
                     <NavLink
                       key={item.label}
                       to={item.to}
+                      onClick={playNav}
                       className={({ isActive }) =>
                         `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
                       }
@@ -420,6 +423,7 @@ export default function AppShell() {
           <NavLink
             key={to}
             to={to}
+            onClick={playNav}
             className={({ isActive }) =>
               `${styles.mobileNavItem} ${isActive ? styles.mobileNavItemActive : ''}`
             }

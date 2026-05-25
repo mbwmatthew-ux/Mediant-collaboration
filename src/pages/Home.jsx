@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTakes } from '../hooks/useTakes'
 import Onboarding from '../components/Onboarding'
 import styles from './Home.module.css'
+import { playPop, playTick } from '../utils/sounds'
 
 const FLAG_COLOR = {
   intonation: 'var(--coral)',
@@ -179,7 +180,7 @@ export default function Home() {
               )}
             </div>
             {lastTake && (
-              <button className={styles.heroCardAction} onClick={() => nav(`/analysis?takeId=${lastTake.id}`)}>
+              <button className={styles.heroCardAction} onClick={() => { playPop(); nav(`/analysis?takeId=${lastTake.id}`) }}>
                 View →
               </button>
             )}
@@ -214,7 +215,7 @@ export default function Home() {
             </>
           ) : (
             <div className={styles.heroEmpty}>
-              <button className={styles.heroUploadBtn} onClick={() => nav('/record')}>
+              <button className={styles.heroUploadBtn} onClick={() => { playPop(); nav('/record') }}>
                 + Upload a recording
               </button>
             </div>
@@ -296,7 +297,7 @@ export default function Home() {
               <span>Recent sessions</span>
             </div>
             {recentSessions.length > 0 && (
-              <button className={styles.viewAllBtn} onClick={() => nav('/takes')}>
+              <button className={styles.viewAllBtn} onClick={() => { playPop(); nav('/takes') }}>
                 VIEW ALL
               </button>
             )}
@@ -309,7 +310,7 @@ export default function Home() {
               <button
                 key={s.id || i}
                 className={styles.sessionRow}
-                onClick={() => nav(s.id ? `/analysis?takeId=${s.id}` : '/analysis')}
+                onClick={() => { playTick(); nav(s.id ? `/analysis?takeId=${s.id}` : '/analysis') }}
               >
                 <div className={styles.sessionIcon}>♩</div>
                 <div className={styles.sessionInfo}>
