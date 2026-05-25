@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -55,11 +56,7 @@ const STEPS = [
 const PAD = 6
 
 function findNavElement(label) {
-  const spans = document.querySelectorAll('aside span')
-  for (const span of spans) {
-    if (span.textContent?.trim() === label) return span.parentElement
-  }
-  return null
+  return document.querySelector(`[data-onboarding-label="${label}"]`) ?? null
 }
 
 export default function Onboarding({ onClose }) {
@@ -122,7 +119,7 @@ export default function Onboarding({ onClose }) {
     zIndex: 1002,
   }
 
-  return (
+  return createPortal(
     <>
       {/* inject pulse keyframe once */}
       <style>{`@keyframes ob-pulse{0%,100%{box-shadow:0 0 0 9999px rgba(10,12,14,.82),0 0 0 3px var(--accent)}50%{box-shadow:0 0 0 9999px rgba(10,12,14,.82),0 0 0 5px var(--accent),0 0 16px 4px rgba(88,121,101,.45)}}`}</style>
@@ -268,6 +265,7 @@ export default function Onboarding({ onClose }) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

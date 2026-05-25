@@ -377,6 +377,7 @@ export default function AppShell() {
                         key={item.label}
                         className={styles.navLinkBtn}
                         onClick={() => handleNavAction(item.action)}
+                        data-onboarding-label={item.label}
                       >
                         <item.icon />
                         <span>{item.label}</span>
@@ -391,6 +392,7 @@ export default function AppShell() {
                       className={({ isActive }) =>
                         `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
                       }
+                      data-onboarding-label={item.label}
                     >
                       <item.icon />
                       <span>{item.label}</span>
