@@ -57,16 +57,49 @@ function calcStreak(sessions) {
   return streak
 }
 
-function seededBars(seed, count = 52) {
-  let h = 0
-  const s = seed || 'mediant'
+function buildWaveformBars(flags = [], count = 52) {
+  const maxTs = flags.reduce((m, f) => Math.max(m, f.ts || 0), 0)
+  const duration = maxTs > 0 ? maxTs * 1.2 : 0
+
   const bars = []
   for (let i = 0; i < count; i++) {
-    const c = s.charCodeAt(i % s.length) || 72
-    h = ((h * 31 + c + i * 13) & 0x7fffffff)
-    bars.push(Math.max(8, (h % 55) + 8))
+    // stable pseudo-random height per bar index
+    let h = (i * 2654435761) & 0x7fffffff
+    h = (h ^ (h >> 16)) & 0x7fffffff
+    const height = Math.max(8, (h % 48) + 14)
+
+    let color   = 'var(--accent)'
+    let opacity = 0.55
+
+    if (duration > 0) {
+      const tStart = (i / count) * duration
+      const tEnd   = ((i + 1) / count) * duration
+      const windowFlags = flags.filter(f => (f.ts || 0) >= tStart && (f.ts || 0) < tEnd)
+
+      if (windowFlags.some(f => f.type === 'intonation')) {
+        color   = 'var(--coral)'
+        opacity = 1
+      } else if (windowFlags.some(f => ['rhythm', 'timing'].includes(f.type))) {
+        color   = 'var(--gold)'
+        opacity = 1
+      } else if (windowFlags.length > 0) {
+        color   = 'var(--gold)'
+        opacity = 0.85
+      } else {
+        opacity = 0.5
+      }
+    }
+
+    bars.push({ height, color, opacity })
   }
-  return bars
+  return { bars, duration }
+}
+
+function formatDuration(secs) {
+  if (!secs) return '—:——'
+  const m = Math.floor(secs / 60)
+  const s = Math.floor(secs % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export default function Home() {
@@ -82,7 +115,10 @@ export default function Home() {
 
   const lastTake  = recentSessions[0] ?? null
   const streak    = useMemo(() => calcStreak(recentSessions), [recentSessions])
-  const bars      = useMemo(() => seededBars(lastTake?.piece_title ?? ''), [lastTake?.piece_title])
+  const { bars, duration } = useMemo(
+    () => buildWaveformBars(lastTake?.flags ?? []),
+    [lastTake?.flags],
+  )
 
   const todayCount = useMemo(() => {
     const today = new Date()
@@ -147,23 +183,28 @@ export default function Home() {
           {lastTake ? (
             <>
               <div className={styles.waveformWrap}>
-                {bars.map((h, i) => (
+                {bars.map((bar, i) => (
                   <div
                     key={i}
                     className={styles.waveBar}
                     style={{
                       '--bi': i,
-                      height: `${h}px`,
-                      opacity: i < bars.length * 0.55 ? 0.85 : 0.35,
-                      background: i < bars.length * 0.55 ? 'var(--accent)' : 'var(--gold)',
+                      height: `${bar.height}px`,
+                      opacity: bar.opacity,
+                      background: bar.color,
                     }}
                   />
                 ))}
               </div>
               <div className={styles.waveFooter}>
                 <span>0:00</span>
-                {lastTake.bpm ? <span>TEMPO · {lastTake.bpm} BPM</span> : <span />}
-                <span>—:——</span>
+                {lastTake.bpm
+                  ? <span>TEMPO · {lastTake.bpm} BPM</span>
+                  : duration > 0
+                    ? <span className={styles.waveLegend}><span style={{color:'var(--coral)'}}>■</span> intonation &nbsp;<span style={{color:'var(--gold)'}}>■</span> rhythm &nbsp;<span style={{color:'var(--accent)'}}>■</span> clean</span>
+                    : <span />
+                }
+                <span>{formatDuration(duration)}</span>
               </div>
             </>
           ) : (
