@@ -229,7 +229,7 @@ export default function Landing() {
         <canvas ref={canvasRef} className={styles.waveCanvas} aria-hidden="true" />
 
         <div className={styles.heroLogoLarge}>
-          <AnimatedLogo size={88} />
+          <AnimatedLogo size={140} />
         </div>
 
         <h1 className={styles.heroHeading}>
