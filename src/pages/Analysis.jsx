@@ -255,6 +255,9 @@ export default function Analysis() {
     const p = (take?.score_path ?? '').toLowerCase()
     return /\.(jpe?g|png|webp|heic|pdf)$/.test(p)
   })()
+  const scorePathLower = (take?.score_path ?? '').toLowerCase()
+  const isPdfScore = isVisualScore && scorePathLower.endsWith('.pdf')
+  const isImageScore = isVisualScore && !isPdfScore
 
   // Render score once take is resolved (only for MusicXML files)
   useEffect(() => {
@@ -500,12 +503,12 @@ export default function Analysis() {
 
   // ── Score area JSX (shared between columns) ──────────────────
   const scoreAreaContent = (
-    <div className={styles.scoreArea}>
+    <div className={`${styles.scoreArea} ${isImageScore ? styles.scoreAreaImage : ''}`}>
       {isVisualScore && scoreUrl && (
-        (take?.score_path ?? '').toLowerCase().endsWith('.pdf') ? (
+        isPdfScore ? (
           <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
         ) : (
-          <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+          <div className={styles.scorePhotoWrap}>
             <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" />
             {(take?.flags ?? []).map((f, i) => {
               if (!f.spot) return null
