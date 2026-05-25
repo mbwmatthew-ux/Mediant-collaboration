@@ -99,15 +99,19 @@ export default function Onboarding({ onClose }) {
     onClose()
   }
 
-  // Card position: to the right of the highlighted element, or centred
+  // Card position: centred in the main content area, vertically on the nav item
+  const CARD_W    = 300
+  const CARD_H    = 240
+  const TOP_BAR_H = 52
+
   const cardStyle = rect ? {
     position: 'fixed',
-    left: rect.right + 18,
+    left: Math.min(rect.right + 18, window.innerWidth - CARD_W - 12),
     top: Math.min(
-      Math.max(16, rect.top + rect.height / 2 - 130),
-      window.innerHeight - 340,
+      Math.max(TOP_BAR_H + 8, rect.top + rect.height / 2 - CARD_H / 2),
+      window.innerHeight - CARD_H - 12,
     ),
-    width: 300,
+    width: CARD_W,
     zIndex: 1002,
   } : {
     position: 'fixed',
