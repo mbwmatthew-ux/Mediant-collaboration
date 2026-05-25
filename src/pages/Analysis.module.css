@@ -1,3 +1,26 @@
+/* ── Two-column review layout ──────────────────────────────── */
+.reviewLayout {
+  align-items: start;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: 1.15fr 1fr;
+}
+
+.scoreColumn {
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  position: sticky;
+  scrollbar-width: none;
+  top: 32px;
+}
+.scoreColumn::-webkit-scrollbar { display: none; }
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 /* ── Issue section (replaces chip strip) ───────────────────── */
 .issueSection {
   display: flex;
@@ -31,7 +54,7 @@
 .issueGrid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .issueCard {
@@ -266,7 +289,7 @@
   white-space: nowrap;
 }
 
-/* ── Summary section ───────────────────────────────────────── */
+/* ── AI Summary section ────────────────────────────────────── */
 .summarySection {
   border-top: 1px solid var(--line);
   display: flex;
@@ -275,112 +298,133 @@
   padding-top: 28px;
 }
 
-.summaryOverview {
-  background: var(--surface-subtle);
-  border-left: 3px solid rgba(88,121,101,0.5);
-  border-radius: 0 8px 8px 0;
-  padding: 16px 20px;
+.summaryHeadline {
+  color: var(--text);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  margin: 0;
 }
 
-.summaryOverviewText {
+.summaryOverview {
   color: var(--text-soft);
-  font-size: 0.92rem;
+  font-size: 0.93rem;
   line-height: 1.8;
   margin: 0;
 }
 
-.summaryGroups {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.summaryGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.summaryGroupHeader {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  gap: 10px;
-  padding-bottom: 12px;
-}
-
-.summaryGroupIcon {
-  align-items: center;
-  border-radius: 6px;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 0.8rem;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
-}
-
-.summaryGroupType {
-  color: var(--text);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.summaryGroupCount {
-  color: var(--text-faintest);
-  font-size: 0.76rem;
-  margin-left: auto;
-}
-
-.summaryItems {
-  display: flex;
-  flex-direction: column;
-}
-
-.summaryItem {
-  border-bottom: 1px solid var(--surface-hover);
+.summaryColumns {
   display: grid;
-  gap: 0 16px;
-  grid-template-columns: 44px 1fr;
-  grid-template-rows: auto auto;
-  padding: 16px 0;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
 }
-.summaryItem:last-child { border-bottom: 0; }
 
-.summaryItemMeasure {
-  color: var(--text-faint);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
+.summaryCard {
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.summaryCardStrengths {
+  background: rgba(88,121,101,0.07);
+  border: 1px solid rgba(88,121,101,0.2);
+}
+
+.summaryCardImprovements {
+  background: rgba(214,177,104,0.06);
+  border: 1px solid rgba(214,177,104,0.18);
+}
+
+.summaryCardTitle {
+  align-items: center;
+  display: flex;
+  font-size: 0.7rem;
   font-weight: 600;
-  grid-column: 1;
-  grid-row: 1;
-  padding-top: 2px;
+  gap: 7px;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.summaryItemTitle {
-  color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 500;
-  grid-column: 2;
-  grid-row: 1;
-  line-height: 1.4;
+.summaryCardTitleStrengths { color: #8fbe9f; }
+.summaryCardTitleImprovements { color: var(--gold); }
+
+.summaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.summaryItemDetail {
+.summaryListItem {
   color: var(--text-soft);
-  font-size: 0.86rem;
-  grid-column: 2;
-  grid-row: 2;
-  line-height: 1.75;
-  margin: 8px 0 0;
+  font-size: 0.87rem;
+  line-height: 1.65;
+  padding-left: 0;
 }
+
+.summaryImprovementArea {
+  color: var(--text);
+  display: block;
+  font-size: 0.79rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+/* Loading skeleton */
+.summaryLoading {
+  align-items: center;
+  color: var(--text-faintest);
+  display: flex;
+  font-size: 0.84rem;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.summaryLoadingDot {
+  animation: pulse 1.4s ease-in-out infinite;
+  background: var(--hero-green);
+  border-radius: 50%;
+  height: 6px;
+  opacity: 0.5;
+  width: 6px;
+}
+.summaryLoadingDot:nth-child(2) { animation-delay: 0.2s; }
+.summaryLoadingDot:nth-child(3) { animation-delay: 0.4s; }
+
+.summaryError {
+  color: var(--text-faint);
+  font-size: 0.84rem;
+}
+
+.summaryRetryBtn {
+  background: none;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-left: 10px;
+  padding: 4px 12px;
+  transition: background 140ms ease, color 140ms ease;
+}
+.summaryRetryBtn:hover { background: var(--surface-hover); color: var(--text); }
 
 /* ── Responsive ───────────────────────────────────────────── */
-@media (max-width: 900px) {
-  .issueGrid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1024px) {
+  .reviewLayout { grid-template-columns: 1fr; }
+  .scoreColumn  { max-height: none; position: static; }
 }
 
-@media (max-width: 600px) {
-  .issueGrid { grid-template-columns: 1fr; }
-  .summaryItem { grid-template-columns: 36px 1fr; }
+@media (max-width: 700px) {
+  .issueGrid       { grid-template-columns: 1fr; }
+  .summaryColumns  { grid-template-columns: 1fr; }
 }

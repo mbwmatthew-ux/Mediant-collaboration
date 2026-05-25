@@ -75,8 +75,13 @@ export default function Analysis() {
   const [activeFlag, setActiveFlag]   = useState(null)
   const [isLooping, setIsLooping]     = useState(false)
   const [scoreReady, setScoreReady]   = useState(false)
-  const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
+  const [highlights, setHighlights]   = useState([])
   const [videoSpeed, setVideoSpeed]   = useState(1)
+
+  // AI summary state
+  const [summary, setSummary]             = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError]   = useState(null)
 
   // Keyboard shortcut state ref — always current without re-registering the listener
   const kbRef = useRef({})
@@ -359,6 +364,38 @@ export default function Analysis() {
     return () => document.removeEventListener('keydown', onKey)
   }, [startLoop, stopLoop])
 
+  async function generateSummary() {
+    if (!take?.flags?.length) return
+    setSummaryLoading(true)
+    setSummaryError(null)
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('analysis-summary', {
+        body: {
+          pieceTitle:    take.piece_title    ?? '',
+          pieceComposer: take.piece_composer ?? '',
+          instrument:    take.instrument     ?? null,
+          score:         take.score          ?? null,
+          flags:         take.flags,
+        },
+      })
+      if (fnErr) throw new Error(fnErr.message ?? String(fnErr))
+      if (data?.error) throw new Error(data.error)
+      setSummary(data.summary)
+    } catch {
+      setSummaryError('Could not generate summary. Try again.')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  // Auto-generate summary once when the take finishes loading
+  useEffect(() => {
+    if (take && take.flags?.length && !take._polling) {
+      generateSummary()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [take?.id])
+
   async function sendMessage() {
     const msg = chatInput.trim()
     if (!msg || chatLoading) return
@@ -416,16 +453,6 @@ export default function Analysis() {
     })
   }, [chips, take?.flags])
 
-  // Flags grouped by type for the summary section
-  const groupedByType = useMemo(() => {
-    const groups = {}
-    take?.flags?.forEach(f => {
-      const t = f.type ?? 'general'
-      if (!groups[t]) groups[t] = []
-      groups[t].push(f)
-    })
-    return groups
-  }, [take?.flags])
 
   if (take === undefined) {
     return (
@@ -467,6 +494,65 @@ export default function Analysis() {
       </div>
     )
   }
+
+  // ── Score area JSX (shared between columns) ──────────────────
+  const scoreAreaContent = (
+    <div className={styles.scoreArea}>
+      {isVisualScore && scoreUrl && (
+        (take?.score_path ?? '').toLowerCase().endsWith('.pdf') ? (
+          <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
+        ) : (
+          <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" />
+            {(take?.flags ?? []).map((f, i) => {
+              if (!f.spot) return null
+              const flagId = `flag_${i}`
+              if (activeFlag !== flagId) return null
+              const [y0, x0, y1, x1] = f.spot
+              const angle = f.spot_angle ?? 0
+              const cx = (x0 + x1) / 2 / 10, cy = (y0 + y1) / 2 / 10
+              const w = (x1 - x0) / 10, h = (y1 - y0) / 10
+              return (
+                <div key={flagId} onClick={() => setActiveFlag(a => a === flagId ? null : flagId)}
+                  style={{
+                    position: 'absolute', left: `${cx}%`, top: `${cy}%`,
+                    width: `${w}%`, height: `${h}%`,
+                    transform: `translate(-50%, -50%) rotate(${angle}deg)`,
+                    transformOrigin: 'center center',
+                    background: 'rgba(88,121,101,0.3)', borderRadius: 3,
+                    cursor: 'pointer', transition: 'background 150ms ease',
+                  }}
+                />
+              )
+            })}
+          </div>
+        )
+      )}
+      {!isVisualScore && (
+        <>
+          {!hasScore && scoreReady && (
+            <div className={styles.scoreUnavailable}>
+              <p>Score not available for <em>{pieceTitle}</em> yet.</p>
+              <p>Feedback is based on the performance analysis.</p>
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
+            <div ref={scoreEl} />
+            {scoreReady && highlights.map(({ flagId, x, y, w, h }) => (
+              <div key={flagId} onClick={() => setActiveFlag(f => f === flagId ? null : flagId)}
+                style={{
+                  position: 'absolute', left: x, top: y, width: w, height: h,
+                  background: activeFlag === flagId ? 'rgba(88,121,101,0.22)' : 'rgba(88,121,101,0.08)',
+                  border: `1.5px solid rgba(88,121,101,${activeFlag === flagId ? '0.55' : '0.28'})`,
+                  borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 
   return (
     <div className={styles.page}>
@@ -519,174 +605,197 @@ export default function Analysis() {
         </div>
       )}
 
-      {/* ── Issue grid ── */}
-      <section className={aStyles.issueSection}>
-        <div className={aStyles.issueSectionHeader}>
-          <p className={styles.label}>
-            {issueCount > 0
-              ? `${issueCount} Issue${issueCount !== 1 ? 's' : ''} Found`
-              : 'Issues'}
-          </p>
-          {issueCount > 0 && (
-            <span className={aStyles.issueSortHint}>Sorted by measure · click to review</span>
-          )}
+      {/* ── Two-column: score left (sticky) + issues right ── */}
+      <div className={aStyles.reviewLayout}>
+
+        {/* Left: sheet music — sticky so it stays in view while scrolling right column */}
+        <div className={aStyles.scoreColumn}>
+          {scoreAreaContent}
         </div>
 
-        {issueCount === 0 ? (
-          <div className={aStyles.issueClean}>✓ Clean performance — no issues detected.</div>
-        ) : (
-          <div className={aStyles.issueGrid}>
-            {sortedChips.map(({ flag, confidence }) => {
-              const idx  = parseInt(flag.replace('flag_', ''), 10)
-              const f    = take.flags[idx]
-              const meta = flagTypeMeta(f?.type)
-              const confColor = confidence >= 90 ? 'var(--hero-green)' : confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.2)'
-              return (
-                <button
-                  key={flag}
-                  className={`${aStyles.issueCard} ${activeFlag === flag ? aStyles.issueCardActive : ''}`}
-                  onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
-                >
-                  <div className={aStyles.issueCardTop}>
-                    <span className={`${aStyles.issueTypeIcon} ${aStyles[meta.cls]}`}>{meta.icon}</span>
-                    <span className={aStyles.issueMeasureNum}>m.{f?.measure}</span>
-                    <span className={aStyles.issueConfDot} style={{ background: confColor }} />
-                  </div>
-                  <span className={aStyles.issueCardType}>{capitalize(f?.type)}</span>
-                  <span className={aStyles.issueCardTitle}>{f?.title}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+        {/* Right: issues, detail panel, video */}
+        <div className={aStyles.rightColumn}>
 
-        {/* Inline detail panel — shown below grid when a card is selected */}
-        {info && (
-          <div className={aStyles.issueDetailPanel}>
-            <div className={aStyles.issueDetailTop}>
-              <span className={`${aStyles.issueDetailBadge} ${aStyles[flagTypeMeta(activeFlagRaw?.type).cls]}`}>
-                {flagTypeMeta(activeFlagRaw?.type).icon}
-              </span>
-              <span className={aStyles.issueDetailMeasure}>m.{activeFlagRaw?.measure}</span>
-              <span className={aStyles.issueDetailType}>{capitalize(activeFlagRaw?.type)}</span>
-              {info.confidence != null && (
-                <span className={aStyles.issueDetailConf} style={{
-                  color: info.confidence >= 90 ? 'var(--hero-green)' : info.confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.4)',
-                }}>
-                  {info.confidence >= 90 ? '● high' : info.confidence >= 75 ? '◑ medium' : '○ lower'} confidence
-                </span>
-              )}
-              <button className={aStyles.issueDetailDismiss} onClick={() => setActiveFlag(null)}>✕</button>
-            </div>
-            <div className={aStyles.issueDetailBody}>
-              <h3 className={aStyles.issueDetailTitle}>{info.title}</h3>
-              <p className={aStyles.issueDetailText}>{info.body}</p>
-              {videoUrl && hasTimestamps && (
-                <div className={aStyles.issueDetailActions}>
-                  {!isLooping ? (
-                    <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
-                      ▶ Loop m.{activeFlagRaw.measure}
-                    </button>
-                  ) : (
-                    <button className={aStyles.loopStopBtn} onClick={stopLoop}>
-                      ■ Stop loop
-                    </button>
-                  )}
-                  <span className={aStyles.excerptTime}>
-                    {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
-                  </span>
-                </div>
+          {/* Issue grid */}
+          <section className={aStyles.issueSection}>
+            <div className={aStyles.issueSectionHeader}>
+              <p className={styles.label}>
+                {issueCount > 0 ? `${issueCount} Issue${issueCount !== 1 ? 's' : ''} Found` : 'Issues'}
+              </p>
+              {issueCount > 0 && (
+                <span className={aStyles.issueSortHint}>Sorted by measure · click to review</span>
               )}
             </div>
-          </div>
-        )}
-      </section>
 
-      {/* ── Video player ── */}
-      {videoUrl && (
-        <div className={styles.videoBar}>
-          <span className={styles.videoBarLabel}>Recording</span>
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            className={styles.videoBarPlayer}
-            controls
-            playsInline
-            preload="metadata"
-          />
-          <div className={styles.videoControls}>
-            <span className={styles.videoControlsLabel}>Speed</span>
-            <div className={styles.speedBtns}>
-              {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
-                <button
-                  key={s}
-                  className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
-                  onClick={() => setVideoSpeed(s)}
-                >{s}×</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Sheet music score ── */}
-      {(isVisualScore || !isVisualScore) && (
-        <div className={styles.scoreArea}>
-          {isVisualScore && scoreUrl && (
-            (take?.score_path ?? '').toLowerCase().endsWith('.pdf') ? (
-              <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
+            {issueCount === 0 ? (
+              <div className={aStyles.issueClean}>✓ Clean performance — no issues detected.</div>
             ) : (
-              <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" />
-                {(take?.flags ?? []).map((f, i) => {
-                  if (!f.spot) return null
-                  const flagId = `flag_${i}`
-                  if (activeFlag !== flagId) return null
-                  const [y0, x0, y1, x1] = f.spot
-                  const angle = f.spot_angle ?? 0
-                  const cx = (x0 + x1) / 2 / 10, cy = (y0 + y1) / 2 / 10
-                  const w = (x1 - x0) / 10,       h  = (y1 - y0) / 10
+              <div className={aStyles.issueGrid}>
+                {sortedChips.map(({ flag, confidence }) => {
+                  const idx  = parseInt(flag.replace('flag_', ''), 10)
+                  const f    = take.flags[idx]
+                  const meta = flagTypeMeta(f?.type)
+                  const confColor = confidence >= 90 ? 'var(--hero-green)' : confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.2)'
                   return (
-                    <div key={flagId} onClick={() => setActiveFlag(a => a === flagId ? null : flagId)}
-                      style={{
-                        position: 'absolute', left: `${cx}%`, top: `${cy}%`,
-                        width: `${w}%`, height: `${h}%`,
-                        transform: `translate(-50%, -50%) rotate(${angle}deg)`,
-                        transformOrigin: 'center center',
-                        background: 'rgba(88,121,101,0.28)', borderRadius: 3,
-                        cursor: 'pointer', transition: 'background 150ms ease',
-                      }}
-                    />
+                    <button
+                      key={flag}
+                      className={`${aStyles.issueCard} ${activeFlag === flag ? aStyles.issueCardActive : ''}`}
+                      onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
+                    >
+                      <div className={aStyles.issueCardTop}>
+                        <span className={`${aStyles.issueTypeIcon} ${aStyles[meta.cls]}`}>{meta.icon}</span>
+                        <span className={aStyles.issueMeasureNum}>m.{f?.measure}</span>
+                        <span className={aStyles.issueConfDot} style={{ background: confColor }} />
+                      </div>
+                      <span className={aStyles.issueCardType}>{capitalize(f?.type)}</span>
+                      <span className={aStyles.issueCardTitle}>{f?.title}</span>
+                    </button>
                   )
                 })}
               </div>
-            )
-          )}
-          {!isVisualScore && (
-            <>
-              {!hasScore && scoreReady && (
-                <div className={styles.scoreUnavailable}>
-                  <p>Score not available for <em>{pieceTitle}</em> yet.</p>
-                  <p>Feedback above is based on the performance analysis.</p>
+            )}
+
+            {/* Detail panel — expands below grid when a card is selected */}
+            {info && (
+              <div className={aStyles.issueDetailPanel}>
+                <div className={aStyles.issueDetailTop}>
+                  <span className={`${aStyles.issueDetailBadge} ${aStyles[flagTypeMeta(activeFlagRaw?.type).cls]}`}>
+                    {flagTypeMeta(activeFlagRaw?.type).icon}
+                  </span>
+                  <span className={aStyles.issueDetailMeasure}>m.{activeFlagRaw?.measure}</span>
+                  <span className={aStyles.issueDetailType}>{capitalize(activeFlagRaw?.type)}</span>
+                  {info.confidence != null && (
+                    <span className={aStyles.issueDetailConf} style={{
+                      color: info.confidence >= 90 ? 'var(--hero-green)' : info.confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.4)',
+                    }}>
+                      {info.confidence >= 90 ? '● high' : info.confidence >= 75 ? '◑ medium' : '○ lower'} confidence
+                    </span>
+                  )}
+                  <button className={aStyles.issueDetailDismiss} onClick={() => setActiveFlag(null)}>✕</button>
                 </div>
-              )}
-              <div style={{ position: 'relative' }}>
-                <div ref={scoreEl} />
-                {scoreReady && highlights.map(({ flagId, x, y, w, h }) => (
-                  <div key={flagId} onClick={() => setActiveFlag(f => f === flagId ? null : flagId)}
-                    style={{
-                      position: 'absolute', left: x, top: y, width: w, height: h,
-                      background: activeFlag === flagId ? 'rgba(88,121,101,0.2)' : 'rgba(88,121,101,0.08)',
-                      border: `1.5px solid rgba(88,121,101,${activeFlag === flagId ? '0.55' : '0.3'})`,
-                      borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
-                    }}
-                  />
-                ))}
+                <div className={aStyles.issueDetailBody}>
+                  <h3 className={aStyles.issueDetailTitle}>{info.title}</h3>
+                  <p className={aStyles.issueDetailText}>{info.body}</p>
+                  {videoUrl && hasTimestamps && (
+                    <div className={aStyles.issueDetailActions}>
+                      {!isLooping ? (
+                        <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                          ▶ Loop m.{activeFlagRaw.measure}
+                        </button>
+                      ) : (
+                        <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
+                      )}
+                      <span className={aStyles.excerptTime}>
+                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </>
+            )}
+          </section>
+
+          {/* Video player */}
+          {videoUrl && (
+            <div className={styles.videoBar}>
+              <span className={styles.videoBarLabel}>Recording</span>
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className={styles.videoBarPlayer}
+                controls
+                playsInline
+                preload="metadata"
+              />
+              <div className={styles.videoControls}>
+                <span className={styles.videoControlsLabel}>Speed</span>
+                <div className={styles.speedBtns}>
+                  {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
+                    <button
+                      key={s}
+                      className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
+                      onClick={() => setVideoSpeed(s)}
+                    >{s}×</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* ── AI-generated summary (full-width, below two-column) ── */}
+      <section className={aStyles.summarySection}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p className={styles.label}>Session Summary</p>
+          {summary && !summaryLoading && (
+            <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
           )}
         </div>
-      )}
+
+        {summaryLoading && (
+          <div className={aStyles.summaryLoading}>
+            <span className={aStyles.summaryLoadingDot} />
+            <span className={aStyles.summaryLoadingDot} />
+            <span className={aStyles.summaryLoadingDot} />
+            <span style={{ marginLeft: 6 }}>Generating your session summary…</span>
+          </div>
+        )}
+
+        {summaryError && !summaryLoading && (
+          <p className={aStyles.summaryError}>
+            {summaryError}
+            <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
+          </p>
+        )}
+
+        {summary && !summaryLoading && (
+          <>
+            {summary.headline && (
+              <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
+            )}
+            {summary.overview && (
+              <p className={aStyles.summaryOverview}>{summary.overview}</p>
+            )}
+            <div className={aStyles.summaryColumns}>
+              {summary.strengths?.length > 0 && (
+                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardStrengths}`}>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>
+                    ✓ Strengths
+                  </p>
+                  <ul className={aStyles.summaryList}>
+                    {summary.strengths.map((s, i) => (
+                      <li key={i} className={aStyles.summaryListItem}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {summary.improvements?.length > 0 && (
+                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardImprovements}`}>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>
+                    → Areas to work on
+                  </p>
+                  <ul className={aStyles.summaryList}>
+                    {summary.improvements.map((item, i) => (
+                      <li key={i} className={aStyles.summaryListItem}>
+                        {item.area && <span className={aStyles.summaryImprovementArea}>{item.area}</span>}
+                        {item.guidance ?? item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
+          <p className={aStyles.summaryOverview} style={{ color: 'var(--hero-green)' }}>
+            No issues were flagged — great performance.
+          </p>
+        )}
+      </section>
 
       {/* ── Ask Mediant chat ── */}
       <section className={aStyles.chatSection}>
@@ -737,51 +846,6 @@ export default function Analysis() {
           >↑</button>
         </div>
       </section>
-
-      {/* ── Performance summary ── */}
-      {take?.flags?.length > 0 && (
-        <section className={aStyles.summarySection}>
-          <p className={styles.label}>Performance Summary</p>
-
-          <div className={aStyles.summaryOverview}>
-            <p className={aStyles.summaryOverviewText}>
-              {issueCount} issue{issueCount !== 1 ? 's' : ''} {issueCount === 1 ? 'was' : 'were'} identified
-              {pieceTitle ? ` in your performance of ${pieceTitle}` : ''}.
-              {score != null ? ` Your overall score was ${score}/100.` : ''}
-              {' '}The areas requiring attention are{' '}
-              {Object.keys(groupedByType).map(t => capitalize(t)).join(', ')}.
-            </p>
-          </div>
-
-          <div className={aStyles.summaryGroups}>
-            {Object.entries(groupedByType).map(([type, flags]) => {
-              const meta = flagTypeMeta(type)
-              return (
-                <div key={type} className={aStyles.summaryGroup}>
-                  <div className={aStyles.summaryGroupHeader}>
-                    <span className={`${aStyles.summaryGroupIcon} ${aStyles[meta.cls]}`}>{meta.icon}</span>
-                    <span className={aStyles.summaryGroupType}>{capitalize(type)}</span>
-                    <span className={aStyles.summaryGroupCount}>
-                      {flags.length} issue{flags.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className={aStyles.summaryItems}>
-                    {flags.map((f, i) => (
-                      <div key={i} className={aStyles.summaryItem}>
-                        <span className={aStyles.summaryItemMeasure}>m.{f.measure}</span>
-                        <span className={aStyles.summaryItemTitle}>{f.title}</span>
-                        {(f.detail ?? f.body) && (
-                          <p className={aStyles.summaryItemDetail}>{f.detail ?? f.body}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
     </div>
