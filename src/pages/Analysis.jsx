@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
@@ -69,14 +69,8 @@ export default function Analysis() {
   const videoRef    = useRef(null)
   const loopRef     = useRef(null)
 
-  // Score panel refs
-  const scoreColRef        = useRef(null)  // the absolutely-positioned panel
-  const scoreInnerRef      = useRef(null)  // inner wrapper that gets translateY'd
-  const scoreAreaRef       = useRef(null)  // the white score card — JS sets minHeight directly
-  const scoreColumnWrapRef = useRef(null)  // position:relative container (the grid cell)
-  const rightColumnRef     = useRef(null)  // in-flow column that defines the travel corridor
-  const summaryRef         = useRef(null)  // bottom boundary
-  const reviewLayoutRef    = useRef(null)  // two-column grid (for pan progress)
+  // Summary marks the bottom boundary after the two-column review area.
+  const summaryRef = useRef(null)
 
   const [take, setTake]               = useState(undefined)
   const [scoreUrl, setScoreUrl]       = useState(null)
@@ -144,7 +138,7 @@ export default function Analysis() {
   }, [takeId])
 
   // Generate signed URL for uploaded score (if stored in Supabase)
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!take?.score_path) return
     supabase.storage
       .from('sheet-music')
@@ -341,130 +335,6 @@ export default function Analysis() {
     if (videoRef.current) videoRef.current.playbackRate = videoSpeed
   }, [videoSpeed])
 
-  // Scroll-driven score panel.
-  //
-  // WHY NOT position:sticky — .main has overflow-x:hidden which per CSS spec forces
-  // computed overflow-y to auto, making .main a scroll container. sticky is then
-  // relative to .main, but .main never scrolls (min-height grows with content), so
-  // sticky never activates. position:fixed is broken by the translateY transform on
-  // .pageIn (animation-fill-mode:both keeps it applied). position:absolute inside a
-  // position:relative wrap bypasses both issues.
-  //
-  // The JS scroll listener on window fires correctly (the viewport scrolls, not .main).
-  // On each event we compute how far to offset the panel from the wrap top so it stays
-  // pinned at TOP px from the viewport, bounded by the right column's in-flow height.
-  // Important: do not derive wrapper height from the summary position. The wrapper
-  // itself affects where the summary lands, so that creates a subtle feedback loop.
-  useEffect(() => {
-    const col   = scoreColRef.current
-    const inner = scoreInnerRef.current
-    if (!col || !inner) return
-
-    const TOP        = 16
-    const BOTTOM_GAP = 16
-    let rafId = 0
-
-    function update() {
-      const wrap    = scoreColumnWrapRef.current
-      const right   = rightColumnRef.current
-      const summary = summaryRef.current
-      const area    = scoreAreaRef.current
-      if (!wrap || !right || !summary) return
-
-      // Single-column layout on mobile — clear all JS styles
-      if (window.innerWidth <= 1024) {
-        col.style.cssText = ''
-        inner.style.cssText = ''
-        wrap.style.minHeight = ''
-        if (area) {
-          area.style.minHeight = ''
-          area.style.boxSizing = ''
-        }
-        return
-      }
-
-      const wrapRect  = wrap.getBoundingClientRect()
-      const rightRect = right.getBoundingClientRect()
-
-      // Absolute children do not contribute to parent height, so the left wrapper
-      // needs an explicit height. The right column is the stable, in-flow content
-      // being reviewed; that is the corridor the score should follow.
-      const travelH = Math.max(80, right.scrollHeight, rightRect.height)
-      wrap.style.minHeight = `${travelH}px`
-
-      // Keep the panel viewport-sized for as long as possible. The previous version
-      // used the bottom boundary's viewport position directly, which caused the panel
-      // to shrink too early as the user scrolled. Instead: first clamp the panel's top
-      // within the travel corridor, then compute how much height remains below it.
-      const viewportH = Math.max(80, window.innerHeight - TOP - BOTTOM_GAP)
-
-      // Offset within wrap to keep panel at TOP px from viewport top.
-      // It stops once a full viewport-sized panel would hit the bottom boundary.
-      const desiredOffset = Math.max(0, TOP - wrapRect.top)
-      const maxOffset     = Math.max(0, travelH - viewportH)
-      const topOffset     = Math.min(desiredOffset, maxOffset)
-      const visibleH      = Math.max(80, Math.min(viewportH, travelH - topOffset))
-
-      col.style.top    = `${topOffset}px`
-      col.style.height = `${visibleH}px`
-
-      // Fill the card directly (CSS min-height:100% chain is unreliable here)
-      if (area) {
-        area.style.minHeight = `${visibleH}px`
-        area.style.boxSizing = 'border-box'
-      }
-
-      // Pan tall scores (OSMD etc) within the fixed-height panel
-      const contentH = inner.scrollHeight
-      const overflow  = Math.max(0, contentH - visibleH)
-      if (overflow > 0) {
-        const progress = maxOffset > 0 ? Math.min(1, desiredOffset / maxOffset) : 0
-        inner.style.transform = `translateY(-${overflow * progress}px)`
-      } else {
-        inner.style.transform = 'translateY(0)'
-      }
-    }
-
-    function scheduleUpdate() {
-      if (rafId) return
-      rafId = requestAnimationFrame(() => {
-        rafId = 0
-        update()
-      })
-    }
-
-    window.addEventListener('scroll', scheduleUpdate, { passive: true })
-    window.addEventListener('resize', scheduleUpdate, { passive: true })
-
-    const scrollParents = []
-    let node = col.parentElement
-    while (node && node !== document.body) {
-      const style = window.getComputedStyle(node)
-      if (/(auto|scroll|overlay)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) {
-        scrollParents.push(node)
-        node.addEventListener('scroll', scheduleUpdate, { passive: true })
-      }
-      node = node.parentElement
-    }
-
-    const ro = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(scheduleUpdate)
-      : null
-    if (scoreColumnWrapRef.current) ro?.observe(scoreColumnWrapRef.current)
-    if (rightColumnRef.current) ro?.observe(rightColumnRef.current)
-    ro?.observe(inner)
-    if (summaryRef.current) ro?.observe(summaryRef.current)
-
-    update()
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId)
-      window.removeEventListener('scroll', scheduleUpdate)
-      window.removeEventListener('resize', scheduleUpdate)
-      scrollParents.forEach(parent => parent.removeEventListener('scroll', scheduleUpdate))
-      ro?.disconnect()
-    }
-  }, [scoreReady])
-
   // Keep keyboard shortcut ref current on every render
   kbRef.current = { activeFlagIndex, activeFlagRaw, chips, hasTimestamps, isLooping }
 
@@ -630,7 +500,7 @@ export default function Analysis() {
 
   // ── Score area JSX (shared between columns) ──────────────────
   const scoreAreaContent = (
-    <div className={styles.scoreArea} ref={scoreAreaRef}>
+    <div className={styles.scoreArea}>
       {isVisualScore && scoreUrl && (
         (take?.score_path ?? '').toLowerCase().endsWith('.pdf') ? (
           <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
@@ -739,19 +609,19 @@ export default function Analysis() {
       )}
 
       {/* ── Two-column: score left (sticky) + issues right ── */}
-      <div className={aStyles.reviewLayout} ref={reviewLayoutRef}>
+      <div className={aStyles.reviewLayout}>
 
-        {/* Left: position:relative wrap; panel is position:absolute inside, JS drives top/height */}
-        <div className={aStyles.scoreColumnWrap} ref={scoreColumnWrapRef}>
-          <div className={aStyles.scoreColumn} ref={scoreColRef}>
-            <div className={aStyles.scoreInner} ref={scoreInnerRef}>
+        {/* Left: native sticky panel bounded by the two-column review layout */}
+        <div className={aStyles.scoreColumnWrap}>
+          <div className={aStyles.scoreColumn}>
+            <div className={aStyles.scoreInner}>
               {scoreAreaContent}
             </div>
           </div>
         </div>
 
         {/* Right: issues, detail panel, video */}
-        <div className={aStyles.rightColumn} ref={rightColumnRef}>
+        <div className={aStyles.rightColumn}>
 
           {/* Issue grid */}
           <section className={aStyles.issueSection}>
