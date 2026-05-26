@@ -147,29 +147,33 @@ function PianoShowcase() {
           </defs>
 
           <g className={styles.pianoDraw} stroke="url(#pianoLine)" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M142 184 L156 123 Q162 95 194 86 L719 86 Q769 88 798 124 L872 216 Q903 255 863 295 L759 398 Q713 444 641 448 L223 448 Q172 445 151 406 L101 318 Q80 280 106 245 Z" />
-            <path d="M154 184 L720 184 Q790 188 854 238" />
-            <path d="M185 216 L712 216 Q778 219 833 260" />
-            <path d="M203 247 L736 247 Q782 250 812 278" />
-            <path d="M235 278 L744 278" />
-            <path d="M252 311 L716 311" />
-            <path d="M214 119 L710 119 Q750 121 775 151 L847 232" opacity="0.62" />
-            <path d="M288 97 L741 97" opacity="0.26" />
-            <path d="M689 126 L765 410" opacity="0.38" />
-            <path d="M181 184 Q244 142 363 132 Q515 119 704 135" opacity="0.24" />
-            <path d="M742 185 Q780 256 754 398" opacity="0.28" />
+            <path d="M186 296 C203 182 356 114 548 115 C717 116 858 189 891 291 C922 387 837 464 671 485 C492 508 260 459 192 374 C170 347 166 321 186 296 Z" />
+            <path d="M203 298 C230 205 364 151 542 151 C687 151 815 206 853 289 C891 371 816 430 666 448 C511 467 301 427 230 358 C205 333 196 313 203 298 Z" opacity="0.72" />
+            <path d="M270 228 C386 177 600 174 746 224 C806 244 842 271 856 299" opacity="0.42" />
+            <path d="M288 255 C414 214 609 214 740 252 C796 268 829 288 843 312" opacity="0.34" />
+            <path d="M315 285 C441 258 618 259 732 286 C779 297 810 312 824 329" opacity="0.28" />
+            <path d="M310 96 C491 46 701 58 853 144 L758 220 C613 157 436 150 270 205 Z" />
+            <path d="M345 101 C505 70 679 82 813 150" opacity="0.46" />
+            <path d="M315 188 C466 134 646 145 759 220" opacity="0.34" />
+            <path d="M760 220 L853 144" opacity="0.58" />
+            <path d="M650 129 L728 416" opacity="0.38" />
+            <path d="M682 153 L760 405" opacity="0.22" />
+            <path d="M205 301 L210 365 L242 441" opacity="0.5" />
+            <path d="M842 312 C824 378 772 426 681 457" opacity="0.38" />
+            <path d="M323 220 L760 220" opacity="0.22" />
           </g>
 
           <g className={styles.pianoKeys}>
-            <path d="M179 328 L745 328 L707 420 L216 420 Z" />
+            <path d="M210 332 L771 332 L726 421 L248 421 Z" />
+            <path className={styles.pianoFallboard} d="M226 304 L755 304 L771 332 L210 332 Z" />
             {whiteKeys.map((_, i) => (
               <rect
                 key={i}
                 className={styles.pianoWhiteKey}
-                x={204 + i * 17}
-                y="341"
-                width="14"
-                height="58"
+                x={232 + i * 15.9}
+                y="340"
+                width="13"
+                height="62"
                 rx="2"
                 style={{ '--ki': i }}
               />
@@ -178,39 +182,41 @@ function PianoShowcase() {
               <rect
                 key={i}
                 className={styles.pianoBlackKey}
-                x={212 + pos * 17}
-                y="341"
-                width="10"
-                height="35"
+                x={239 + pos * 15.9}
+                y="340"
+                width="9"
+                height="39"
                 rx="2"
                 style={{ '--ki': i + 6 }}
               />
             ))}
-            <path className={styles.pianoKeySweep} d="M210 405 L705 405" />
+            <path className={styles.pianoKeySweep} d="M234 409 L723 409" />
           </g>
 
           <g className={styles.pianoPedals} stroke="rgba(214,177,104,0.42)" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M387 421 Q383 451 364 476 L572 476 Q548 451 543 421" />
-            <path d="M423 477 Q433 494 452 494 Q471 494 481 477" />
-            <path d="M504 477 Q514 494 533 494 Q552 494 562 477" />
+            <path d="M386 420 Q381 451 359 480 L577 480 Q550 451 543 420" />
+            <path d="M423 481 Q433 500 453 500 Q473 500 483 481" />
+            <path d="M505 481 Q515 500 535 500 Q555 500 565 481" />
+            <path d="M255 421 L232 512" opacity="0.46" />
+            <path d="M715 421 L764 512" opacity="0.46" />
           </g>
 
           <g className={styles.pianoAnalysisMarks}>
-            <circle cx="363" cy="350" r="7" />
-            <circle cx="383" cy="350" r="4" />
-            <circle cx="537" cy="350" r="7" />
-            <path d="M363 350 C413 315 490 315 537 350" />
+            <circle cx="366" cy="352" r="7" />
+            <circle cx="386" cy="352" r="4" />
+            <circle cx="538" cy="352" r="7" />
+            <path d="M366 352 C418 318 492 318 538 352" />
             <g>
-              <rect x="338" y="302" width="56" height="25" rx="12.5" />
-              <text x="366" y="319" textAnchor="middle">m.8</text>
+              <rect x="340" y="304" width="56" height="25" rx="12.5" />
+              <text x="368" y="321" textAnchor="middle">m.8</text>
             </g>
             <g>
-              <rect x="515" y="300" width="58" height="25" rx="12.5" />
-              <text x="544" y="317" textAnchor="middle">LH</text>
+              <rect x="516" y="302" width="58" height="25" rx="12.5" />
+              <text x="545" y="319" textAnchor="middle">LH</text>
             </g>
           </g>
 
-          <rect className={styles.pianoScan} x="150" y="48" width="2" height="420" />
+          <rect className={styles.pianoScan} x="232" y="334" width="2" height="88" />
         </svg>
 
         <div className={styles.pianoFeedback}>

@@ -499,14 +499,14 @@
 }
 
 .pianoLineArt {
-  filter: drop-shadow(0 0 28px rgba(92,184,107,0.06));
-  height: min(62vw, 520px);
-  opacity: 0.92;
+  filter: drop-shadow(0 0 30px rgba(92,184,107,0.055));
+  height: min(58vw, 500px);
+  opacity: 0.86;
   position: absolute;
-  right: -1vw;
-  top: 50%;
-  transform: translateY(-51%);
-  width: min(70vw, 980px);
+  right: 1.5vw;
+  top: 48%;
+  transform: translateY(-50%);
+  width: min(64vw, 920px);
 }
 
 .pianoDraw path {
@@ -524,11 +524,20 @@
 .pianoDraw path:nth-child(8) { animation-delay: 620ms; }
 .pianoDraw path:nth-child(9) { animation-delay: 700ms; }
 .pianoDraw path:nth-child(10) { animation-delay: 780ms; }
+.pianoDraw path:nth-child(11) { animation-delay: 860ms; }
+.pianoDraw path:nth-child(12) { animation-delay: 940ms; }
+.pianoDraw path:nth-child(13) { animation-delay: 1020ms; }
+.pianoDraw path:nth-child(14) { animation-delay: 1100ms; }
 
 .pianoKeys path:first-child {
   fill: rgba(232,240,235,0.028);
   stroke: rgba(232,240,235,0.24);
   stroke-width: 1;
+}
+
+.pianoFallboard {
+  fill: rgba(232,240,235,0.018) !important;
+  stroke: rgba(232,240,235,0.18) !important;
 }
 
 .pianoWhiteKey {
@@ -594,8 +603,8 @@
 
 .pianoScan {
   animation: pianoScanMove 5.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
-  fill: rgba(92,184,107,0.55);
-  filter: drop-shadow(0 0 12px rgba(92,184,107,0.55));
+  fill: rgba(214,177,104,0.42);
+  filter: drop-shadow(0 0 10px rgba(214,177,104,0.42));
   opacity: 0;
 }
 
@@ -665,10 +674,10 @@
 
 @keyframes pianoScanMove {
   0%   { opacity: 0; transform: translateX(0); }
-  12%  { opacity: 0.75; }
-  55%  { opacity: 0.28; }
-  72%  { opacity: 0; transform: translateX(620px); }
-  100% { opacity: 0; transform: translateX(620px); }
+  12%  { opacity: 0.42; }
+  50%  { opacity: 0.24; }
+  70%  { opacity: 0; transform: translateX(492px); }
+  100% { opacity: 0; transform: translateX(492px); }
 }
 
 @keyframes pianoFeedbackFloat {
