@@ -163,16 +163,16 @@ const SHUFFLE_ITEMS = [
   { color: '#a58fe8', text: 'Generating targeted practice feedback...' },
 ]
 
-function ShuffleCards() {
-  // [current, ghost1, ghost2] — rotate on each tick
-  const [hist, setHist] = useState([0, 4, 3])
-
+function ShuffleCards({ idx }) {
+  // Track [current, ghost1, ghost2] indices in sync with parent wordIdx
+  const [hist, setHist] = useState(() => [
+    idx,
+    (idx + SHUFFLE_ITEMS.length - 1) % SHUFFLE_ITEMS.length,
+    (idx + SHUFFLE_ITEMS.length - 2) % SHUFFLE_ITEMS.length,
+  ])
   useEffect(() => {
-    const id = setInterval(() => {
-      setHist(([cur, g1]) => [(cur + 1) % SHUFFLE_ITEMS.length, cur, g1])
-    }, 3000)
-    return () => clearInterval(id)
-  }, [])
+    setHist(prev => [idx, prev[0], prev[1]])
+  }, [idx])
 
   const cur = SHUFFLE_ITEMS[hist[0]]
   const gh1 = SHUFFLE_ITEMS[hist[1]]
@@ -181,15 +181,15 @@ function ShuffleCards() {
   return (
     <div className={styles.shuffleWrap}>
       <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostFar}`}>
-        <span className={styles.shuffleDot} style={{ background: gh2.color }} />
+        <span className={styles.shuffleDot} style={{ borderColor: gh2.color }} />
         <span className={styles.shuffleText}>{gh2.text}</span>
       </div>
       <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostNear}`}>
-        <span className={styles.shuffleDot} style={{ background: gh1.color }} />
+        <span className={styles.shuffleDot} style={{ borderColor: gh1.color }} />
         <span className={styles.shuffleText}>{gh1.text}</span>
       </div>
       <div key={hist[0]} className={styles.shuffleCard}>
-        <span className={styles.shuffleDot} style={{ background: cur.color, boxShadow: `0 0 8px 3px ${cur.color}55` }} />
+        <span className={styles.shuffleDot} style={{ borderColor: cur.color, boxShadow: `0 0 8px 3px ${cur.color}55` }} />
         <span className={styles.shuffleText}>{cur.text}</span>
       </div>
     </div>
@@ -359,7 +359,7 @@ export default function Landing() {
           </span>
         </h1>
 
-        <ShuffleCards />
+        <ShuffleCards idx={wordIdx} />
 
         <p className={styles.heroSub}>
           Upload a recording. Mediant maps it to your sheet music and delivers

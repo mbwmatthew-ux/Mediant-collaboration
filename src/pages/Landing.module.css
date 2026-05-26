@@ -366,6 +366,8 @@
 }
 
 .shuffleDot {
+  background: transparent;
+  border: 2px solid currentColor;
   border-radius: 50%;
   flex-shrink: 0;
   height: 10px;
