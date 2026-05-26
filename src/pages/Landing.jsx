@@ -154,19 +154,19 @@ function PianoShowcase() {
 
           <g className={styles.pianoDraw} stroke="url(#pianoLine)" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
             <path d="M186 296 C203 182 356 114 548 115 C717 116 858 189 891 291 C922 387 837 464 671 485 C492 508 260 459 192 374 C170 347 166 321 186 296 Z" />
-            <path d="M203 298 C230 205 364 151 542 151 C687 151 815 206 853 289 C891 371 816 430 666 448 C511 467 301 427 230 358 C205 333 196 313 203 298 Z" opacity="0.72" />
-            <path d="M270 228 C386 177 600 174 746 224 C806 244 842 271 856 299" opacity="0.42" />
-            <path d="M288 255 C414 214 609 214 740 252 C796 268 829 288 843 312" opacity="0.34" />
-            <path d="M315 285 C441 258 618 259 732 286 C779 297 810 312 824 329" opacity="0.28" />
+            <path d="M203 298 C230 205 364 151 542 151 C687 151 815 206 853 289 C891 371 816 430 666 448 C511 467 301 427 230 358 C205 333 196 313 203 298 Z" opacity="0.58" />
+            <path d="M270 228 C386 177 600 174 746 224 C806 244 842 271 856 299" opacity="0.22" />
+            <path d="M288 255 C414 214 609 214 740 252 C796 268 829 288 843 312" opacity="0.18" />
+            <path d="M315 285 C441 258 618 259 732 286 C779 297 810 312 824 329" opacity="0.14" />
             <path d="M310 96 C491 46 701 58 853 144 L758 220 C613 157 436 150 270 205 Z" />
             <path d="M345 101 C505 70 679 82 813 150" opacity="0.46" />
             <path d="M315 188 C466 134 646 145 759 220" opacity="0.34" />
             <path d="M760 220 L853 144" opacity="0.58" />
             <path d="M650 129 L728 416" opacity="0.38" />
-            <path d="M682 153 L760 405" opacity="0.22" />
+            <path d="M682 153 L760 405" opacity="0.1" />
             <path d="M205 301 L210 365 L242 441" opacity="0.5" />
             <path d="M842 312 C824 378 772 426 681 457" opacity="0.38" />
-            <path d="M323 220 L760 220" opacity="0.22" />
+            <path d="M323 220 L760 220" opacity="0.1" />
           </g>
 
           <g className={styles.pianoKeys}>
@@ -201,35 +201,37 @@ function PianoShowcase() {
 
           <g className={styles.pianoHands}>
             <g className={`${styles.pianoHand} ${styles.pianoLeftHand}`}>
-              <path className={styles.handPalm} d="M300 291 C318 268 357 265 381 283 C398 296 400 322 384 337 C359 360 313 348 294 322 C287 312 289 301 300 291 Z" />
-              <path className={styles.handWrist} d="M276 316 C287 311 300 316 309 329 L295 353 C279 348 266 340 258 330 Z" />
-              <path className={styles.handFinger} style={{ '--fd': '0ms' }} d="M337 288 C329 308 320 326 310 346 C306 354 294 350 297 340 C303 320 309 301 314 285" />
-              <path className={styles.handFinger} style={{ '--fd': '140ms' }} d="M352 286 C349 308 344 329 337 351 C334 360 320 358 322 347 C326 325 330 303 331 284" />
-              <path className={styles.handFinger} style={{ '--fd': '260ms' }} d="M367 290 C370 311 368 333 363 356 C361 366 347 365 348 354 C350 332 350 311 347 291" />
-              <path className={styles.handFinger} style={{ '--fd': '420ms' }} d="M380 299 C390 317 395 334 397 353 C398 363 384 366 381 355 C376 337 371 320 361 304" />
-              <path className={styles.handThumb} style={{ '--fd': '560ms' }} d="M314 315 C299 317 285 324 276 338 C271 346 260 340 265 331 C275 312 293 301 315 298" />
-              <path className={styles.handLine} d="M316 302 C334 313 357 314 377 305" />
-              <path className={styles.handLine} d="M306 321 C325 334 358 336 384 324" />
-              <ellipse className={styles.fingernail} cx="306" cy="344" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="332" cy="350" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="358" cy="355" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="392" cy="352" rx="5" ry="2.4" />
+              <path className={styles.handArm} d="M302 212 C290 246 285 276 294 309 C304 320 324 314 328 299 C322 268 323 238 336 211 Z" />
+              <path className={styles.handWrist} d="M292 298 C305 288 324 289 337 303 C330 318 314 324 296 315 Z" />
+              <path className={styles.handPalm} d="M318 278 C342 257 381 264 397 290 C408 307 400 330 380 340 C351 355 312 337 305 309 C302 296 307 286 318 278 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '0ms' }} d="M326 294 C332 291 338 292 341 297 C336 313 328 333 319 352 C315 361 302 357 306 347 C312 329 317 309 326 294 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '140ms' }} d="M344 287 C350 285 356 288 358 294 C356 314 352 337 347 356 C344 366 330 364 332 353 C336 331 339 307 344 287 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '260ms' }} d="M363 288 C370 288 374 293 375 300 C377 318 375 341 371 359 C369 369 355 369 356 357 C359 335 359 311 363 288 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '420ms' }} d="M380 296 C386 297 391 302 393 309 C401 326 404 342 405 358 C405 369 391 371 389 360 C385 340 380 319 380 296 Z" />
+              <path className={styles.handThumbShape} style={{ '--fd': '560ms' }} d="M318 309 C300 311 284 321 274 338 C268 348 257 341 263 331 C275 309 294 296 320 293 Z" />
+              <path className={styles.handKnuckle} d="M322 291 C341 304 371 306 390 295" />
+              <path className={styles.handKnuckle} d="M315 311 C336 326 366 329 390 315" />
+              <ellipse className={styles.fingernail} cx="313" cy="349" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="340" cy="355" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="363" cy="358" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="397" cy="358" rx="3.8" ry="1.7" />
             </g>
 
             <g className={`${styles.pianoHand} ${styles.pianoRightHand}`}>
-              <path className={styles.handPalm} d="M548 281 C572 260 616 267 635 294 C648 313 639 338 616 349 C586 363 543 344 532 314 C528 301 535 289 548 281 Z" />
-              <path className={styles.handWrist} d="M631 327 C646 320 663 324 676 338 L668 363 C650 363 633 356 619 344 Z" />
-              <path className={styles.handFinger} style={{ '--fd': '80ms' }} d="M558 293 C547 313 537 333 526 354 C521 363 508 358 513 348 C523 327 532 306 539 288" />
-              <path className={styles.handFinger} style={{ '--fd': '230ms' }} d="M575 287 C570 311 565 334 558 358 C555 368 540 366 543 354 C548 331 552 308 554 286" />
-              <path className={styles.handFinger} style={{ '--fd': '360ms' }} d="M594 288 C597 313 595 336 590 360 C588 371 573 370 574 358 C577 335 576 312 573 289" />
-              <path className={styles.handFinger} style={{ '--fd': '520ms' }} d="M612 296 C624 316 629 338 632 360 C634 370 620 374 616 363 C609 340 604 318 593 300" />
-              <path className={styles.handThumb} style={{ '--fd': '660ms' }} d="M626 315 C611 315 593 323 580 340 C574 348 563 340 569 331 C584 311 605 300 631 298" />
-              <path className={styles.handLine} d="M553 300 C573 313 604 316 628 306" />
-              <path className={styles.handLine} d="M543 319 C564 337 601 341 626 327" />
-              <ellipse className={styles.fingernail} cx="522" cy="351" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="553" cy="356" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="585" cy="360" rx="5" ry="2.4" />
-              <ellipse className={styles.fingernail} cx="626" cy="360" rx="5" ry="2.4" />
+              <path className={styles.handArm} d="M630 210 C643 247 650 279 642 312 C632 324 611 319 607 303 C613 271 611 240 596 211 Z" />
+              <path className={styles.handWrist} d="M608 303 C622 290 642 291 653 306 C645 321 628 327 611 317 Z" />
+              <path className={styles.handPalm} d="M548 282 C571 260 612 266 632 292 C647 311 640 337 617 349 C586 365 544 347 532 317 C527 303 535 290 548 282 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '80ms' }} d="M556 295 C562 291 568 293 571 299 C564 317 554 337 544 356 C539 365 527 359 532 349 C542 331 549 311 556 295 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '230ms' }} d="M575 288 C581 287 586 291 588 298 C585 319 580 341 574 360 C571 370 557 367 560 356 C565 335 570 311 575 288 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '360ms' }} d="M595 289 C601 290 606 294 607 302 C610 322 609 344 604 362 C601 372 588 371 589 360 C592 337 592 312 595 289 Z" />
+              <path className={`${styles.handFingerShape} ${styles.pressFinger}`} style={{ '--fd': '520ms' }} d="M613 297 C619 298 625 303 628 310 C637 330 640 347 640 362 C640 372 626 374 624 363 C620 342 614 320 613 297 Z" />
+              <path className={styles.handThumbShape} style={{ '--fd': '660ms' }} d="M626 315 C608 315 590 324 578 341 C572 350 561 342 567 332 C582 311 603 299 629 299 Z" />
+              <path className={styles.handKnuckle} d="M554 298 C576 312 607 315 629 305" />
+              <path className={styles.handKnuckle} d="M544 318 C568 337 604 341 629 327" />
+              <ellipse className={styles.fingernail} cx="538" cy="352" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="568" cy="358" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="598" cy="361" rx="3.8" ry="1.7" />
+              <ellipse className={styles.fingernail} cx="632" cy="361" rx="3.8" ry="1.7" />
             </g>
           </g>
 
