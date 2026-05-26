@@ -350,16 +350,16 @@
 .shuffleGhostCard { pointer-events: none; }
 
 .shuffleGhostNear {
-  background: rgba(255,255,255,0.042);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(92,184,107,0.12);
+  border: 1px solid rgba(92,184,107,0.22);
   top: 11px;
   transform: scaleX(0.92);
   z-index: 2;
 }
 
 .shuffleGhostFar {
-  background: rgba(255,255,255,0.024);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(92,184,107,0.07);
+  border: 1px solid rgba(92,184,107,0.14);
   top: 21px;
   transform: scaleX(0.82);
   z-index: 1;
@@ -380,10 +380,10 @@
   text-overflow: ellipsis;
 }
 
-.shuffleGhostNear .shuffleText { color: rgba(232,240,235,0.18); }
-.shuffleGhostFar  .shuffleText { color: rgba(232,240,235,0.1); }
-.shuffleGhostNear .shuffleDot  { opacity: 0.35; }
-.shuffleGhostFar  .shuffleDot  { opacity: 0.2; }
+.shuffleGhostNear .shuffleText { color: rgba(92,184,107,0.55); }
+.shuffleGhostFar  .shuffleText { color: rgba(92,184,107,0.35); }
+.shuffleGhostNear .shuffleDot  { opacity: 0.55; }
+.shuffleGhostFar  .shuffleDot  { opacity: 0.35; }
 
 .heroSub {
   color: rgba(232,240,235,0.45);
