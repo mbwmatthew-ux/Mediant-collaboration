@@ -43,124 +43,6 @@ const STATS = [
   { value: 100, suffix: '%', label: 'Your recordings stay private' },
 ]
 
-/* ── Instrument helpers ── */
-const NOTES = ['♩', '♪', '♫', '♬']
-
-function useInView(threshold = 0.12) {
-  const ref = useRef(null)
-  const [inView, setInView] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setInView(true) },
-      { threshold }
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [threshold])
-  return [ref, inView]
-}
-
-/* Music notes drifting upward from the instrument's sound origin */
-function BellNotes({ count = 5, color = '#5cb86b', fromBottom = true, topPct }) {
-  const posStyle = fromBottom
-    ? {}
-    : { top: topPct != null ? `${topPct}%` : '40%', bottom: 'auto' }
-  return (
-    <div className={styles.bellNotes} aria-hidden style={posStyle}>
-      {Array.from({ length: count }).map((_, i) => (
-        <span
-          key={i}
-          className={styles.bellNote}
-          style={{
-            '--nd': `${i * 0.85}s`,
-            '--nx': `${-22 + (i * 14) % 48}px`,
-            '--ndur': `${2.8 + (i % 3) * 0.7}s`,
-            color,
-            fontSize: `${0.9 + (i % 3) * 0.22}rem`,
-          }}
-        >
-          {NOTES[i % NOTES.length]}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/* Google-Docs-style typing indicator — simple left-border box */
-function DocTyping({ text, color, active, delay = 0 }) {
-  const [displayed, setDisplayed] = useState('')
-  const [phase, setPhase]         = useState('idle')
-  const timerRef = useRef(null)
-
-  const pauseAt = Math.floor(text.length * 0.65)
-  const minLen  = Math.floor(text.length * 0.50)
-
-  useEffect(() => {
-    if (!active) return
-    const t = setTimeout(() => { setDisplayed(''); setPhase('forward') }, delay)
-    return () => clearTimeout(t)
-  }, [active, delay])
-
-  useEffect(() => {
-    clearTimeout(timerRef.current)
-    if (phase === 'idle' || phase === 'done') return
-
-    if (phase === 'forward') {
-      if (displayed.length < pauseAt) {
-        timerRef.current = setTimeout(
-          () => setDisplayed(text.slice(0, displayed.length + 1)),
-          95 + Math.random() * 55
-        )
-      } else {
-        timerRef.current = setTimeout(() => setPhase('deleting'), 750)
-      }
-    } else if (phase === 'deleting') {
-      if (displayed.length > minLen) {
-        timerRef.current = setTimeout(
-          () => setDisplayed(text.slice(0, displayed.length - 1)),
-          58 + Math.random() * 30
-        )
-      } else {
-        timerRef.current = setTimeout(() => setPhase('finishing'), 480)
-      }
-    } else if (phase === 'finishing') {
-      if (displayed.length < text.length) {
-        timerRef.current = setTimeout(
-          () => setDisplayed(text.slice(0, displayed.length + 1)),
-          82 + Math.random() * 48
-        )
-      } else {
-        setPhase('done')
-      }
-    }
-
-    return () => clearTimeout(timerRef.current)
-  }, [phase, displayed, text, pauseAt, minLen])
-
-  const isTyping = phase === 'forward' || phase === 'deleting' || phase === 'finishing'
-
-  return (
-    <div className={styles.docTyping} style={{ '--cc': color }}>
-      <p className={styles.docText}>
-        {displayed}
-        {phase !== 'idle' && (
-          <span className={styles.docCaret} style={{ '--cc': color }}>
-            {isTyping && (
-              <span className={styles.docCaretLabel} style={{ background: color }}>Mediant</span>
-            )}
-          </span>
-        )}
-      </p>
-    </div>
-  )
-}
-
-
-const CLARINET_TEXT = "m.12 – entrance is 18ms early. Ease into the pickup note and let the phrase settle onto the downbeat."
-const CELLO_TEXT    = "m.24 – the shift lands slightly sharp. Relax the left hand and settle into the pitch before the phrase opens."
-const PIANO_TEXT_1  = "m.8 – the left hand rushes the arpeggio. Let the accompaniment breathe so the melody stays supported."
 
 /* ── Logo mark ── */
 function AnimatedLogo({ size = 28 }) {
@@ -238,9 +120,6 @@ export default function Landing() {
   const [wordIdx, setWordIdx]         = useState(0)
   const [wordVisible, setWordVisible] = useState(true)
   const canvasRef = useRef(null)
-  const [clarinetRef, clarinetInView] = useInView()
-  const [celloRef,    celloInView]    = useInView()
-  const [pianoRef,    pianoInView]    = useInView()
 
   /* ── Waveform canvas (breathing, not scrolling) ── */
   useEffect(() => {
@@ -395,52 +274,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Instruments ── */}
-      <section className={styles.instrumentsSection}>
-
-        <div className={`${styles.instrumentBand} ${styles.revealL}`} ref={clarinetRef}>
-          <div className={styles.instrumentText}>
-            <span className={styles.sectionLabel}>Woodwinds</span>
-            <h2 className={styles.instrumentTitle}>Measure-by-measure clarity for wind players</h2>
-            <p className={styles.instrumentBody}>
-              Mediant catches timing drift, intonation shifts, and tonal inconsistencies — flagged to the exact beat, not a vague average.
-            </p>
-          </div>
-          <div className={`${styles.instrumentVisual} ${styles.revealR}`} style={{ '--d': '80ms' }}>
-            {/* Lottie clarinet animation — coming soon */}
-            <DocTyping text={CLARINET_TEXT} color="#d6b168" active={clarinetInView} />
-          </div>
-        </div>
-
-        <div className={`${styles.instrumentBand} ${styles.instrumentBandFlip} ${styles.revealR}`} ref={pianoRef}>
-          <div className={styles.instrumentText}>
-            <span className={styles.sectionLabel}>Keyboard</span>
-            <h2 className={styles.instrumentTitle}>Every voice, every hand, every measure</h2>
-            <p className={styles.instrumentBody}>
-              Piano analysis tracks both hands independently — voicing balance, dynamic shaping, and rhythmic precision, simultaneously.
-            </p>
-          </div>
-          <div className={`${styles.instrumentVisual} ${styles.revealL}`} style={{ '--d': '80ms' }}>
-            {/* Lottie piano animation — coming soon */}
-            <DocTyping text={PIANO_TEXT_1} color="#5cb86b" active={pianoInView} />
-          </div>
-        </div>
-
-        <div className={`${styles.instrumentBand} ${styles.revealL}`} ref={celloRef}>
-          <div className={styles.instrumentText}>
-            <span className={styles.sectionLabel}>Strings</span>
-            <h2 className={styles.instrumentTitle}>Bow technique feedback you can act on</h2>
-            <p className={styles.instrumentBody}>
-              From bow pressure to phrasing shape — Mediant hears what your ear misses and tells you exactly what to change.
-            </p>
-          </div>
-          <div className={`${styles.instrumentVisual} ${styles.revealR}`} style={{ '--d': '80ms' }}>
-            {/* Lottie cello animation — coming soon */}
-            <DocTyping text={CELLO_TEXT} color="#9d85d9" active={celloInView} />
-          </div>
-        </div>
-
-      </section>
 
       {/* ── Features ── */}
       <section className={styles.features}>
