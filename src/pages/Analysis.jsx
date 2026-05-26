@@ -48,6 +48,27 @@ function trustTone(level) {
   return 'Low'
 }
 
+function formatTs(sec) {
+  if (sec == null) return '—'
+  const s = Number(sec)
+  if (!isFinite(s) || s < 0) return '—'
+  const m = Math.floor(s / 60)
+  const r = (s % 60).toFixed(1).padStart(4, '0')
+  return `${m}:${r}`
+}
+
+function confColor(confidence) {
+  if (confidence >= 90) return 'var(--accent)'
+  if (confidence >= 70) return 'var(--gold)'
+  return 'var(--coral)'
+}
+
+function confLabel(confidence) {
+  if (confidence >= 90) return 'High'
+  if (confidence >= 70) return 'Medium'
+  return 'Low'
+}
+
 // Maps a piece title to a bundled score file in /public/scores/
 function scoreFileForPiece(title) {
   if (!title) return null
@@ -80,6 +101,7 @@ export default function Analysis() {
   const [scoreReady, setScoreReady]   = useState(false)
   const [highlights, setHighlights]   = useState([])
   const [videoSpeed, setVideoSpeed]   = useState(1)
+  const [activeTab, setActiveTab] = useState('overview')
 
   // AI summary state
   const [summary, setSummary]             = useState(null)
@@ -570,9 +592,6 @@ export default function Analysis() {
           <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
           <p className={styles.sub}>
             {[pieceComposer, instrument].filter(Boolean).join(' · ')}
-            {score != null && (
-              <> · <span style={{ color: scoreColor(score), fontWeight: 600 }}>{score}/100</span></>
-            )}
             {analysisQuality?.trust && (
               <> · <span style={{
                 color: analysisQuality.trust === 'high' ? 'var(--hero-green)' : analysisQuality.trust === 'medium' ? 'var(--gold)' : 'var(--coral)',
@@ -586,194 +605,284 @@ export default function Analysis() {
             )}
           </p>
         </div>
-        <div className={styles.headerActions}>
-          <button className={styles.ghostBtn} onClick={() => nav('/record')}>Re-upload</button>
+        <div className={aStyles.headerRight}>
+          {score != null && (
+            <div className={aStyles.scoreBadge}>
+              <p className={aStyles.scoreBadgeLabel}>Technique Score</p>
+              <div className={aStyles.scoreBadgeMain}>
+                <span className={aStyles.scoreBadgeNum} style={{ color: scoreColor(score) }}>{score}</span>
+                <span className={aStyles.scoreBadgeDen}>/100</span>
+              </div>
+              <div className={aStyles.scoreBadgeTrack}>
+                <div className={aStyles.scoreBadgeFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+              </div>
+            </div>
+          )}
+          <button className={styles.ghostBtn} onClick={() => nav('/record')}>↺ Re-analyze</button>
         </div>
       </div>
 
-      {/* ── Confidence notices ── */}
-      {analysisQuality?.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-        <div className={`${styles.analysisNotice} ${styles.analysisNoticeLow}`}>
-          <p className={styles.analysisNoticeTitle}>Analysis confidence was too low for precise feedback</p>
-          <ul className={styles.analysisNoticeList}>
-            {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
-          </ul>
-          <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>Try uploading a MusicXML file for higher accuracy, or record a cleaner excerpt with less background noise.</p>
-        </div>
-      )}
-      {analysisQuality?.trust === 'medium' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-        <div className={`${styles.analysisNotice} ${styles.analysisNoticeMedium}`}>
-          <p className={styles.analysisNoticeTitle}>Medium confidence — feedback may be slightly imprecise</p>
-          <ul className={styles.analysisNoticeList}>
-            {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
-          </ul>
-          <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
-        </div>
-      )}
+      {/* ── Tab strip ── */}
+      <div className={aStyles.tabStrip}>
+        <button
+          className={`${aStyles.tab} ${activeTab === 'overview' ? aStyles.tabActive : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >Overview</button>
+        <button
+          className={`${aStyles.tab} ${activeTab === 'summary' ? aStyles.tabActive : ''}`}
+          onClick={() => setActiveTab('summary')}
+        >Session Summary</button>
+      </div>
 
-      {/* ── Two-column: score left (sticky) + issues right ── */}
-      <div className={`${aStyles.reviewLayout} ${isImageScore ? aStyles.reviewLayoutImageScore : ''}`}>
-
-        {/* Left: native sticky panel bounded by the two-column review layout */}
-        <div className={aStyles.scoreColumnWrap}>
-          <div className={aStyles.scoreColumn}>
-            <div className={aStyles.scoreInner}>
-              {scoreAreaContent}
+      {activeTab === 'overview' ? (
+        <>
+          {/* ── Confidence notices ── */}
+          {analysisQuality?.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+            <div className={`${styles.analysisNotice} ${styles.analysisNoticeLow}`}>
+              <p className={styles.analysisNoticeTitle}>Analysis confidence was too low for precise feedback</p>
+              <ul className={styles.analysisNoticeList}>
+                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
+              </ul>
+              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>Try uploading a MusicXML file for higher accuracy, or record a cleaner excerpt with less background noise.</p>
             </div>
-          </div>
-        </div>
-
-        {/* Right: issues, detail panel, video */}
-        <div className={aStyles.rightColumn}>
-
-          {/* Issue grid */}
-          <section className={aStyles.issueSection}>
-            <div className={aStyles.issueSectionHeader}>
-              <p className={styles.label}>
-                {issueCount > 0 ? `${issueCount} Issue${issueCount !== 1 ? 's' : ''} Found` : 'Issues'}
-              </p>
-              {issueCount > 0 && (
-                <span className={aStyles.issueSortHint}>Sorted by measure · click to review</span>
-              )}
+          )}
+          {analysisQuality?.trust === 'medium' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+            <div className={`${styles.analysisNotice} ${styles.analysisNoticeMedium}`}>
+              <p className={styles.analysisNoticeTitle}>Medium confidence — feedback may be slightly imprecise</p>
+              <ul className={styles.analysisNoticeList}>
+                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
+              </ul>
+              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
             </div>
+          )}
 
-            {issueCount === 0 ? (
-              <div className={aStyles.issueClean}>✓ Clean performance — no issues detected.</div>
-            ) : (
-              <div className={aStyles.issueGrid}>
-                {sortedChips.map(({ flag, confidence }) => {
-                  const idx  = parseInt(flag.replace('flag_', ''), 10)
-                  const f    = take.flags[idx]
-                  const meta = flagTypeMeta(f?.type)
-                  const confColor = confidence >= 90 ? 'var(--hero-green)' : confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.2)'
-                  return (
-                    <button
-                      key={flag}
-                      className={`${aStyles.issueCard} ${activeFlag === flag ? aStyles.issueCardActive : ''}`}
-                      onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
-                    >
-                      <div className={aStyles.issueCardTop}>
-                        <span className={`${aStyles.issueTypeIcon} ${aStyles[meta.cls]}`}>{meta.icon}</span>
-                        <span className={aStyles.issueMeasureNum}>m.{f?.measure}</span>
-                        <span className={aStyles.issueConfDot} style={{ background: confColor }} />
-                      </div>
-                      <span className={aStyles.issueCardType}>{capitalize(f?.type)}</span>
-                      <span className={aStyles.issueCardTitle}>{f?.title}</span>
-                    </button>
-                  )
-                })}
+          {/* ── Two-column: score left + insights right ── */}
+          <div className={`${aStyles.reviewLayout} ${isImageScore ? aStyles.reviewLayoutImageScore : ''}`}>
+
+            {/* Left: sticky score panel */}
+            <div className={aStyles.scoreColumnWrap}>
+              <div className={aStyles.scoreColumn}>
+                <div className={aStyles.scoreInner}>
+                  {scoreAreaContent}
+                </div>
               </div>
-            )}
+            </div>
 
-            {/* Detail panel — expands below grid when a card is selected */}
-            {info && (
-              <div className={aStyles.issueDetailPanel}>
-                <div className={aStyles.issueDetailTop}>
-                  <span className={`${aStyles.issueDetailBadge} ${aStyles[flagTypeMeta(activeFlagRaw?.type).cls]}`}>
-                    {flagTypeMeta(activeFlagRaw?.type).icon}
+            {/* Right: AI insights + video + chat */}
+            <div className={aStyles.rightColumn}>
+
+              {/* AI Insights Timeline */}
+              <section className={aStyles.insightsPanel}>
+                <div className={aStyles.insightsPanelHeader}>
+                  <span className={aStyles.insightsPanelTitle}>
+                    AI Insights Timeline
+                    {issueCount > 0 && <span className={aStyles.insightCount}>{issueCount}</span>}
                   </span>
-                  <span className={aStyles.issueDetailMeasure}>m.{activeFlagRaw?.measure}</span>
-                  <span className={aStyles.issueDetailType}>{capitalize(activeFlagRaw?.type)}</span>
-                  {info.confidence != null && (
-                    <span className={aStyles.issueDetailConf} style={{
-                      color: info.confidence >= 90 ? 'var(--hero-green)' : info.confidence >= 75 ? 'var(--gold)' : 'rgba(248,246,242,0.4)',
-                    }}>
-                      {info.confidence >= 90 ? '● high' : info.confidence >= 75 ? '◑ medium' : '○ lower'} confidence
+                  <div className={aStyles.confLegend}>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--accent)' }} />High</span>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--gold)' }} />Medium</span>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--coral)' }} />Low</span>
+                  </div>
+                </div>
+
+                {issueCount === 0 ? (
+                  <div className={aStyles.issueClean}>✓ No issues detected — clean performance.</div>
+                ) : (
+                  <div className={aStyles.timeline}>
+                    {sortedChips.map(({ flag, confidence }) => {
+                      const idx = parseInt(flag.replace('flag_', ''), 10)
+                      const f = take.flags[idx]
+                      const isActive = activeFlag === flag
+                      const cc = confColor(confidence)
+                      return (
+                        <button
+                          key={flag}
+                          className={`${aStyles.timelineRow} ${isActive ? aStyles.timelineRowActive : ''}`}
+                          onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
+                        >
+                          <span className={aStyles.timelineConfDot} style={{ background: cc }} />
+                          <span className={aStyles.timelineTs}>{formatTs(f?.timestamp_start)}</span>
+                          <span className={aStyles.timelineMeasure}>m.{f?.measure}</span>
+                          <span className={aStyles.timelineTitle}>{f?.title}</span>
+                          <span className={aStyles.timelineConfBadge} style={{ color: cc }}>{confLabel(confidence)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Expanded insight card */}
+                {info && activeFlagRaw && (
+                  <div className={aStyles.insightCard}>
+                    <div className={aStyles.insightCardHeader}>
+                      <span className={aStyles.insightMeasureBadge}>m.{activeFlagRaw.measure}</span>
+                      <h3 className={aStyles.insightTitle}>{info.title}</h3>
+                      <span className={aStyles.insightConfBadge} style={{ color: confColor(info.confidence ?? 100) }}>
+                        {confLabel(info.confidence ?? 100)}
+                      </span>
+                      <button className={aStyles.insightDismiss} onClick={() => setActiveFlag(null)}>✕</button>
+                    </div>
+                    <p className={aStyles.insightBody}>{info.body}</p>
+                    <div className={aStyles.insightTags}>
+                      <span className={aStyles.insightTag}>{capitalize(activeFlagRaw.type)}</span>
+                      {info.confidence != null && (
+                        <span className={aStyles.insightTag}>Confidence: {confLabel(info.confidence)}</span>
+                      )}
+                    </div>
+                    {videoUrl && hasTimestamps && (
+                      <div className={aStyles.insightActions}>
+                        {!isLooping ? (
+                          <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                            ↺ Loop m.{activeFlagRaw.measure}
+                            <span className={aStyles.loopExcerptTime}>
+                              {formatTs(activeFlagRaw.timestamp_start)} – {formatTs(activeFlagRaw.timestamp_end)}
+                            </span>
+                          </button>
+                        ) : (
+                          <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Video recording */}
+              {videoUrl && (
+                <div className={styles.videoBar}>
+                  <span className={styles.videoBarLabel}>Recording</span>
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className={styles.videoBarPlayer}
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                  <div className={styles.videoControls}>
+                    <span className={styles.videoControlsLabel}>Speed</span>
+                    <div className={styles.speedBtns}>
+                      {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
+                        <button
+                          key={s}
+                          className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
+                          onClick={() => setVideoSpeed(s)}
+                        >{s}×</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Ask Mediant chat */}
+              <section className={aStyles.chatSection}>
+                <div className={aStyles.chatSectionHeader}>
+                  <p className={styles.label}>Ask Mediant</p>
+                  {activeFlagRaw && (
+                    <span className={aStyles.chatContextPill}>
+                      Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
                     </span>
                   )}
-                  <button className={aStyles.issueDetailDismiss} onClick={() => setActiveFlag(null)}>✕</button>
                 </div>
-                <div className={aStyles.issueDetailBody}>
-                  <h3 className={aStyles.issueDetailTitle}>{info.title}</h3>
-                  <p className={aStyles.issueDetailText}>{info.body}</p>
-                  {videoUrl && hasTimestamps && (
-                    <div className={aStyles.issueDetailActions}>
-                      {!isLooping ? (
-                        <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
-                          ▶ Loop m.{activeFlagRaw.measure}
-                        </button>
-                      ) : (
-                        <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
-                      )}
-                      <span className={aStyles.excerptTime}>
-                        {Number(activeFlagRaw.timestamp_start).toFixed(1)}s – {Number(activeFlagRaw.timestamp_end).toFixed(1)}s
-                      </span>
-                    </div>
+                <div className={styles.chatMessages}>
+                  {chatMessages.length === 0 && (
+                    <p className={styles.chatEmpty}>
+                      {activeFlagRaw
+                        ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything about your performance.`
+                        : 'Select an issue above, then ask Mediant about it — or ask anything about your performance.'}
+                    </p>
                   )}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Video player */}
-          {videoUrl && (
-            <div className={styles.videoBar}>
-              <span className={styles.videoBarLabel}>Recording</span>
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className={styles.videoBarPlayer}
-                controls
-                playsInline
-                preload="metadata"
-              />
-              <div className={styles.videoControls}>
-                <span className={styles.videoControlsLabel}>Speed</span>
-                <div className={styles.speedBtns}>
-                  {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
-                    <button
-                      key={s}
-                      className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
-                      onClick={() => setVideoSpeed(s)}
-                    >{s}×</button>
+                  {chatMessages.map((m, i) => (
+                    <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
+                      {m.role === 'user' && m.flagContext && (
+                        <span className={styles.chatMsgContext}>
+                          Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
+                        </span>
+                      )}
+                      {m.content}
+                    </div>
                   ))}
+                  {chatLoading && (
+                    <div className={styles.chatMsgAI}><span className={styles.chatTyping}>···</span></div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className={styles.chatInputRow}>
+                  <input
+                    className={styles.chatInput}
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                    placeholder="Ask about your performance…"
+                    disabled={chatLoading}
+                  />
+                  <button
+                    className={styles.chatSend}
+                    onClick={sendMessage}
+                    disabled={chatLoading || !chatInput.trim()}
+                  >↑</button>
+                </div>
+              </section>
+
+            </div>
+          </div>
+        </>
+      ) : (
+        /* ── Session Summary tab ── */
+        <section className={aStyles.summaryTab} ref={summaryRef}>
+          <div className={aStyles.summaryTabTop}>
+            {score != null && (
+              <div className={aStyles.summaryScoreBlock}>
+                <span className={aStyles.summaryScoreNum} style={{ color: scoreColor(score) }}>{score}</span>
+                <div className={aStyles.summaryScoreMeta}>
+                  <span className={aStyles.summaryScoreDen}>/100</span>
+                  <p className={aStyles.summaryScoreLabel}>Technique Score</p>
+                  <div className={aStyles.summaryScoreTrack}>
+                    <div className={aStyles.summaryScoreFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+                  </div>
                 </div>
               </div>
+            )}
+            <div className={aStyles.summaryTabMeta}>
+              <div className={aStyles.summaryTabMetaTop}>
+                <p className={styles.label}>Session Summary</p>
+                {summary && !summaryLoading && (
+                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
+                )}
+              </div>
+              {summaryLoading && (
+                <div className={aStyles.summaryLoading}>
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span style={{ marginLeft: 8 }}>Generating your session summary…</span>
+                </div>
+              )}
+              {summaryError && !summaryLoading && (
+                <p className={aStyles.summaryError}>
+                  {summaryError}
+                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
+                </p>
+              )}
+              {summary?.headline && !summaryLoading && (
+                <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
+              )}
+              {summary?.overview && !summaryLoading && (
+                <p className={aStyles.summaryOverview}>{summary.overview}</p>
+              )}
+              {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
+                <p className={aStyles.summaryOverview} style={{ color: 'var(--accent)' }}>
+                  No issues were flagged — great performance.
+                </p>
+              )}
             </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* ── AI-generated summary (full-width, below two-column) ── */}
-      <section className={aStyles.summarySection} ref={summaryRef}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p className={styles.label}>Session Summary</p>
-          {summary && !summaryLoading && (
-            <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
-          )}
-        </div>
-
-        {summaryLoading && (
-          <div className={aStyles.summaryLoading}>
-            <span className={aStyles.summaryLoadingDot} />
-            <span className={aStyles.summaryLoadingDot} />
-            <span className={aStyles.summaryLoadingDot} />
-            <span style={{ marginLeft: 6 }}>Generating your session summary…</span>
           </div>
-        )}
 
-        {summaryError && !summaryLoading && (
-          <p className={aStyles.summaryError}>
-            {summaryError}
-            <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
-          </p>
-        )}
-
-        {summary && !summaryLoading && (
-          <>
-            {summary.headline && (
-              <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
-            )}
-            {summary.overview && (
-              <p className={aStyles.summaryOverview}>{summary.overview}</p>
-            )}
+          {summary && !summaryLoading && (
             <div className={aStyles.summaryColumns}>
               {summary.strengths?.length > 0 && (
                 <div className={`${aStyles.summaryCard} ${aStyles.summaryCardStrengths}`}>
-                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>
-                    ✓ Strengths
-                  </p>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>✓ Strengths</p>
                   <ul className={aStyles.summaryList}>
                     {summary.strengths.map((s, i) => (
                       <li key={i} className={aStyles.summaryListItem}>{s}</li>
@@ -783,9 +892,7 @@ export default function Analysis() {
               )}
               {summary.improvements?.length > 0 && (
                 <div className={`${aStyles.summaryCard} ${aStyles.summaryCardImprovements}`}>
-                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>
-                    → Areas to work on
-                  </p>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>→ Areas to work on</p>
                   <ul className={aStyles.summaryList}>
                     {summary.improvements.map((item, i) => (
                       <li key={i} className={aStyles.summaryListItem}>
@@ -797,65 +904,9 @@ export default function Analysis() {
                 </div>
               )}
             </div>
-          </>
-        )}
-
-        {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
-          <p className={aStyles.summaryOverview} style={{ color: 'var(--hero-green)' }}>
-            No issues were flagged — great performance.
-          </p>
-        )}
-      </section>
-
-      {/* ── Ask Mediant chat ── */}
-      <section className={aStyles.chatSection}>
-        <div className={aStyles.chatSectionHeader}>
-          <p className={styles.label}>Ask Mediant</p>
-          {activeFlagRaw && (
-            <span className={aStyles.chatContextPill}>
-              Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
-            </span>
           )}
-        </div>
-        <div className={styles.chatMessages}>
-          {chatMessages.length === 0 && (
-            <p className={styles.chatEmpty}>
-              {activeFlagRaw
-                ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything else about your performance.`
-                : 'Select an issue above, then ask Mediant about it — or ask anything about your performance.'}
-            </p>
-          )}
-          {chatMessages.map((m, i) => (
-            <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
-              {m.role === 'user' && m.flagContext && (
-                <span className={styles.chatMsgContext}>
-                  Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
-                </span>
-              )}
-              {m.content}
-            </div>
-          ))}
-          {chatLoading && (
-            <div className={styles.chatMsgAI}><span className={styles.chatTyping}>···</span></div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
-        <div className={styles.chatInputRow}>
-          <input
-            className={styles.chatInput}
-            value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
-            placeholder="Ask about your performance…"
-            disabled={chatLoading}
-          />
-          <button
-            className={styles.chatSend}
-            onClick={sendMessage}
-            disabled={chatLoading || !chatInput.trim()}
-          >↑</button>
-        </div>
-      </section>
+        </section>
+      )}
 
       <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
     </div>
