@@ -164,19 +164,33 @@ const SHUFFLE_ITEMS = [
 ]
 
 function ShuffleCards() {
-  const [idx, setIdx] = useState(0)
+  // [current, ghost1, ghost2] — rotate on each tick
+  const [hist, setHist] = useState([0, 4, 3])
+
   useEffect(() => {
-    const id = setInterval(() => setIdx(i => (i + 1) % SHUFFLE_ITEMS.length), 3000)
+    const id = setInterval(() => {
+      setHist(([cur, g1]) => [(cur + 1) % SHUFFLE_ITEMS.length, cur, g1])
+    }, 3000)
     return () => clearInterval(id)
   }, [])
-  const item = SHUFFLE_ITEMS[idx]
+
+  const cur = SHUFFLE_ITEMS[hist[0]]
+  const gh1 = SHUFFLE_ITEMS[hist[1]]
+  const gh2 = SHUFFLE_ITEMS[hist[2]]
+
   return (
     <div className={styles.shuffleWrap}>
-      <div className={styles.shuffleGhost} />
-      <div className={styles.shuffleGhost} />
-      <div key={idx} className={styles.shuffleCard}>
-        <span className={styles.shuffleDot} style={{ background: item.color }} />
-        <span className={styles.shuffleText}>{item.text}</span>
+      <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostFar}`}>
+        <span className={styles.shuffleDot} style={{ background: gh2.color }} />
+        <span className={styles.shuffleText}>{gh2.text}</span>
+      </div>
+      <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostNear}`}>
+        <span className={styles.shuffleDot} style={{ background: gh1.color }} />
+        <span className={styles.shuffleText}>{gh1.text}</span>
+      </div>
+      <div key={hist[0]} className={styles.shuffleCard}>
+        <span className={styles.shuffleDot} style={{ background: cur.color, boxShadow: `0 0 8px 3px ${cur.color}55` }} />
+        <span className={styles.shuffleText}>{cur.text}</span>
       </div>
     </div>
   )
