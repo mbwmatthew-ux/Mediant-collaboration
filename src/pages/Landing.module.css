@@ -309,35 +309,14 @@
 
 /* ── Shuffle cards ── */
 .shuffleWrap {
+  height: 82px; /* card (~56px) + ghost offsets (up to ~22px) + breathing room */
   margin: 0 auto;
-  padding-bottom: 24px;
   position: relative;
   width: min(540px, 88vw);
 }
 
-/* Front card */
-.shuffleCard {
-  align-items: center;
-  animation: shuffleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  background: rgba(18,24,20,0.86);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 16px;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 40px rgba(0,0,0,0.55);
-  display: flex;
-  gap: 14px;
-  padding: 18px 24px;
-  position: relative;
-  z-index: 3;
-}
-
-@keyframes shuffleIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Ghost cards — same structure, blurred & pushed down */
+/* All cards share absolute positioning */
+.shuffleCard,
 .shuffleGhostCard {
   align-items: center;
   border-radius: 16px;
@@ -347,27 +326,42 @@
   padding: 18px 24px;
   position: absolute;
   right: 0;
-  top: 0;
-  pointer-events: none;
+  white-space: nowrap;
 }
 
+/* Front card */
+.shuffleCard {
+  animation: shuffleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  background: rgba(20,26,22,0.9);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 40px rgba(0,0,0,0.55);
+  top: 0;
+  z-index: 3;
+}
+
+@keyframes shuffleIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Ghost cards — stacked below, progressively narrower & more transparent */
+.shuffleGhostCard { pointer-events: none; }
+
 .shuffleGhostNear {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.042);
   border: 1px solid rgba(255,255,255,0.08);
-  filter: blur(2.5px);
-  opacity: 0.5;
-  transform: translateY(11px) scaleX(0.91);
-  transform-origin: center top;
+  top: 11px;
+  transform: scaleX(0.92);
   z-index: 2;
 }
 
 .shuffleGhostFar {
-  background: rgba(255,255,255,0.025);
+  background: rgba(255,255,255,0.024);
   border: 1px solid rgba(255,255,255,0.05);
-  filter: blur(5px);
-  opacity: 0.26;
-  transform: translateY(20px) scaleX(0.80);
-  transform-origin: center top;
+  top: 21px;
+  transform: scaleX(0.82);
   z-index: 1;
 }
 
@@ -382,12 +376,14 @@
   color: rgba(232,240,235,0.82);
   font-size: 0.92rem;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.shuffleGhostNear .shuffleText,
-.shuffleGhostFar  .shuffleText {
-  color: rgba(232,240,235,0.6);
-}
+.shuffleGhostNear .shuffleText { color: rgba(232,240,235,0.18); }
+.shuffleGhostFar  .shuffleText { color: rgba(232,240,235,0.1); }
+.shuffleGhostNear .shuffleDot  { opacity: 0.35; }
+.shuffleGhostFar  .shuffleDot  { opacity: 0.2; }
 
 .heroSub {
   color: rgba(232,240,235,0.45);
