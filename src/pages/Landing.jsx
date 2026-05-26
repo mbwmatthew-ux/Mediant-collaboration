@@ -137,21 +137,43 @@ function Wordmark({ className }) {
   return <span className={`${styles.wordmark} ${className || ''}`}>Mediant</span>
 }
 
-/* ── Per-character word materialization ── */
-function AnimatedWord({ word, visible, color }) {
-  return (
-    <>
-      {word.split('').map((char, i) => (
-        <span
-          key={i}
-          className={`${styles.heroChar} ${visible ? styles.heroCharIn : styles.heroCharOut}`}
-          style={{ '--ci': i, '--ct': word.length, '--w-color': color }}
-        >
-          {char}
-        </span>
-      ))}
-    </>
-  )
+const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+
+/* ── Text scramble (ClickUp-style shuffle) ── */
+function ScrambleWord({ word, color }) {
+  const [display, setDisplay] = useState(word)
+  const frameRef = useRef(null)
+  const prevRef  = useRef(word)
+
+  useEffect(() => {
+    if (word === prevRef.current) return
+    prevRef.current = word
+    cancelAnimationFrame(frameRef.current)
+
+    const TOTAL = 24
+    let f = 0
+
+    function tick() {
+      f++
+      const resolved = Math.floor((f / TOTAL) * word.length)
+      setDisplay(
+        word.split('').map((ch, i) => {
+          if (ch === ' ') return ' '
+          if (i < resolved) return ch
+          return CHARSET[Math.floor(Math.random() * CHARSET.length)]
+        }).join('')
+      )
+      if (f < TOTAL) frameRef.current = requestAnimationFrame(tick)
+      else setDisplay(word)
+    }
+
+    // Immediately show scrambled version, then resolve
+    setDisplay(word.split('').map(ch => ch === ' ' ? ' ' : CHARSET[Math.floor(Math.random() * CHARSET.length)]).join(''))
+    frameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [word])
+
+  return <span className={styles.heroChar} style={{ '--w-color': color }}>{display}</span>
 }
 
 /* ── Animated stat counter ── */
@@ -192,8 +214,7 @@ function StatCard({ value, suffix, label, delay }) {
 }
 
 export default function Landing() {
-  const [wordIdx, setWordIdx]         = useState(0)
-  const [wordVisible, setWordVisible] = useState(true)
+  const [wordIdx, setWordIdx] = useState(0)
   const canvasRef = useRef(null)
   const [analysisRef, analysisInView] = useInView(0.15)
 
@@ -252,11 +273,8 @@ export default function Landing() {
   /* ── Word cycling ── */
   useEffect(() => {
     const id = setInterval(() => {
-      setWordVisible(false)
-      // Give the exit animation time to fully finish before swapping text
-      setTimeout(() => setWordIdx(i => (i + 1) % ROTATING_LINES.length), 480)
-      setTimeout(() => setWordVisible(true), 540)
-    }, 3600)
+      setWordIdx(i => (i + 1) % ROTATING_LINES.length)
+    }, 3200)
     return () => clearInterval(id)
   }, [])
 
@@ -313,11 +331,11 @@ export default function Landing() {
           <span className={styles.heroLine}>
             <span className={styles.heroStatic}>We</span>
             <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
-              <AnimatedWord word={current.we} visible={wordVisible} color={current.color} />
+              <ScrambleWord word={current.we} color={current.color} />
             </span>
             <span className={styles.heroComma}>,&nbsp;you</span>
             <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
-              <AnimatedWord word={current.you} visible={wordVisible} color={current.color} />
+              <ScrambleWord word={current.you} color={current.color} />
             </span>
           </span>
         </h1>

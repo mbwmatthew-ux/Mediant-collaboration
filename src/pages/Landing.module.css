@@ -281,39 +281,12 @@
   margin-left: -0.18em;
 }
 
-/* ── Per-character materialization ── */
+/* ── Scramble word ── */
 .heroChar {
   color: var(--w-color, var(--accent));
   display: inline-block;
-  will-change: opacity, transform, filter;
-}
-
-/* Characters materialize in — stagger left to right */
-.heroCharIn {
-  filter: blur(0);
-  letter-spacing: normal;
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  transition:
-    opacity   0.85s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.9s  cubic-bezier(0.16, 1, 0.3, 1),
-    filter    0.75s cubic-bezier(0.16, 1, 0.3, 1),
-    letter-spacing 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: calc(var(--ci) * 55ms);
-}
-
-/* Characters dissolve out upward — stagger right to left */
-.heroCharOut {
-  filter: blur(22px);
-  letter-spacing: -0.06em;
-  opacity: 0;
-  transform: translateY(-0.55em) scale(1.18);
-  transition:
-    opacity   0.32s ease,
-    transform 0.38s cubic-bezier(0.4, 0, 1, 1),
-    filter    0.32s ease,
-    letter-spacing 0.32s ease;
-  transition-delay: calc((var(--ct) - var(--ci) - 1) * 14ms);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .heroSub {
