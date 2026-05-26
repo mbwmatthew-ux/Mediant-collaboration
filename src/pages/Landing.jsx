@@ -137,43 +137,49 @@ function Wordmark({ className }) {
   return <span className={`${styles.wordmark} ${className || ''}`}>Mediant</span>
 }
 
-const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+/* ── Per-character fade word ── */
+function AnimatedWord({ word, color, visible }) {
+  return (
+    <span className={styles.heroWordFrame}>
+      {word.split('').map((ch, i) => (
+        <span
+          key={ch + i}
+          className={visible ? styles.heroCharVisible : styles.heroCharHidden}
+          style={{ '--wi': i, '--w-color': color }}
+        >
+          {ch}
+        </span>
+      ))}
+    </span>
+  )
+}
 
-/* ── Text scramble (ClickUp-style shuffle) ── */
-function ScrambleWord({ word, color }) {
-  const [display, setDisplay] = useState(word)
-  const frameRef = useRef(null)
-  const prevRef  = useRef(word)
+/* ── Stacked shuffle cards ── */
+const SHUFFLE_ITEMS = [
+  { color: '#a58fe8', text: 'Aligning your recording to the score...' },
+  { color: '#e18676', text: 'Detecting timing drift in measures 12–15...' },
+  { color: '#d6b168', text: 'Mapping pitch accuracy across 47 notes...' },
+  { color: '#5cb86b', text: 'Comparing this take to your last session...' },
+  { color: '#a58fe8', text: 'Generating targeted practice feedback...' },
+]
 
+function ShuffleCards() {
+  const [idx, setIdx] = useState(0)
   useEffect(() => {
-    if (word === prevRef.current) return
-    prevRef.current = word
-    cancelAnimationFrame(frameRef.current)
-
-    const TOTAL = 24
-    let f = 0
-
-    function tick() {
-      f++
-      const resolved = Math.floor((f / TOTAL) * word.length)
-      setDisplay(
-        word.split('').map((ch, i) => {
-          if (ch === ' ') return ' '
-          if (i < resolved) return ch
-          return CHARSET[Math.floor(Math.random() * CHARSET.length)]
-        }).join('')
-      )
-      if (f < TOTAL) frameRef.current = requestAnimationFrame(tick)
-      else setDisplay(word)
-    }
-
-    // Immediately show scrambled version, then resolve
-    setDisplay(word.split('').map(ch => ch === ' ' ? ' ' : CHARSET[Math.floor(Math.random() * CHARSET.length)]).join(''))
-    frameRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameRef.current)
-  }, [word])
-
-  return <span className={styles.heroChar} style={{ '--w-color': color }}>{display}</span>
+    const id = setInterval(() => setIdx(i => (i + 1) % SHUFFLE_ITEMS.length), 3000)
+    return () => clearInterval(id)
+  }, [])
+  const item = SHUFFLE_ITEMS[idx]
+  return (
+    <div className={styles.shuffleWrap}>
+      <div className={styles.shuffleGhost} />
+      <div className={styles.shuffleGhost} />
+      <div key={idx} className={styles.shuffleCard}>
+        <span className={styles.shuffleDot} style={{ background: item.color }} />
+        <span className={styles.shuffleText}>{item.text}</span>
+      </div>
+    </div>
+  )
 }
 
 /* ── Animated stat counter ── */
@@ -214,7 +220,8 @@ function StatCard({ value, suffix, label, delay }) {
 }
 
 export default function Landing() {
-  const [wordIdx, setWordIdx] = useState(0)
+  const [wordIdx, setWordIdx]     = useState(0)
+  const [wordVisible, setWordVisible] = useState(true)
   const canvasRef = useRef(null)
   const [analysisRef, analysisInView] = useInView(0.15)
 
@@ -270,11 +277,13 @@ export default function Landing() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
   }, [])
 
-  /* ── Word cycling ── */
+  /* ── Word cycling with fade out / in ── */
   useEffect(() => {
     const id = setInterval(() => {
-      setWordIdx(i => (i + 1) % ROTATING_LINES.length)
-    }, 3200)
+      setWordVisible(false)
+      setTimeout(() => setWordIdx(i => (i + 1) % ROTATING_LINES.length), 320)
+      setTimeout(() => setWordVisible(true), 360)
+    }, 3400)
     return () => clearInterval(id)
   }, [])
 
@@ -330,15 +339,13 @@ export default function Landing() {
         <h1 className={styles.heroHeading}>
           <span className={styles.heroLine}>
             <span className={styles.heroStatic}>We</span>
-            <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
-              <ScrambleWord word={current.we} color={current.color} />
-            </span>
+            <AnimatedWord word={current.we}  color={current.color} visible={wordVisible} />
             <span className={styles.heroComma}>,&nbsp;you</span>
-            <span className={styles.heroWordFrame} aria-live="polite" aria-atomic="true">
-              <ScrambleWord word={current.you} color={current.color} />
-            </span>
+            <AnimatedWord word={current.you} color={current.color} visible={wordVisible} />
           </span>
         </h1>
+
+        <ShuffleCards />
 
         <p className={styles.heroSub}>
           Upload a recording. Mediant maps it to your sheet music and delivers
