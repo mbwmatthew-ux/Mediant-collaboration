@@ -187,27 +187,58 @@ const INTRO_SHEETS = [
   { angle:  75, rx: '5px  9px  5px 11px' },
 ]
 
+const DECOR_SHEETS = [
+  { seed: 0,  top: '94vh',  left: '-5%',  right: 'auto', angle: -15, rx: '4px 11px 9px 5px',  i: 0 },
+  { seed: 8,  top: '128vh', left: 'auto', right: '-4%',  angle:  22, rx: '6px 8px 11px 4px',  i: 1 },
+  { seed: 3,  top: '178vh', left: '-3%',  right: 'auto', angle: -20, rx: '3px 10px 7px 8px',  i: 2 },
+  { seed: 11, top: '215vh', left: 'auto', right: '-2%',  angle:  16, rx: '7px 9px 6px 10px',  i: 3 },
+  { seed: 5,  top: '280vh', left: '1%',   right: 'auto', angle: -10, rx: '4px 12px 8px 5px',  i: 4 },
+  { seed: 2,  top: '340vh', left: 'auto', right: '-3%',  angle:  26, rx: '8px 7px 10px 4px',  i: 5 },
+  { seed: 9,  top: '410vh', left: '-2%',  right: 'auto', angle: -18, rx: '5px 9px 5px 11px',  i: 6 },
+]
+
 function MusicIntro() {
   const [state, setState] = useState('initial')
 
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
-    const t1 = setTimeout(() => setState('evaporating'), 2300)
-    const t2 = setTimeout(() => setState('gone'), 3500)
+    const t1 = setTimeout(() => setState('gliding'), 2300)
+    const t2 = setTimeout(() => setState('settled'), 4500)
     return () => { cancelAnimationFrame(id); clearTimeout(t1); clearTimeout(t2) }
   }, [])
-
-  if (state === 'gone') return null
 
   function cls(side) {
     return [
       styles.introSheet,
       side === 'right' && styles.introSheetR,
-      state === 'fanned'      && styles.introFanning,
-      state === 'fanned'      && styles.introSheetFanned,
-      state === 'evaporating' && styles.introEvaporating,
-      state === 'evaporating' && styles.introSheetEvap,
+      state === 'fanned'  && styles.introFanning,
+      state === 'fanned'  && styles.introSheetFanned,
+      state === 'gliding' && styles.introGliding,
+      state === 'gliding' && styles.introSheetGlide,
     ].filter(Boolean).join(' ')
+  }
+
+  if (state === 'settled') {
+    return (
+      <div className={styles.introDecor} aria-hidden="true">
+        {DECOR_SHEETS.map((d) => (
+          <div
+            key={d.seed}
+            className={styles.decorSheet}
+            style={{
+              top: d.top,
+              left: d.left,
+              right: d.right,
+              '--angle': `${d.angle}deg`,
+              '--i': d.i,
+              borderRadius: d.rx,
+            }}
+          >
+            <SheetMusicPage seed={d.seed} />
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (

@@ -65,18 +65,43 @@
   transform: rotate(var(--angle)) scale(1);
 }
 
-/* Evaporate */
-.introEvaporating {
+/* Glide down */
+.introGliding {
   transition:
-    opacity   1.2s ease                               calc(var(--i) * 28ms),
-    filter    1.2s ease                               calc(var(--i) * 28ms),
-    transform 1.2s cubic-bezier(0.4, 0, 0.8, 0.6)    calc(var(--i) * 28ms);
+    opacity   1.9s cubic-bezier(0.4, 0, 0.6, 1)      calc(var(--i) * 45ms),
+    filter    1.6s ease                               calc(var(--i) * 45ms),
+    transform 2.1s cubic-bezier(0.25, 0.1, 0.1, 1)   calc(var(--i) * 45ms);
 }
 
-.introSheetEvap {
-  filter: blur(22px);
+.introSheetGlide {
+  filter: blur(3px);
   opacity: 0;
-  transform: rotate(var(--angle)) scale(1.18) translateY(-70px);
+  transform: rotate(var(--angle)) scale(0.82) translateY(170vh);
+}
+
+/* Settled decorative watermarks */
+.introDecor {
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.decorSheet {
+  animation: decorFadeIn 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--i) * 180ms + 100ms);
+  height: 242px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  transform: rotate(var(--angle));
+  width: 175px;
+}
+
+@keyframes decorFadeIn {
+  to { opacity: 0.055; }
 }
 
 /* ── Registered custom properties (Houdini) ───────────────────── */
