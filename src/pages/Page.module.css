@@ -813,6 +813,19 @@
 }
 .errorRetry:hover { background: rgba(225,134,118,0.25); }
 
+.errorUpgradeLink {
+  background: rgba(225,134,118,0.15);
+  border: 1px solid rgba(225,134,118,0.3);
+  border-radius: 6px;
+  color: rgba(225,134,118,0.9);
+  font-size: 0.8rem;
+  margin-left: auto;
+  padding: 4px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.errorUpgradeLink:hover { background: rgba(225,134,118,0.25); }
+
 /* ── Score Review ───────────────────────────────────────────── */
 .issueStrip { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
 .issueStripLabel { color: var(--text-dim); font-size: 0.8rem; font-weight: 500; }

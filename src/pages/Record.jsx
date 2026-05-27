@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getFile } from '../lib/fileStore'
@@ -267,7 +267,6 @@ export default function Record() {
       })
 
       if (fnError || jobResult?.error) {
-        // Supabase SDK doesn't put the body into data on non-2xx — try to extract it
         let msg = jobResult?.error || fnError?.message || 'Failed to start analysis'
         if (msg === 'Edge Function returned a non-2xx status code' && fnError?.context) {
           try { const b = await fnError.context.json(); if (b?.error) msg = b.error } catch { /* keep generic */ }
@@ -391,15 +390,21 @@ export default function Record() {
 
       {phase === 'error' && (
         <div className={styles.errorBanner}>
-          <strong>Analysis failed:</strong> {errorMsg}
-          {errorDetails.length > 0 && (
-            <ul className={styles.analysisNoticeList} style={{ marginTop: 10 }}>
-              {errorDetails.map((detail) => (
-                <li key={detail}>{detail}</li>
-              ))}
-            </ul>
+          <strong>{errorMsg.includes('Upgrade') ? 'Analysis limit reached' : 'Analysis failed'}:</strong> {errorMsg}
+          {errorMsg.includes('Upgrade') ? (
+            <Link to="/pricing" className={styles.errorUpgradeLink}>View Pro plans →</Link>
+          ) : (
+            <>
+              {errorDetails.length > 0 && (
+                <ul className={styles.analysisNoticeList} style={{ marginTop: 10 }}>
+                  {errorDetails.map((detail) => (
+                    <li key={detail}>{detail}</li>
+                  ))}
+                </ul>
+              )}
+              <button className={styles.errorRetry} onClick={() => { playThud(); setPhase('idle') }}>Try again</button>
+            </>
           )}
-          <button className={styles.errorRetry} onClick={() => { playThud(); setPhase('idle') }}>Try again</button>
         </div>
       )}
 

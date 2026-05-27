@@ -26,6 +26,58 @@ function flagTypeMeta(type) {
   return TYPE_META[(type ?? '').toLowerCase()] ?? { icon: '◆', cls: 'iconCoral' }
 }
 
+const DEMO_TAKE = {
+  id: 'demo',
+  piece_title: 'Clair de lune',
+  piece_composer: 'Claude Debussy',
+  instrument: 'Piano',
+  score: 74,
+  analysis_quality: { trust: 'high', reasons: [] },
+  analysis_backend: 'gemini-inline',
+  created_at: new Date().toISOString(),
+  flags: [
+    {
+      measure: 5,
+      type: 'timing',
+      confidence: 91,
+      title: 'Rushing the triplet descent',
+      detail: 'The right-hand triplet run in m.5 arrives roughly 40ms early, clipping the lyrical line. Subdivide each triplet group against a slow metronome (♩=40) until the three notes feel even, then gradually raise tempo.',
+      timestamp_start: 8.2,
+      timestamp_end: 10.1,
+    },
+    {
+      measure: 14,
+      type: 'dynamics',
+      confidence: 88,
+      title: 'Subito forte too percussive',
+      detail: 'The fortissimo chord in m.14 is struck rather than weighted — the tone loses its warmth. Approach it with arm weight from the shoulder rather than a finger strike, letting the key beds down through the sound.',
+      timestamp_start: 22.4,
+      timestamp_end: 23.9,
+    },
+    {
+      measure: 21,
+      type: 'intonation',
+      confidence: 85,
+      title: 'Left-hand bass F♯ tuning',
+      detail: 'The bass F♯ octave in m.21 sits slightly thin — likely a touch of excessive damper pedal blurring the lower partial. Clear the pedal just before this beat and use a deeper key contact to reinforce the fundamental.',
+      timestamp_start: 35.0,
+      timestamp_end: 36.5,
+    },
+    {
+      measure: 27,
+      type: 'technique',
+      confidence: 82,
+      title: 'Thumb tuck on inner voice D♭',
+      detail: 'The thumb crosses under the hand awkwardly on the D♭ in m.27, creating a slight accent in an inner voice that should be nearly inaudible. Practice the LH alone, voicing the top melody note and letting the inner D♭ fall naturally under the palm.',
+      timestamp_start: 46.8,
+      timestamp_end: 48.3,
+    },
+  ],
+  video_path: null,
+  score_path: null,
+  _demo: true,
+}
+
 function timeAgo(iso) {
   if (!iso) return null
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
@@ -82,7 +134,7 @@ function scoreFileForPiece(title) {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function Analysis() {
+export default function Analysis({ demo: demoProp = false }) {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const scoreEl  = useRef(null)
@@ -118,11 +170,14 @@ export default function Analysis() {
   const [chatInput, setChatInput]       = useState('')
   const [chatLoading, setChatLoading]   = useState(false)
   const chatEndRef = useRef(null)
-  const takeId = searchParams.get('takeId')
+  const takeId  = searchParams.get('takeId')
+  const isDemo  = demoProp || searchParams.get('demo') === 'true'
 
   // Load take from Supabase when takeId is present; otherwise fall back to localStorage.
   // If the take is still processing, poll every 4s until it finishes.
   useEffect(() => {
+    if (isDemo) { setTake(DEMO_TAKE); return }
+
     let cancelled = false
     let pollTimer = null
 
@@ -159,7 +214,7 @@ export default function Analysis() {
 
     loadTake()
     return () => { cancelled = true; clearTimeout(pollTimer) }
-  }, [takeId])
+  }, [takeId, isDemo])
 
   // Generate signed URL for uploaded score (if stored in Supabase)
   useEffect(() => {
@@ -538,7 +593,7 @@ export default function Analysis() {
           <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
         ) : (
           <div className={styles.scorePhotoWrap}>
-            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" />
+            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" loading="lazy" decoding="async" />
             {(take?.flags ?? []).map((f, i) => {
               if (!f.spot) return null
               const flagId = `flag_${i}`
@@ -591,6 +646,28 @@ export default function Analysis() {
 
   return (
     <div className={styles.page}>
+
+      {/* ── Demo banner ── */}
+      {isDemo && (
+        <div style={{
+          background: 'rgba(92,184,107,0.1)',
+          border: '1px solid rgba(92,184,107,0.25)',
+          borderRadius: 8,
+          color: 'rgba(248,246,242,0.75)',
+          fontSize: '0.85rem',
+          marginBottom: 16,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <span style={{ color: 'var(--hero-green)', fontWeight: 600 }}>Demo</span>
+          This is a sample analysis for Clair de lune. Create a free account to analyze your own recordings.
+          <a href="#/signup" style={{ color: 'var(--hero-green)', marginLeft: 'auto', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            Get started free →
+          </a>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className={styles.header}>

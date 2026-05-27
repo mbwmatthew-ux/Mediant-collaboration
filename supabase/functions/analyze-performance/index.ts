@@ -458,6 +458,34 @@ serve(async (req: Request) => {
       })
     }
 
+    // ── Admin client (used for gate check + take insert + signed URLs) ────────
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // ── Free tier gate: 1 analysis lifetime, Pro = unlimited ─────────────────
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, plan')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const isPro = sub?.status === 'active' && sub?.plan !== 'free'
+
+    if (!isPro) {
+      const { count } = await admin
+        .from('takes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+
+      if ((count ?? 0) >= 1) {
+        return new Response(
+          JSON.stringify({ error: 'Free accounts include one analysis. Upgrade to Pro for unlimited analyses.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } },
+        )
+      }
+    }
+
     const body = await req.json()
     const {
       videoPath, videoMimeType,
@@ -479,11 +507,6 @@ serve(async (req: Request) => {
     const safeEnd: number | null = endMeasure
       ? Math.max(safeStart, parseInt(String(endMeasure), 10))
       : null
-
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
 
     // Insert take row in processing state
     const { data: take, error: insertError } = await admin

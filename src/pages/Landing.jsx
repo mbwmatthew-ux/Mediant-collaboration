@@ -474,6 +474,10 @@ export default function Landing() {
         </div>
 
         <p className={styles.heroNote}>Free to start · No credit card · Any instrument</p>
+
+        <Link to="/demo" className={styles.heroSeeExample}>
+          See an example analysis ↗
+        </Link>
       </section>
 
       {/* ── Analysis Demo ── */}

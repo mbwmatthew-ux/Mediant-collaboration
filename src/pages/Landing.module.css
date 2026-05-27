@@ -483,6 +483,16 @@
   margin: 0;
 }
 
+.heroSeeExample {
+  color: rgba(92,184,107,0.6);
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  margin-top: 6px;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+.heroSeeExample:hover { color: rgba(92,184,107,0.9); }
+
 /* ── Buttons ──────────────────────────────────────────────────── */
 .ctaPrimary {
   backdrop-filter: blur(14px);
