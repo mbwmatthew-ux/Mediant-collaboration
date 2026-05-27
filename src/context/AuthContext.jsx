@@ -12,10 +12,11 @@ function userFromSession(session) {
   if (!session?.user) return null
   const { user } = session
   return {
-    id:         user.id,
-    email:      user.email,
-    name:       user.user_metadata?.name       || '',
-    instrument: user.user_metadata?.instrument || '',
+    id:             user.id,
+    email:          user.email,
+    name:           user.user_metadata?.name           || '',
+    instrument:     user.user_metadata?.instrument     || '',
+    coaching_style: user.user_metadata?.coaching_style || 'Balanced',
   }
 }
 

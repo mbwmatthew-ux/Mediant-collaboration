@@ -43,8 +43,9 @@ export default function Settings() {
   const { theme, toggleTheme } = useTheme()
   const nav = useNavigate()
 
-  const [name,       setName]       = useState(user?.name ?? '')
-  const [instrument, setInstrument] = useState(user?.instrument ?? 'Piano')
+  const [name,           setName]          = useState(user?.name ?? '')
+  const [instrument,     setInstrument]    = useState(user?.instrument ?? 'Piano')
+  const [coachingStyle,  setCoachingStyle] = useState(user?.coaching_style ?? 'Balanced')
   const [saveStatus, setSaveStatus] = useState('idle') // idle | saving | saved
 
   const [soundOn, setSoundOn] = useState(
@@ -58,7 +59,7 @@ export default function Settings() {
     if (saveStatus === 'saving') return
     setSaveStatus('saving')
     try {
-      await supabase.auth.updateUser({ data: { name, instrument } })
+      await supabase.auth.updateUser({ data: { name, instrument, coaching_style: coachingStyle } })
       playSave()
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2200)
@@ -138,6 +139,19 @@ export default function Settings() {
                   onChange={e => { playTick(); setInstrument(e.target.value) }}
                 >
                   {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
+                </select>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Coaching style</label>
+                <select
+                  className={styles.fieldSelect}
+                  value={coachingStyle}
+                  onChange={e => { playTick(); setCoachingStyle(e.target.value) }}
+                >
+                  <option value="Balanced">Balanced — mix of encouragement and critique</option>
+                  <option value="Encouraging">Encouraging — warm, motivating tone</option>
+                  <option value="Technical">Technical — detailed, analytical focus</option>
+                  <option value="Direct">Direct — concise, no-nonsense feedback</option>
                 </select>
               </div>
             </div>

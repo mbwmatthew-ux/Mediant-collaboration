@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { saveFile } from '../lib/fileStore'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -21,11 +22,12 @@ function fileToBase64(file) {
 
 export default function UploadPieceModal({ onClose, onAdded }) {
   const { user }  = useAuth()
+  const nav       = useNavigate()
   const inputRef  = useRef(null)
   const [file,       setFile]       = useState(null)
   const [drag,       setDrag]       = useState(false)
   const [instrument, setInstrument] = useState('')
-  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready | saving
+  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready | saving | saving-record
   const [form,       setForm]       = useState(null)
   const [error,      setError]      = useState(null)
 
@@ -70,9 +72,9 @@ export default function UploadPieceModal({ onClose, onAdded }) {
     return e => setForm(prev => ({ ...prev, [field]: e.target.value }))
   }
 
-  async function handleAdd() {
+  async function handleAdd({ andRecord = false } = {}) {
     if (!file || !form || !instrument) return
-    setPhase('saving')
+    setPhase(andRecord ? 'saving-record' : 'saving')
     setError(null)
     try {
       // Upload file to Supabase storage
@@ -105,7 +107,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
       // Save to IndexedDB so the score viewer works offline
       await saveFile(inserted.id, file).catch(() => {})
 
-      onAdded({
+      const piece = {
         id:           inserted.id,
         ...form,
         title:        form.title.trim()    || file.name,
@@ -116,8 +118,26 @@ export default function UploadPieceModal({ onClose, onAdded }) {
         bpm:          parseInt(form.bpm) || null,
         file_path:    filePath,
         userUploaded: true,
-      })
-      onClose()
+        mediaType:    file.type,
+      }
+
+      onAdded(piece)
+
+      if (andRecord) {
+        sessionStorage.setItem('mediant_prefill', JSON.stringify({
+          pieceTitle: piece.title,
+          composer:   piece.composer,
+          instrument: piece.instrument,
+          key:        piece.key  !== '—' ? piece.key  : null,
+          timeSig:    piece.time !== '—' ? piece.time : null,
+          bpm:        piece.bpm  || null,
+          pieceId:    piece.id,
+          mediaType:  file.type,
+        }))
+        nav('/record')
+      } else {
+        onClose()
+      }
     } catch (err) {
       setError(`Failed to save: ${err.message}`)
       setPhase('ready')
@@ -236,11 +256,18 @@ export default function UploadPieceModal({ onClose, onAdded }) {
         <div className={styles.modalActions}>
           <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
           <button
-            className={styles.uploadBtn}
-            onClick={handleAdd}
+            className={styles.uploadBtnSecondary}
+            onClick={() => handleAdd({ andRecord: false })}
             disabled={phase !== 'ready' || !instrument}
           >
             {phase === 'saving' ? 'Saving…' : 'Add to library'}
+          </button>
+          <button
+            className={styles.uploadBtn}
+            onClick={() => handleAdd({ andRecord: true })}
+            disabled={phase !== 'ready' || !instrument}
+          >
+            {phase === 'saving-record' ? 'Saving…' : 'Add & Record →'}
           </button>
         </div>
 

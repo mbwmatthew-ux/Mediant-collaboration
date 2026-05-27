@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import styles from './Auth.module.css'
 
 export default function Login() {
@@ -9,6 +10,18 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+
+  // Auto-redirect when user arrives already authenticated — happens after clicking
+  // the email confirmation link, which sets the session before landing here.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) nav('/home', { replace: true })
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) nav('/home', { replace: true })
+    })
+    return () => subscription.unsubscribe()
+  }, [nav])
 
   async function handleSubmit(e) {
     e.preventDefault()

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import styles from './Page.module.css'
 import { playPop, playTick } from '../utils/sounds'
 
@@ -40,6 +41,7 @@ function buildSuggestions(take) {
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
 export default function Coach() {
+  const { user }                  = useAuth()
   const [messages, setMessages]   = useState([])
   const [input, setInput]         = useState('')
   const [loading, setLoading]     = useState(false)
@@ -87,24 +89,30 @@ export default function Coach() {
       const { data, error } = await supabase.functions.invoke('coach-chat', {
         body: {
           message: msg,
-          context: take ? {
-            pieceTitle:    take.piece_title,
-            pieceComposer: take.piece_composer,
-            instrument:    take.instrument ?? null,
-            flags:         take.flags ?? [],
-          } : {},
+          context: {
+            pieceTitle:    take?.piece_title    ?? null,
+            pieceComposer: take?.piece_composer ?? null,
+            instrument:    take?.instrument     ?? null,
+            flags:         take?.flags          ?? [],
+            coachingStyle: user?.coaching_style ?? 'Balanced',
+          },
           history: messages,
         },
       })
       if (error) throw new Error(error.message ?? String(error))
+      if (data?.error) throw new Error(data.error)
       const reply = data?.reply ?? ''
       const updated = [...withUser, { role: 'assistant', content: reply }]
       setMessages(updated)
       if (take?.id) {
         supabase.from('takes').update({ chat_history: updated }).eq('id', take.id).catch(() => {})
       }
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const friendly = msg.includes('Daily coaching limit')
+        ? msg
+        : 'Something went wrong. Please try again.'
+      setMessages(prev => [...prev, { role: 'assistant', content: friendly }])
     } finally {
       setLoading(false)
       inputRef.current?.focus()

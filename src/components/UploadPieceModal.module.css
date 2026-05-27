@@ -203,6 +203,19 @@
 }
 .cancelBtn:hover { background: rgba(88, 121, 101, 0.14); }
 
+.uploadBtnSecondary {
+  background: rgba(88, 121, 101, 0.12);
+  border: 1px solid rgba(88, 121, 101, 0.25);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  padding: 12px 22px;
+  transition: background 160ms ease;
+}
+.uploadBtnSecondary:hover:not(:disabled) { background: rgba(88, 121, 101, 0.2); }
+.uploadBtnSecondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .uploadBtn {
   background: var(--hero-green);
   border: none;
