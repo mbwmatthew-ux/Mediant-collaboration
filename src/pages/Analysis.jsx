@@ -787,6 +787,7 @@ export default function Analysis({ demo: demoProp = false }) {
                           <span className={aStyles.timelineConfDot} style={{ background: cc }} />
                           <span className={aStyles.timelineTs}>{formatTs(f?.timestamp_start)}</span>
                           <span className={aStyles.timelineMeasure}>m.{f?.measure}</span>
+                          <span className={aStyles.timelineTypePill} data-type={(f?.type ?? 'technique').toLowerCase()}>{capitalize(f?.type)}</span>
                           <span className={aStyles.timelineTitle}>{f?.title}</span>
                           <span className={aStyles.timelineConfBadge} style={{ color: cc }}>{confLabel(confidence)}</span>
                         </button>

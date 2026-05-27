@@ -619,22 +619,43 @@
   align-items: center;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--surface-hover);
+  border-bottom: 1px solid var(--surface-border);
   cursor: pointer;
   display: grid;
   gap: 10px;
-  grid-template-columns: 10px 50px 40px 1fr auto;
+  grid-template-columns: 10px 50px 40px auto 1fr auto;
   min-width: 0;
-  padding: 11px 6px;
+  padding: 13px 12px;
   text-align: left;
-  transition: background 120ms ease;
+  position: relative;
+  transition: background 0.2s var(--ease-smooth), transform 0.2s var(--ease-spring), padding-left 0.2s var(--ease-spring);
   width: 100%;
 }
 .timelineRow:last-child { border-bottom: 0; }
-.timelineRow:hover { background: var(--surface-subtle); }
+.timelineRow:hover {
+  background: var(--surface-subtle);
+  transform: translateX(4px);
+}
 
-.timelineRowActive { background: var(--accent-bg); }
-.timelineRowActive:hover { background: var(--accent-bg-hover); }
+.timelineRowActive {
+  background: var(--accent-bg) !important;
+}
+.timelineRowActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+  animation: barGrow 0.25s var(--ease-spring) both;
+}
+
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
 
 .timelineConfDot {
   border-radius: 50%;
@@ -660,6 +681,27 @@
   white-space: nowrap;
 }
 
+.timelineTypePill {
+  align-self: center;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.timelineTypePill[data-type="intonation"] { background: rgba(225,134,118,0.18); color: var(--coral); }
+.timelineTypePill[data-type="dynamics"]   { background: rgba(225,134,118,0.18); color: var(--coral); }
+.timelineTypePill[data-type="timing"],
+.timelineTypePill[data-type="rhythm"],
+.timelineTypePill[data-type="phrasing"],
+.timelineTypePill[data-type="articulation"],
+.timelineTypePill[data-type="expression"] { background: rgba(214,177,104,0.18); color: var(--gold); }
+.timelineTypePill[data-type="technique"],
+.timelineTypePill[data-type="tone"],
+.timelineTypePill[data-type="posture"],
+.timelineTypePill[data-type="voicing"]    { background: var(--accent-bg-hover); color: var(--accent); }
+
 .timelineTitle {
   color: var(--text-soft);
   font-size: 0.84rem;
@@ -679,16 +721,23 @@
 
 /* ── Expanded insight card ───────────────────────────────────── */
 .insightCard {
-  background: var(--surface-subtle);
+  background: var(--bg-card);
   border: 1px solid var(--surface-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 14px;
   min-width: 0;
   overflow: hidden;
-  padding: 16px 18px 18px;
+  padding: 20px 22px;
+  animation: slideUp 0.35s var(--ease-spring) both;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .insightCardHeader {
@@ -910,7 +959,7 @@
 @media (max-width: 700px) {
   .issueGrid          { grid-template-columns: 1fr; }
   .summaryColumns     { grid-template-columns: 1fr; }
-  .timelineRow        { grid-template-columns: 10px 44px 36px 1fr; }
+  .timelineRow        { grid-template-columns: 10px 44px 36px auto 1fr; }
   .timelineConfBadge  { display: none; }
   .confLegend         { display: none; }
 }
