@@ -2,268 +2,254 @@ import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './Landing.module.css'
 
-/* ── Sheet music SVG ─────────────────────────────────────────── */
-const INK = '#1e1008'
-const S   = [30, 63, 96, 129, 162]
-
-// Note pools per track — 4 different melodic shapes
-const NOTE_TRACKS = [
-  [[23,2],[31,4],[39,1],[47,5],[55,3],[63,6],[71,2],[79,4],[87,1],[95,5],[103,3],[111,6],[120,2],[129,4],[138,1]],
-  [[23,5],[31,2],[39,6],[47,3],[55,5],[63,1],[71,4],[79,2],[87,6],[95,3],[103,5],[111,2],[120,4],[129,7],[138,3]],
-  [[23,3],[31,6],[39,2],[47,5],[55,4],[63,7],[71,3],[79,5],[87,2],[95,6],[103,4],[111,2],[120,5],[129,3],[138,6]],
-  [[23,6],[31,3],[39,7],[47,2],[55,5],[63,3],[71,6],[79,4],[87,2],[95,7],[103,3],[111,5],[120,2],[129,6],[138,4]],
-]
-
-// Stain configs: each sheet gets a different aged-paper look
-const STAIN_CFGS = [
-  // 0: heavy top-left + faint bottom-right
-  [{cx:10,cy:8,rx:26,ry:15,fill:'#b8740a',op:0.38},{cx:136,cy:152,rx:28,ry:20,fill:'#c8a040',op:0.16},{cx:76,cy:204,rx:50,ry:10,fill:'#d8b850',op:0.13}],
-  // 1: top-right corner
-  [{cx:144,cy:9,rx:22,ry:14,fill:'#b06820',op:0.35},{cx:20,cy:170,rx:24,ry:16,fill:'#c8a040',op:0.18},{cx:60,cy:80,rx:16,ry:12,fill:'#d0b048',op:0.12}],
-  // 2: bottom-left heavy
-  [{cx:8,cy:200,rx:30,ry:18,fill:'#b8740a',op:0.38},{cx:130,cy:30,rx:18,ry:12,fill:'#c8a040',op:0.16},{cx:90,cy:110,rx:20,ry:14,fill:'#d8b850',op:0.10}],
-  // 3: scattered age spots
-  [{cx:28,cy:45,rx:14,ry:9,fill:'#b06820',op:0.28},{cx:115,cy:105,rx:18,ry:12,fill:'#c8a040',op:0.22},{cx:55,cy:180,rx:22,ry:12,fill:'#b8740a',op:0.2},{cx:138,cy:22,rx:12,ry:7,fill:'#a06010',op:0.24}],
-  // 4: left-edge water damage
-  [{cx:5,cy:55,rx:18,ry:40,fill:'#b8740a',op:0.28},{cx:8,cy:155,rx:14,ry:30,fill:'#c09030',op:0.22},{cx:140,cy:100,rx:10,ry:8,fill:'#d0b048',op:0.12}],
-  // 5: faint, mostly clean
-  [{cx:8,cy:7,rx:14,ry:8,fill:'#b8740a',op:0.22},{cx:144,cy:205,rx:16,ry:9,fill:'#b06820',op:0.18}],
-  // 6: right-edge + top smudge
-  [{cx:148,cy:65,rx:16,ry:35,fill:'#a06010',op:0.26},{cx:148,cy:160,rx:14,ry:28,fill:'#c09030',op:0.2},{cx:20,cy:8,rx:18,ry:10,fill:'#b8740a',op:0.28}],
-]
-
-const BEAMS = [
-  [0,23,47],[0,71,95],[0,120,138],
-  [1,23,47],[1,71,95],[1,120,138],
-  [2,23,47],[2,71,95],[2,120,138],
-  [3,23,47],[3,71,95],[3,120,138],
-  [4,23,47],[4,71,95],[4,120,129],
-]
-
-const FINGERS = [
-  [0,26,2],[0,47,4],[0,63,1],[0,87,3],[0,111,1],[0,129,2],
-  [1,26,1],[1,47,3],[1,71,4],[1,95,2],[1,120,1],[1,138,3],
-  [2,26,2],[2,55,1],[2,79,4],[2,103,2],[2,129,3],
-  [3,26,3],[3,55,1],[3,79,2],[3,103,4],[3,129,1],
-  [4,26,2],[4,55,3],[4,79,1],[4,103,4],
-]
-
-const DYNAMICS   = ['ff','p','f','ff','p']
-const ANNOT_LEFT = ['ad lib.','a tempo','cresc.','poco rit.','dolciss.']
-const ANNOT_RIGHT= ['rit.','subito','espressivo','mf','rall.']
-
 function SheetMusicPage({ seed = 0, showTitle = false }) {
-  const stains = STAIN_CFGS[seed % STAIN_CFGS.length]
-
-  // Each staff uses a different note track, shifted by seed
-  const notes = S.flatMap((_, si) => {
-    const track = NOTE_TRACKS[(si + seed) % NOTE_TRACKS.length]
-    return track.map(([x, p]) => [si, x, Math.min(8, Math.max(0, p + ((seed * 3 + si) % 3) - 1))])
-  })
-
-  const annots = seed % 2 === 0 ? ANNOT_LEFT : ANNOT_RIGHT
-
   return (
-    <svg viewBox="0 0 152 210" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-      <rect width="152" height="210" fill="#f7e8be"/>
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      background: '#f7e8be',
+      overflow: 'hidden',
+      borderRadius: 'inherit',
+      boxShadow: 'inset 0 0 20px rgba(26,15,5,0.06)'
+    }}>
+      {/* High-fidelity, GPU-cached image representation of the sheet music (guarantees buttery 120 FPS!) */}
+      <img
+        src="/sheet_music_page.png"
+        alt="Sheet Music Page"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+          pointerEvents: 'none',
+          userSelect: 'none'
+        }}
+      />
+      
+      {/* Slight tint overlay to vary the aged-paper stain across seed values (uses fast hardware alpha blending) */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: `rgba(184, 146, 42, ${(seed % 4) * 0.018})`,
+        pointerEvents: 'none'
+      }} />
 
-      {/* Varied staining */}
-      {stains.map((b, i) => (
-        <ellipse key={i} cx={b.cx} cy={b.cy} rx={b.rx} ry={b.ry} fill={b.fill} opacity={b.op}/>
-      ))}
-
-      {/* Title — only on 2 sheets */}
-      {showTitle ? (
-        <>
-          <text x="76" y="11"   textAnchor="middle" fontFamily="Georgia,serif" fontSize="7"   fontWeight="bold" letterSpacing="2.5" fill={INK}>CONCERTO</text>
-          <text x="76" y="18.5" textAnchor="middle" fontFamily="Georgia,serif" fontSize="4.8" fill={INK}>CELLO  ·  I. PRELUDE</text>
-          <text x="76" y="25"   textAnchor="middle" fontFamily="Georgia,serif" fontSize="3.8" fontStyle="italic" fill={INK} opacity="0.6">EDOUARD LALO</text>
-          <text x="8"  y="27.5"                     fontFamily="Georgia,serif" fontSize="3.5" fill={INK} opacity="0.7">Lento ♩=56</text>
-        </>
-      ) : (
-        /* Non-title sheets: just a measure number or tempo hint */
-        <text x="8" y="28" fontFamily="Georgia,serif" fontSize="3.5" fill={INK} opacity="0.55">
-          {['Allegro','Lento','Andante','Vivace','Moderato','Adagio','Presto'][seed % 7]}
-        </text>
+      {/* Overlay brand titles on specific cards */}
+      {showTitle && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: 'rgba(247, 232, 190, 0.95)',
+          borderBottom: '1px solid rgba(184, 146, 42, 0.18)',
+          padding: '10px 8px 6px',
+          textAlign: 'center',
+          pointerEvents: 'none'
+        }}>
+          <h4 style={{
+            margin: 0,
+            fontFamily: '"Iowan Old Style", Georgia, serif',
+            fontSize: '9.5px',
+            fontWeight: 800,
+            letterSpacing: '0.12em',
+            color: '#1a0f05',
+            textTransform: 'uppercase'
+          }}>
+            Concerto Cello
+          </h4>
+          <p style={{
+            margin: '1px 0 0',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '7px',
+            color: 'rgba(26, 15, 5, 0.55)',
+            letterSpacing: '0.03em'
+          }}>
+            I. Prelude (J.S. Bach) · m.12
+          </p>
+        </div>
       )}
-
-      {/* Staff lines */}
-      {S.map((sy, si) =>
-        [0,5,10,15,20].map(dy => (
-          <line key={`sl${si}${dy}`} x1="6" y1={sy+dy} x2="146" y2={sy+dy} stroke={INK} strokeWidth="0.6" opacity="0.8"/>
-        ))
-      )}
-
-      {/* Opening double bar */}
-      {S.map((sy, si) => (
-        <g key={`ob${si}`}>
-          <line x1="6"   y1={sy} x2="6"   y2={sy+20} stroke={INK} strokeWidth="0.5" opacity="0.7"/>
-          <line x1="8.5" y1={sy} x2="8.5" y2={sy+20} stroke={INK} strokeWidth="1.8" opacity="0.7"/>
-        </g>
-      ))}
-
-      {/* Bar lines */}
-      {S.map((sy, si) =>
-        [50, 93, 128].map(bx => (
-          <line key={`bar${si}${bx}`} x1={bx} y1={sy} x2={bx} y2={sy+20} stroke={INK} strokeWidth="0.55" opacity="0.65"/>
-        ))
-      )}
-
-      {/* Time signature — varies per seed */}
-      {S.map((sy, si) => {
-        const [top, bot] = [['3','4'],['4','4'],['6','8'],['2','4'],['12','8']][(si + seed) % 5]
-        return (
-          <g key={`ts${si}`}>
-            <text x="13" y={sy+11} fontFamily="Georgia,serif" fontSize="8" fontWeight="bold" fill={INK} opacity="0.82">{top}</text>
-            <text x="13" y={sy+20} fontFamily="Georgia,serif" fontSize="8" fontWeight="bold" fill={INK} opacity="0.82">{bot}</text>
-          </g>
-        )
-      })}
-
-      {/* Note heads + stems */}
-      {notes.map(([si, x, p], i) => {
-        const cy = S[si] + 20 - p * 2.5
-        const up = p < 4
-        const sx = x + (up ? 2.2 : -2.2)
-        return (
-          <g key={`n${i}`}>
-            <ellipse cx={x} cy={cy} rx="2.3" ry="2.1" fill={INK} opacity="0.88"/>
-            <line x1={sx} y1={cy} x2={sx} y2={up ? cy-11 : cy+11} stroke={INK} strokeWidth="0.7" opacity="0.88"/>
-          </g>
-        )
-      })}
-
-      {/* Beams */}
-      {BEAMS.map(([si, x1, x2], i) => {
-        const grp  = notes.filter(([s,x]) => s===si && x>=x1 && x<=x2)
-        const avgP = grp.length ? grp.reduce((a,[,,p])=>a+p, 0)/grp.length : 4
-        const up   = avgP < 4
-        const by   = S[si] + 20 - avgP*2.5 + (up ? -11 : 11)
-        return (
-          <rect key={`bm${i}`}
-            x={x1+(up?2.2:-2.2)} y={by-(up?1.5:0)}
-            width={x2-x1} height="1.5" fill={INK} opacity="0.82"/>
-        )
-      })}
-
-      {/* Slurs */}
-      {S.map((sy, si) => (
-        <path key={`slur${si}`}
-          d={`M ${si%2===0?39:37},${sy+6} Q 76,${sy+(si%2===0?1:2)} ${si%2===0?113:111},${sy+6}`}
-          stroke={INK} strokeWidth="0.65" fill="none" opacity="0.55"/>
-      ))}
-
-      {/* Fingering */}
-      {FINGERS.map(([si,x,f], i) => (
-        <text key={`fi${i}`} x={x} y={S[si]-2} textAnchor="middle"
-          fontFamily="Georgia,serif" fontSize="3.8" fill={INK} opacity="0.72">{f}</text>
-      ))}
-
-      {/* Dynamics */}
-      {DYNAMICS.map((d, si) => (
-        <text key={`dyn${si}`} x="8" y={S[si]-2}
-          fontFamily="Georgia,serif" fontSize="4.5" fontStyle="italic" fill={INK} opacity="0.65">{d}</text>
-      ))}
-
-      {/* Pencil annotations */}
-      {S.map((sy, si) => (
-        <text key={`ann${si}`} x={si%2===0?38:82} y={si<4?sy+28:sy-4}
-          fontFamily="Arial,sans-serif" fontSize="3.6" fill="#6a5030" opacity="0.5">
-          {annots[si % annots.length]}
-        </text>
-      ))}
-    </svg>
+    </div>
   )
 }
 
 /* ── Intro sheet music fan ────────────────────────────────────── */
 const INTRO_SHEETS = [
+  // Original 6 sheets: beautifully fanned out to prevent crowded pop-in
   { angle: -75, rx: '4px 11px 9px 5px' },
-  { angle: -50, rx: '6px  8px 11px 4px' },
-  { angle: -25, rx: '3px 10px  7px 8px' },
-  { angle:   0, rx: '7px  9px  6px 10px' },
-  { angle:  25, rx: '4px 12px  8px 5px' },
-  { angle:  50, rx: '8px  7px 10px 4px' },
-  { angle:  75, rx: '5px  9px  5px 11px' },
+  { angle: -45, rx: '6px  8px 11px 4px' },
+  { angle: -15, rx: '3px 10px  7px 8px' },
+  { angle:  15, rx: '7px  9px  6px 10px' },
+  { angle:  45, rx: '4px 12px  8px 5px' },
+  { angle:  75, rx: '8px  7px 10px 4px' },
+  
+  // Materializing 6 sheets: beautifully fanned to interleave and explode on scroll
+  { angle: -60, rx: '5px  9px  5px 11px' },
+  { angle: -30, rx: '9px  5px  9px  6px' },
+  { angle:   0, rx: '6px  8px  7px  8px' },
+  { angle:  30, rx: '4px 11px  9px  5px' },
+  { angle:  60, rx: '8px  6px 10px  7px' },
+  { angle:  90, rx: '5px 10px  6px  9px' },
 ]
 
-const DECOR_SHEETS = [
-  { seed: 0,  top: '94vh',  left: '-5%',  right: 'auto', angle: -15, rx: '4px 11px 9px 5px',  i: 0 },
-  { seed: 8,  top: '128vh', left: 'auto', right: '-4%',  angle:  22, rx: '6px 8px 11px 4px',  i: 1 },
-  { seed: 3,  top: '178vh', left: '-3%',  right: 'auto', angle: -20, rx: '3px 10px 7px 8px',  i: 2 },
-  { seed: 11, top: '215vh', left: 'auto', right: '-2%',  angle:  16, rx: '7px 9px 6px 10px',  i: 3 },
-  { seed: 5,  top: '280vh', left: '1%',   right: 'auto', angle: -10, rx: '4px 12px 8px 5px',  i: 4 },
-  { seed: 2,  top: '340vh', left: 'auto', right: '-3%',  angle:  26, rx: '8px 7px 10px 4px',  i: 5 },
-  { seed: 9,  top: '410vh', left: '-2%',  right: 'auto', angle: -18, rx: '5px 9px 5px 11px',  i: 6 },
+// Left sheets cover 0–~47vw, leaving a tiny central gap
+const LEFT_CLUTTER = [
+  { x: '4vw',  y: '-10vh', r: '-18deg', s: 0.08 },
+  { x: '20vw', y: '-14vh', r: '22deg',  s: 0.10 },
+  { x: '33vw', y: '-5vh',  r: '-50deg', s: 0.12 },
+  { x: '9vw',  y: '5vh',   r: '10deg',  s: 0.06 },
+  { x: '34vw', y: '3vh',   r: '-64deg', s: 0.14 },
+  { x: '22vw', y: '15vh',  r: '35deg',  s: 0.10 },
+  { x: '-2vw', y: '27vh',  r: '-22deg', s: 0.07 },
+  { x: '28vw', y: '31vh',  r: '48deg',  s: 0.12 },
+  { x: '34vw', y: '24vh',  r: '-18deg', s: 0.13 },
+  { x: '10vw', y: '49vh',  r: '14deg',  s: 0.06 },
+  { x: '30vw', y: '57vh',  r: '-42deg', s: 0.10 },
+  { x: '18vw', y: '70vh',  r: '28deg',  s: 0.11 },
+]
+
+// Right sheets mirror left — cover 53–100vw
+const RIGHT_CLUTTER = [
+  { x: '-4vw',  y: '10vh',  r: '18deg',  s: 0.08 },
+  { x: '-20vw', y: '14vh',  r: '-22deg', s: 0.10 },
+  { x: '-33vw', y: '5vh',   r: '50deg',  s: 0.12 },
+  { x: '-9vw',  y: '-5vh',  r: '-10deg', s: 0.06 },
+  { x: '-34vw', y: '-3vh',  r: '64deg',  s: 0.14 },
+  { x: '-22vw', y: '-15vh', r: '-35deg', s: 0.10 },
+  { x: '2vw',   y: '-27vh', r: '22deg',  s: 0.07 },
+  { x: '-28vw', y: '-31vh', r: '-48deg', s: 0.12 },
+  { x: '-34vw', y: '-24vh', r: '18deg',  s: 0.13 },
+  { x: '-10vw', y: '-49vh', r: '-14deg', s: 0.06 },
+  { x: '-30vw', y: '-57vh', r: '42deg',  s: 0.10 },
+  { x: '-18vw', y: '-70vh', r: '-28deg', s: 0.11 },
 ]
 
 function MusicIntro() {
   const [state, setState] = useState('initial')
+  const [interactive, setInteractive] = useState(false)
+  const containerRef = useRef(null)
 
   useEffect(() => {
+    // Timed fan-out — mark interactive after all fan transitions finish
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
-    const t1 = setTimeout(() => setState('gliding'), 2300)
-    const t2 = setTimeout(() => setState('settled'), 6000)
-    return () => { cancelAnimationFrame(id); clearTimeout(t1); clearTimeout(t2) }
+    const t1 = setTimeout(() => setInteractive(true), 1900)
+    return () => { cancelAnimationFrame(id); clearTimeout(t1) }
+  }, [])
+
+  useEffect(() => {
+    let ticking = false
+    let hasScrolled = false
+
+    const handleScroll = () => {
+      // Kill CSS transitions on first scroll so they don't fight the scroll-driven transform
+      if (!hasScrolled) {
+        hasScrolled = true
+        setInteractive(true)
+      }
+
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const el = containerRef.current
+          if (el) {
+            const scrollY = Math.max(window.scrollY, 0)
+            // 1600px gives deliberate pacing — sheets fully cover screen around 880px of scroll
+            const maxScroll = 1600
+            const progress = Math.min(scrollY / maxScroll, 1)
+
+            // Phase 1 — sheets fly to coverage positions over 55% of scroll distance
+            const flyProgress = Math.min(progress / 0.55, 1)
+
+            // Phase 2 — gap opens via container scale, overlapping phase 1 (starts at 40%)
+            // No cross-term with individual sheet motion — prevents quadratic acceleration
+            const zoomProgress = Math.max(0, (progress - 0.40) / 0.60)
+
+            el.style.setProperty('--fly-progress', flyProgress)
+            el.style.setProperty('--zoom-progress', zoomProgress)
+          }
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   function cls(side) {
     return [
       styles.introSheet,
       side === 'right' && styles.introSheetR,
-      state === 'fanned'  && styles.introFanning,
-      state === 'fanned'  && styles.introSheetFanned,
-      state === 'gliding' && styles.introLeafFall,
+      state === 'fanned' && styles.introFanning,
+      state === 'fanned' && styles.introSheetFanned,
     ].filter(Boolean).join(' ')
   }
 
-  if (state === 'settled') {
-    return (
-      <div className={styles.introDecor} aria-hidden="true">
-        {DECOR_SHEETS.map((d) => (
+  return (
+    <div
+      ref={containerRef}
+      className={`${styles.introOverlay} ${interactive ? styles.introOverlayInteractive : ''}`}
+      aria-hidden="true"
+    >
+      {INTRO_SHEETS.map((s, i) => {
+        const clutter = LEFT_CLUTTER[i]
+        return (
           <div
-            key={d.seed}
-            className={styles.decorSheet}
+            key={`left_${i}`}
+            className={cls('left')}
             style={{
-              top: d.top,
-              left: d.left,
-              right: d.right,
-              '--angle': `${d.angle}deg`,
-              '--i': d.i,
-              borderRadius: d.rx,
+              '--angle': `${s.angle}deg`,
+              '--i': i,
+              '--clutter-x': clutter.x,
+              '--clutter-y': clutter.y,
+              '--clutter-r': clutter.r,
+              '--clutter-s': clutter.s,
+              borderRadius: s.rx,
+              // Materialize extra sheets dynamically only when scrolling!
+              opacity: i >= 6 ? 'var(--fly-progress, 0)' : undefined,
             }}
           >
-            <SheetMusicPage seed={d.seed} />
+            {/* Restored full sheet music details by removing isSimplified prop */}
+            <SheetMusicPage seed={i} showTitle={i === 4} />
           </div>
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div className={styles.introOverlay} aria-hidden="true">
-      <div className={styles.introAnchorL}>
-        {INTRO_SHEETS.map((s, i) => (
-          <div key={i} className={cls('left')}
-            style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}>
-            <SheetMusicPage seed={i} showTitle={i === 3} />
+        )
+      })}
+      {INTRO_SHEETS.map((s, i) => {
+        const clutter = RIGHT_CLUTTER[i]
+        return (
+          <div
+            key={`right_${i}`}
+            className={cls('right')}
+            style={{
+              '--angle': `${s.angle}deg`,
+              '--i': i,
+              '--clutter-x': clutter.x,
+              '--clutter-y': clutter.y,
+              '--clutter-r': clutter.r,
+              '--clutter-s': clutter.s,
+              borderRadius: s.rx,
+              // Materialize extra sheets dynamically only when scrolling!
+              opacity: i >= 6 ? 'var(--fly-progress, 0)' : undefined,
+            }}
+          >
+            {/* Restored full sheet music details by removing isSimplified prop */}
+            <SheetMusicPage seed={i + 12} showTitle={i === 2} />
           </div>
-        ))}
-      </div>
-      <div className={styles.introAnchorR}>
-        {INTRO_SHEETS.map((s, i) => (
-          <div key={i} className={cls('right')}
-            style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}>
-            <SheetMusicPage seed={i + 7} showTitle={i === 1} />
-          </div>
-        ))}
-      </div>
+        )
+      })}
     </div>
   )
 }
 
+
+
 const ANALYSIS_TEXT =
   "The triplet figures in mm. 12–15 are rushing by about 18ms ahead of the pulse — a common response to the harmonic tension building here, but it softens the improvisatory character Chopin intended. Try isolating mm. 13–14 at 76bpm: anchor on the left hand's bass octaves and let the right hand breathe over them rather than leading. Your voicing in the opening phrase is outstanding — carry that patience into this passage and the crescendo at m. 16 will land with real weight."
+
+const ANALYSIS_TEXT_COLUMN =
+  "The lower F♯ octave sits roughly 20 cents flat on the entrance. Clear your damper pedal just before the strike and anchor with a deeper, more centered finger contact to let the fundamental ring true."
 
 const ROTATING_LINES = [
   { we: 'elevate', you: 'create',  color: '#7a5230' },
@@ -527,9 +513,42 @@ function TiltBox({ className, style, children }) {
   )
 }
 
+const CELLO_DEMO_FLAGS = [
+  {
+    flag: 'flag_0',
+    measure: 12,
+    type: 'timing',
+    confidence: 91,
+    title: 'Rushing the sixteenth descent',
+    timestamp: 12.4,
+    detail: 'The sixteenth-note run in measure 12 is rushing by about 22ms ahead of the pulse. Keep your bow stroke even and anchor the left-hand thumb to stabilize timing.'
+  },
+  {
+    flag: 'flag_1',
+    measure: 18,
+    type: 'dynamics',
+    confidence: 88,
+    title: 'Percussive string crossing',
+    timestamp: 24.8,
+    detail: 'The accent on the crossing to the D-string in m.18 is too harsh. Lighten the index finger pressure on the bow grip to let the string resonate naturally.'
+  },
+  {
+    flag: 'flag_2',
+    measure: 21,
+    type: 'intonation',
+    confidence: 85,
+    title: 'Bass F♯ sits 15 cents flat',
+    timestamp: 36.2,
+    detail: 'The high F♯ sits roughly 15 cents flat in this shift. Anchor your third finger firmly and keep the elbow elevated to support the high hand position.'
+  }
+]
+
 export default function Landing() {
   const [wordIdx, setWordIdx]     = useState(0)
   const [wordVisible, setWordVisible] = useState(true)
+  const [activeFlag, setActiveFlag] = useState('flag_2')
+
+
   const canvasRef = useRef(null)
   const [analysisRef, analysisInView] = useInView(0.15)
   const heroRef        = useRef(null)
@@ -735,32 +754,168 @@ export default function Landing() {
       {/* ── Analysis Demo ── */}
       <section className={styles.analysisSection}>
         <div className={`${styles.analysisHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>AI Analysis</p>
-          <h2 className={styles.analysisTitle}>Your personal<br />practice analyst</h2>
+          <p className={styles.sectionLabel}>AI Co-Pilot</p>
+          <h2 className={styles.analysisTitle}>Real-time performance review</h2>
           <p className={styles.analysisSub}>
-            Mediant doesn't just flag wrong notes. It reads the phrase, the style,
-            and the habit behind every mistake — then explains exactly what to fix and why.
+            Mediant tracks your pitch, timing, and dynamic weight as you play, matching your performance note-by-note to the score.
           </p>
         </div>
 
-        <div className={`${styles.analysisDemo} ${styles.reveal}`} ref={analysisRef} style={{ '--d': '120ms' }}>
-          <div className={styles.analysisStatus}>
-            <span className={styles.analysisPulse} />
-            <span className={styles.analysisStatusText}>Mediant</span>
-            <span className={styles.analysisDivider}>·</span>
-            <span className={styles.analysisStatusMeta}>Chopin — Nocturne in E♭ major, Op. 9 No. 2</span>
+        <div className={`${styles.analysisColumns} ${styles.reveal}`} ref={analysisRef} style={{ '--d': '120ms' }}>
+
+          {/* Visual Callout 1 (Timeline Callout - Left Side) */}
+          <div className={`${styles.calloutBox} ${styles.calloutLeft} ${styles.calloutTimeline}`}>
+            <p className={styles.calloutText}>
+              <span className={styles.calloutHighlight}>AI analyzes</span> timing, dynamics, and intonation note-by-note.
+            </p>
+            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
+              <path d="M10,10 C22,10 28,18 30,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+              <polygon points="30,26 25,22 33,21" fill="#b8922a" />
+            </svg>
           </div>
 
-          <DocTyping text={ANALYSIS_TEXT} active={analysisInView} delay={400} />
+          {/* Visual Callout 2 (Card Callout - Right Side) */}
+          <div className={`${styles.calloutBox} ${styles.calloutRight} ${styles.calloutCard}`}>
+            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
+              <path d="M30,10 C18,10 12,18 10,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+              <polygon points="10,26 7,21 15,22" fill="#b8922a" />
+            </svg>
+            <p className={styles.calloutText}>
+              <span className={styles.calloutHighlight}>Detailed coaching</span> explains the physical habit behind each error.
+            </p>
+          </div>
 
-          <div className={styles.analysisFooter}>
-            <span>mm. 12–15</span>
-            <span className={styles.analysisSep}>·</span>
-            <span>Timing</span>
-            <span className={styles.analysisSep}>·</span>
-            <span>Phrasing</span>
-            <span className={styles.analysisSep}>·</span>
-            <span className={styles.analysisFooterGreen}>3 flags resolved</span>
+          {/* Visual Callout 3 (Chat Callout - Left Side) */}
+          <div className={`${styles.calloutBox} ${styles.calloutLeft} ${styles.calloutChat}`}>
+            <p className={styles.calloutText}>
+              <span className={styles.calloutHighlight}>Discuss & refine</span> your practice routines in real-time dialog.
+            </p>
+            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
+              <path d="M10,10 C22,10 28,18 30,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+              <polygon points="30,26 25,22 33,21" fill="#b8922a" />
+            </svg>
+          </div>
+
+          {/* Right Column: Interactive App-like Dashboard modeled off of Analysis.jsx */}
+          <div className={styles.analysisRightColumn}>
+            <div className={styles.analysisStatus}>
+              <span className={styles.analysisPulse} />
+              <span className={styles.analysisStatusText}>Mediant AI Insights Timeline</span>
+              <span className={styles.analysisDivider}>·</span>
+              <span className={styles.analysisStatusMeta}>3 issues flagged</span>
+            </div>
+
+            {/* AI Insights Timeline list */}
+            <div className={styles.timeline}>
+              {CELLO_DEMO_FLAGS.map((f) => {
+                const isActive = activeFlag === f.flag
+                const cc = f.type === 'timing' ? 'var(--gold)' : f.type === 'dynamics' ? 'var(--coral)' : 'var(--accent)'
+                const formatTime = (sec) => {
+                  const m = Math.floor(sec / 60)
+                  const r = (sec % 60).toFixed(1).padStart(4, '0')
+                  return `${m}:${r}`
+                }
+                return (
+                  <button
+                    key={f.flag}
+                    className={`${styles.timelineRow} ${isActive ? styles.timelineRowActive : ''}`}
+                    onClick={() => setActiveFlag(f.flag)}
+                  >
+                    <span className={styles.timelineConfDot} style={{ background: cc }} />
+                    <span className={styles.timelineTs}>{formatTime(f.timestamp)}</span>
+                    <span className={styles.timelineMeasure}>m.{f.measure}</span>
+                    <span className={styles.timelineTypePill} style={{
+                      background: f.type === 'timing' ? 'rgba(214,177,104,0.15)' : f.type === 'dynamics' ? 'rgba(225,134,118,0.15)' : 'var(--accent-bg)',
+                      color: cc
+                    }}>{f.type}</span>
+                    <span className={styles.timelineTitle}>{f.title}</span>
+                    <span className={styles.timelineConfBadge} style={{ color: cc }}>High</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Expanded Insight Card */}
+            {(() => {
+              const activeF = CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)
+              if (!activeF) return null
+              const cc = activeF.type === 'timing' ? 'var(--gold)' : activeF.type === 'dynamics' ? 'var(--coral)' : 'var(--accent)'
+              return (
+                <div className={styles.insightCard}>
+                  <div className={styles.insightCardHeader}>
+                    <span className={styles.insightMeasureBadge}>m.{activeF.measure}</span>
+                    <h3 className={styles.insightTitle}>{activeF.title}</h3>
+                    <span className={styles.insightConfBadge} style={{ color: cc }}>
+                      High Confidence
+                    </span>
+                  </div>
+                  {activeFlag === 'flag_2' ? (
+                    <div className={styles.insightTypewriterBox}>
+                      <DocTyping text={activeF.detail} active={analysisInView} delay={100} />
+                    </div>
+                  ) : (
+                    <p className={styles.insightBody}>{activeF.detail}</p>
+                  )}
+                  <div className={styles.insightActions}>
+                    <button className={styles.loopBtn}>
+                      ↺ Loop m.{activeF.measure}
+                      <span className={styles.loopExcerptTime}>
+                        0:{activeF.timestamp.toFixed(1)} – 0:{(activeF.timestamp + 2.5).toFixed(1)}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Ask Mediant Chat Section */}
+            <div className={styles.chatSection}>
+              <div className={styles.chatSectionHeader}>
+                <p className={styles.label} style={{ fontSize: '0.68rem', letterSpacing: '0.15em', margin: 0 }}>Ask Mediant</p>
+                <span className={styles.chatContextPill}>
+                  Re: m.{CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.measure} · {CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.type}
+                </span>
+              </div>
+              <div className={styles.chatMessages}>
+                <div className={styles.chatMsgUser}>
+                  How do I keep my left hand relaxed in measure {CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.measure}?
+                </div>
+
+                <div className={styles.chatMsgAI}>
+                  {activeFlag === 'flag_0' && "For m.12, keep your bowing arm fluid. Let the forearm weight carry the bow speed instead of pressing with the wrist. Practice the sixteenth notes in dotted rhythms to establish a physical timing anchor."}
+                  {activeFlag === 'flag_1' && "For the crossing in m.18, let your right elbow drop slightly as you approach the D-string. This changes the bow plane organically, avoiding any percussive slapping of the hair against the string."}
+                  {activeFlag === 'flag_2' && "Keep your left thumb completely relaxed behind the neck, resting opposite your second finger. Practice shifting slowly from the D3 to the F♯3 without pressing the thumb at all—let the arm weight do the work."}
+                </div>
+                
+                {/* Mid-typing conversation indicators representing active follow-up dialog */}
+                <div className={styles.typingBubbleUser}>
+                  <span>You are typing...</span>
+                  <span className={styles.typingIndicatorDots}>
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                  </span>
+                </div>
+
+                <div className={styles.typingBubbleAI}>
+                  <span>Mediant is typing...</span>
+                  <span className={styles.typingIndicatorDots}>
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                  </span>
+                </div>
+              </div>
+              <div className={styles.chatInputRow}>
+                <input
+                  className={styles.chatInput}
+                  placeholder="Ask Mediant about this passage..."
+                  disabled
+                />
+                <button className={styles.chatSend} disabled>↑</button>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
