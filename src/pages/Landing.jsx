@@ -2,15 +2,245 @@ import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './Landing.module.css'
 
+/* ── Sheet music SVG ─────────────────────────────────────────── */
+const INK = '#1e1008'
+const S   = [30, 63, 96, 129, 162]
+
+// Note pools per track — 4 different melodic shapes
+const NOTE_TRACKS = [
+  [[23,2],[31,4],[39,1],[47,5],[55,3],[63,6],[71,2],[79,4],[87,1],[95,5],[103,3],[111,6],[120,2],[129,4],[138,1]],
+  [[23,5],[31,2],[39,6],[47,3],[55,5],[63,1],[71,4],[79,2],[87,6],[95,3],[103,5],[111,2],[120,4],[129,7],[138,3]],
+  [[23,3],[31,6],[39,2],[47,5],[55,4],[63,7],[71,3],[79,5],[87,2],[95,6],[103,4],[111,2],[120,5],[129,3],[138,6]],
+  [[23,6],[31,3],[39,7],[47,2],[55,5],[63,3],[71,6],[79,4],[87,2],[95,7],[103,3],[111,5],[120,2],[129,6],[138,4]],
+]
+
+// Stain configs: each sheet gets a different aged-paper look
+const STAIN_CFGS = [
+  // 0: heavy top-left + faint bottom-right
+  [{cx:10,cy:8,rx:26,ry:15,fill:'#b8740a',op:0.38},{cx:136,cy:152,rx:28,ry:20,fill:'#c8a040',op:0.16},{cx:76,cy:204,rx:50,ry:10,fill:'#d8b850',op:0.13}],
+  // 1: top-right corner
+  [{cx:144,cy:9,rx:22,ry:14,fill:'#b06820',op:0.35},{cx:20,cy:170,rx:24,ry:16,fill:'#c8a040',op:0.18},{cx:60,cy:80,rx:16,ry:12,fill:'#d0b048',op:0.12}],
+  // 2: bottom-left heavy
+  [{cx:8,cy:200,rx:30,ry:18,fill:'#b8740a',op:0.38},{cx:130,cy:30,rx:18,ry:12,fill:'#c8a040',op:0.16},{cx:90,cy:110,rx:20,ry:14,fill:'#d8b850',op:0.10}],
+  // 3: scattered age spots
+  [{cx:28,cy:45,rx:14,ry:9,fill:'#b06820',op:0.28},{cx:115,cy:105,rx:18,ry:12,fill:'#c8a040',op:0.22},{cx:55,cy:180,rx:22,ry:12,fill:'#b8740a',op:0.2},{cx:138,cy:22,rx:12,ry:7,fill:'#a06010',op:0.24}],
+  // 4: left-edge water damage
+  [{cx:5,cy:55,rx:18,ry:40,fill:'#b8740a',op:0.28},{cx:8,cy:155,rx:14,ry:30,fill:'#c09030',op:0.22},{cx:140,cy:100,rx:10,ry:8,fill:'#d0b048',op:0.12}],
+  // 5: faint, mostly clean
+  [{cx:8,cy:7,rx:14,ry:8,fill:'#b8740a',op:0.22},{cx:144,cy:205,rx:16,ry:9,fill:'#b06820',op:0.18}],
+  // 6: right-edge + top smudge
+  [{cx:148,cy:65,rx:16,ry:35,fill:'#a06010',op:0.26},{cx:148,cy:160,rx:14,ry:28,fill:'#c09030',op:0.2},{cx:20,cy:8,rx:18,ry:10,fill:'#b8740a',op:0.28}],
+]
+
+const BEAMS = [
+  [0,23,47],[0,71,95],[0,120,138],
+  [1,23,47],[1,71,95],[1,120,138],
+  [2,23,47],[2,71,95],[2,120,138],
+  [3,23,47],[3,71,95],[3,120,138],
+  [4,23,47],[4,71,95],[4,120,129],
+]
+
+const FINGERS = [
+  [0,26,2],[0,47,4],[0,63,1],[0,87,3],[0,111,1],[0,129,2],
+  [1,26,1],[1,47,3],[1,71,4],[1,95,2],[1,120,1],[1,138,3],
+  [2,26,2],[2,55,1],[2,79,4],[2,103,2],[2,129,3],
+  [3,26,3],[3,55,1],[3,79,2],[3,103,4],[3,129,1],
+  [4,26,2],[4,55,3],[4,79,1],[4,103,4],
+]
+
+const DYNAMICS   = ['ff','p','f','ff','p']
+const ANNOT_LEFT = ['ad lib.','a tempo','cresc.','poco rit.','dolciss.']
+const ANNOT_RIGHT= ['rit.','subito','espressivo','mf','rall.']
+
+function SheetMusicPage({ seed = 0, showTitle = false }) {
+  const stains = STAIN_CFGS[seed % STAIN_CFGS.length]
+
+  // Each staff uses a different note track, shifted by seed
+  const notes = S.flatMap((_, si) => {
+    const track = NOTE_TRACKS[(si + seed) % NOTE_TRACKS.length]
+    return track.map(([x, p]) => [si, x, Math.min(8, Math.max(0, p + ((seed * 3 + si) % 3) - 1))])
+  })
+
+  const annots = seed % 2 === 0 ? ANNOT_LEFT : ANNOT_RIGHT
+
+  return (
+    <svg viewBox="0 0 152 210" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <rect width="152" height="210" fill="#f7e8be"/>
+
+      {/* Varied staining */}
+      {stains.map((b, i) => (
+        <ellipse key={i} cx={b.cx} cy={b.cy} rx={b.rx} ry={b.ry} fill={b.fill} opacity={b.op}/>
+      ))}
+
+      {/* Title — only on 2 sheets */}
+      {showTitle ? (
+        <>
+          <text x="76" y="11"   textAnchor="middle" fontFamily="Georgia,serif" fontSize="7"   fontWeight="bold" letterSpacing="2.5" fill={INK}>CONCERTO</text>
+          <text x="76" y="18.5" textAnchor="middle" fontFamily="Georgia,serif" fontSize="4.8" fill={INK}>CELLO  ·  I. PRELUDE</text>
+          <text x="76" y="25"   textAnchor="middle" fontFamily="Georgia,serif" fontSize="3.8" fontStyle="italic" fill={INK} opacity="0.6">EDOUARD LALO</text>
+          <text x="8"  y="27.5"                     fontFamily="Georgia,serif" fontSize="3.5" fill={INK} opacity="0.7">Lento ♩=56</text>
+        </>
+      ) : (
+        /* Non-title sheets: just a measure number or tempo hint */
+        <text x="8" y="28" fontFamily="Georgia,serif" fontSize="3.5" fill={INK} opacity="0.55">
+          {['Allegro','Lento','Andante','Vivace','Moderato','Adagio','Presto'][seed % 7]}
+        </text>
+      )}
+
+      {/* Staff lines */}
+      {S.map((sy, si) =>
+        [0,5,10,15,20].map(dy => (
+          <line key={`sl${si}${dy}`} x1="6" y1={sy+dy} x2="146" y2={sy+dy} stroke={INK} strokeWidth="0.6" opacity="0.8"/>
+        ))
+      )}
+
+      {/* Opening double bar */}
+      {S.map((sy, si) => (
+        <g key={`ob${si}`}>
+          <line x1="6"   y1={sy} x2="6"   y2={sy+20} stroke={INK} strokeWidth="0.5" opacity="0.7"/>
+          <line x1="8.5" y1={sy} x2="8.5" y2={sy+20} stroke={INK} strokeWidth="1.8" opacity="0.7"/>
+        </g>
+      ))}
+
+      {/* Bar lines */}
+      {S.map((sy, si) =>
+        [50, 93, 128].map(bx => (
+          <line key={`bar${si}${bx}`} x1={bx} y1={sy} x2={bx} y2={sy+20} stroke={INK} strokeWidth="0.55" opacity="0.65"/>
+        ))
+      )}
+
+      {/* Time signature — varies per seed */}
+      {S.map((sy, si) => {
+        const [top, bot] = [['3','4'],['4','4'],['6','8'],['2','4'],['12','8']][(si + seed) % 5]
+        return (
+          <g key={`ts${si}`}>
+            <text x="13" y={sy+11} fontFamily="Georgia,serif" fontSize="8" fontWeight="bold" fill={INK} opacity="0.82">{top}</text>
+            <text x="13" y={sy+20} fontFamily="Georgia,serif" fontSize="8" fontWeight="bold" fill={INK} opacity="0.82">{bot}</text>
+          </g>
+        )
+      })}
+
+      {/* Note heads + stems */}
+      {notes.map(([si, x, p], i) => {
+        const cy = S[si] + 20 - p * 2.5
+        const up = p < 4
+        const sx = x + (up ? 2.2 : -2.2)
+        return (
+          <g key={`n${i}`}>
+            <ellipse cx={x} cy={cy} rx="2.3" ry="2.1" fill={INK} opacity="0.88"/>
+            <line x1={sx} y1={cy} x2={sx} y2={up ? cy-11 : cy+11} stroke={INK} strokeWidth="0.7" opacity="0.88"/>
+          </g>
+        )
+      })}
+
+      {/* Beams */}
+      {BEAMS.map(([si, x1, x2], i) => {
+        const grp  = notes.filter(([s,x]) => s===si && x>=x1 && x<=x2)
+        const avgP = grp.length ? grp.reduce((a,[,,p])=>a+p, 0)/grp.length : 4
+        const up   = avgP < 4
+        const by   = S[si] + 20 - avgP*2.5 + (up ? -11 : 11)
+        return (
+          <rect key={`bm${i}`}
+            x={x1+(up?2.2:-2.2)} y={by-(up?1.5:0)}
+            width={x2-x1} height="1.5" fill={INK} opacity="0.82"/>
+        )
+      })}
+
+      {/* Slurs */}
+      {S.map((sy, si) => (
+        <path key={`slur${si}`}
+          d={`M ${si%2===0?39:37},${sy+6} Q 76,${sy+(si%2===0?1:2)} ${si%2===0?113:111},${sy+6}`}
+          stroke={INK} strokeWidth="0.65" fill="none" opacity="0.55"/>
+      ))}
+
+      {/* Fingering */}
+      {FINGERS.map(([si,x,f], i) => (
+        <text key={`fi${i}`} x={x} y={S[si]-2} textAnchor="middle"
+          fontFamily="Georgia,serif" fontSize="3.8" fill={INK} opacity="0.72">{f}</text>
+      ))}
+
+      {/* Dynamics */}
+      {DYNAMICS.map((d, si) => (
+        <text key={`dyn${si}`} x="8" y={S[si]-2}
+          fontFamily="Georgia,serif" fontSize="4.5" fontStyle="italic" fill={INK} opacity="0.65">{d}</text>
+      ))}
+
+      {/* Pencil annotations */}
+      {S.map((sy, si) => (
+        <text key={`ann${si}`} x={si%2===0?38:82} y={si<4?sy+28:sy-4}
+          fontFamily="Arial,sans-serif" fontSize="3.6" fill="#6a5030" opacity="0.5">
+          {annots[si % annots.length]}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+/* ── Intro sheet music fan ────────────────────────────────────── */
+const INTRO_SHEETS = [
+  { angle: -75, rx: '4px 11px 9px 5px' },
+  { angle: -50, rx: '6px  8px 11px 4px' },
+  { angle: -25, rx: '3px 10px  7px 8px' },
+  { angle:   0, rx: '7px  9px  6px 10px' },
+  { angle:  25, rx: '4px 12px  8px 5px' },
+  { angle:  50, rx: '8px  7px 10px 4px' },
+  { angle:  75, rx: '5px  9px  5px 11px' },
+]
+
+function MusicIntro() {
+  const [state, setState] = useState('initial')
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
+    const t1 = setTimeout(() => setState('evaporating'), 2300)
+    const t2 = setTimeout(() => setState('gone'), 3500)
+    return () => { cancelAnimationFrame(id); clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
+  if (state === 'gone') return null
+
+  function cls(side) {
+    return [
+      styles.introSheet,
+      side === 'right' && styles.introSheetR,
+      state === 'fanned'      && styles.introFanning,
+      state === 'fanned'      && styles.introSheetFanned,
+      state === 'evaporating' && styles.introEvaporating,
+      state === 'evaporating' && styles.introSheetEvap,
+    ].filter(Boolean).join(' ')
+  }
+
+  return (
+    <div className={styles.introOverlay} aria-hidden="true">
+      <div className={styles.introAnchorL}>
+        {INTRO_SHEETS.map((s, i) => (
+          <div key={i} className={cls('left')}
+            style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}>
+            <SheetMusicPage seed={i} showTitle={i === 3} />
+          </div>
+        ))}
+      </div>
+      <div className={styles.introAnchorR}>
+        {INTRO_SHEETS.map((s, i) => (
+          <div key={i} className={cls('right')}
+            style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}>
+            <SheetMusicPage seed={i + 7} showTitle={i === 1} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const ANALYSIS_TEXT =
   "The triplet figures in mm. 12–15 are rushing by about 18ms ahead of the pulse — a common response to the harmonic tension building here, but it softens the improvisatory character Chopin intended. Try isolating mm. 13–14 at 76bpm: anchor on the left hand's bass octaves and let the right hand breathe over them rather than leading. Your voicing in the opening phrase is outstanding — carry that patience into this passage and the crescendo at m. 16 will land with real weight."
 
 const ROTATING_LINES = [
-  { we: 'elevate', you: 'create',  color: '#a58fe8' },
-  { we: 'listen',  you: 'perform', color: '#e18676' },
-  { we: 'analyze', you: 'refine',  color: '#d6b168' },
-  { we: 'map',     you: 'improve', color: '#5cb86b' },
-  { we: 'guide',   you: 'grow',    color: '#5cb86b' },
+  { we: 'elevate', you: 'create',  color: '#7a5230' },
+  { we: 'listen',  you: 'perform', color: '#c4824a' },
+  { we: 'analyze', you: 'refine',  color: '#b8922a' },
+  { we: 'map',     you: 'improve', color: '#8b6f3a' },
+  { we: 'guide',   you: 'grow',    color: '#d4a644' },
 ]
 
 const FEATURES = [
@@ -124,7 +354,7 @@ function AnimatedLogo({ size = 28 }) {
   return (
     <div style={{
       width: size, height: size, flexShrink: 0,
-      background: 'white',
+      background: '#1a0f05',
       WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
       WebkitMaskMode: 'luminance',
       mask: `url('/logo-mark.png') center/contain no-repeat`,
@@ -156,11 +386,11 @@ function AnimatedWord({ word, color, visible }) {
 
 /* ── Stacked shuffle cards ── */
 const SHUFFLE_ITEMS = [
-  { color: '#a58fe8', text: 'Aligning your recording to the score...' },
-  { color: '#e18676', text: 'Detecting timing drift in measures 12–15...' },
-  { color: '#d6b168', text: 'Mapping pitch accuracy across 47 notes...' },
-  { color: '#5cb86b', text: 'Comparing this take to your last session...' },
-  { color: '#5cb86b', text: 'Generating targeted practice feedback...' },
+  { color: '#7a5230', text: 'Aligning your recording to the score...' },
+  { color: '#c4824a', text: 'Detecting timing drift in measures 12–15...' },
+  { color: '#b8922a', text: 'Mapping pitch accuracy across 47 notes...' },
+  { color: '#8b6f3a', text: 'Comparing this take to your last session...' },
+  { color: '#d4a644', text: 'Generating targeted practice feedback...' },
 ]
 
 function ShuffleCards({ idx }) {
@@ -173,27 +403,12 @@ function ShuffleCards({ idx }) {
     setHist(prev => [idx, prev[0], prev[1]])
   }, [idx])
 
-  const tiltRef = useRef(null)
-  function onTiltMove(e) {
-    const el = tiltRef.current; if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width  - 0.5
-    const y = (e.clientY - r.top)  / r.height - 0.5
-    el.style.transition = 'transform 0.08s ease'
-    el.style.transform = `perspective(800px) rotateY(${x * 16}deg) rotateX(${-y * 10}deg)`
-  }
-  function onTiltLeave() {
-    const el = tiltRef.current; if (!el) return
-    el.style.transition = 'transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)'
-    el.style.transform = ''
-  }
-
   const cur = SHUFFLE_ITEMS[hist[0]]
   const gh1 = SHUFFLE_ITEMS[hist[1]]
   const gh2 = SHUFFLE_ITEMS[hist[2]]
 
   return (
-    <div ref={tiltRef} className={styles.shuffleWrap} onMouseMove={onTiltMove} onMouseLeave={onTiltLeave}>
+    <div className={styles.shuffleWrap}>
       <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostFar}`} style={{ borderColor: gh2.color, background: `${gh2.color}10` }}>
         <span className={styles.shuffleText}>{gh2.text}</span>
       </div>
@@ -329,7 +544,7 @@ export default function Landing() {
       for (const wave of WAVES) {
         const amp = wave.baseAmp * (0.3 + 0.7 * Math.sin(t * wave.breatheFreq + wave.breathePhase))
         ctx.beginPath()
-        ctx.strokeStyle = `rgba(92,184,107,${wave.alpha})`
+        ctx.strokeStyle = `rgba(184,146,42,${wave.alpha})`
         ctx.lineWidth = 1.5
         for (let x = 0; x <= w; x += 3) {
           const y = h * wave.yRatio + Math.sin(x * wave.freq) * amp
@@ -355,11 +570,9 @@ export default function Landing() {
     function tick() {
       cx = lerp(cx, tx, 0.055)
       cy = lerp(cy, ty, 0.055)
-      const logo  = parallaxLogoRef.current
       const mesh  = parallaxMeshRef.current
       const head  = parallaxHeadRef.current
       const cards = parallaxCardsRef.current
-      if (logo)  logo.style.transform  = `translate(${(cx * -20).toFixed(2)}px, ${(cy * -13).toFixed(2)}px)`
       if (mesh)  mesh.style.transform  = `translate(${(cx * 32).toFixed(2)}px, ${(cy * 20).toFixed(2)}px)`
       if (head)  head.style.transform  = `translate(${(cx * 8).toFixed(2)}px, ${(cy * 5).toFixed(2)}px)`
       if (cards) cards.style.transform = `translate(${(cx * -12).toFixed(2)}px, ${(cy * -8).toFixed(2)}px)`
@@ -421,6 +634,15 @@ export default function Landing() {
 
   return (
     <div className={styles.page}>
+
+      <MusicIntro />
+
+      {/* ── Bottom watercolor glow (color-synced with hero) ── */}
+      <div
+        className={styles.bottomGlow}
+        style={{ '--glow-color': current.color }}
+        aria-hidden="true"
+      />
 
       {/* ── Nav ── */}
       <nav className={styles.nav}>
