@@ -45,7 +45,7 @@
 }
 
 .greetSub {
-  color: rgba(232,240,235,0.5);
+  color: var(--text-dim);
   font-size: 0.87rem;
   margin: 0;
 }
@@ -54,7 +54,7 @@
 .heroCard {
   animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 80ms;
   background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
@@ -71,7 +71,7 @@
 
 .heroCardTitleRow {
   align-items: center;
-  color: rgba(232,240,235,0.7);
+  color: var(--text-soft);
   display: flex;
   gap: 8px;
   font-size: 0.84rem;
@@ -80,9 +80,9 @@
 }
 
 .piecePill {
-  background: rgba(255,255,255,0.07);
+  background: var(--surface-subtle);
   border-radius: 999px;
-  color: rgba(232,240,235,0.65);
+  color: var(--text-dim);
   font-size: 0.78rem;
   font-weight: 500;
   padding: 3px 10px;
@@ -91,19 +91,19 @@
 .heroCardAction {
   background: none;
   border: none;
-  color: rgba(232,240,235,0.35);
+  color: var(--text-faint);
   cursor: pointer;
   font-size: 0.78rem;
   padding: 4px 0;
   transition: color 140ms ease;
 }
-.heroCardAction:hover { color: rgba(232,240,235,0.75); }
+.heroCardAction:hover { color: var(--text-soft); }
 
 
 /* Waveform */
 .waveformWrap {
   align-items: flex-end;
-  border-top: 1px solid rgba(255,255,255,0.04);
+  border-top: 1px solid var(--line);
   display: flex;
   gap: 2px;
   height: 72px;
@@ -125,7 +125,7 @@
 }
 
 .waveFooter {
-  color: rgba(232,240,235,0.3);
+  color: var(--text-faintest);
   display: flex;
   font-size: 0.7rem;
   justify-content: space-between;
@@ -143,15 +143,15 @@
 }
 
 .heroEmpty {
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid var(--line);
   display: flex;
   justify-content: center;
   padding: 16px 20px;
 }
 
 .heroUploadBtn {
-  background: rgba(92,184,107,0.12);
-  border: 1px solid rgba(92,184,107,0.28);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 8px;
   color: var(--accent);
   cursor: pointer;
@@ -160,7 +160,7 @@
   padding: 9px 20px;
   transition: background 140ms ease, border-color 140ms ease;
 }
-.heroUploadBtn:hover { background: rgba(92,184,107,0.2); border-color: rgba(92,184,107,0.45); }
+.heroUploadBtn:hover { background: var(--accent-bg-hover); border-color: var(--accent); }
 
 /* ── Technique tips ─────────────────────────────────────────── */
 .tipsSection {
@@ -172,7 +172,7 @@
 
 .tipsSectionHeader {
   align-items: center;
-  color: rgba(232,240,235,0.7);
+  color: var(--text-soft);
   display: flex;
   font-size: 0.84rem;
   font-weight: 600;
@@ -182,7 +182,7 @@
 
 .tipItem {
   background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--surface-border);
   border-left-width: 3px;
   border-radius: var(--radius-sm);
   display: flex;
@@ -198,13 +198,13 @@
 }
 
 .tipBody {
-  color: rgba(232,240,235,0.78);
+  color: var(--text-soft);
   font-size: 0.8rem;
   line-height: 1.5;
 }
 
 .tipsEmpty {
-  color: rgba(232,240,235,0.35);
+  color: var(--text-faint);
   font-size: 0.84rem;
   padding: 8px 0;
 }
@@ -213,7 +213,7 @@
 .statsCard {
   animation: dashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 60ms;
   background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
@@ -228,7 +228,7 @@
 }
 
 .statLabel {
-  color: rgba(232,240,235,0.32);
+  color: var(--text-faintest);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -244,20 +244,20 @@
 }
 
 .statUnit {
-  color: rgba(232,240,235,0.4);
+  color: var(--text-dim);
   font-size: 0.9rem;
   font-family: "Avenir Next", "Inter", sans-serif;
   letter-spacing: 0;
 }
 
 .statDivider {
-  background: rgba(255,255,255,0.05);
+  background: var(--line);
   height: 1px;
   margin: 0 16px;
 }
 
 .scoreBar {
-  background: rgba(255,255,255,0.07);
+  background: var(--surface-border);
   border-radius: 999px;
   height: 4px;
   margin-top: 6px;
@@ -275,7 +275,7 @@
 .recentCard {
   animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 140ms;
   background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
@@ -284,7 +284,7 @@
 
 .recentHeader {
   align-items: center;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
   padding: 14px 18px 12px;
@@ -292,7 +292,7 @@
 
 .recentHeaderLeft {
   align-items: center;
-  color: rgba(232,240,235,0.65);
+  color: var(--text-soft);
   display: flex;
   font-size: 0.82rem;
   font-weight: 600;
@@ -302,7 +302,7 @@
 .viewAllBtn {
   background: none;
   border: none;
-  color: rgba(232,240,235,0.28);
+  color: var(--text-faintest);
   cursor: pointer;
   font-size: 0.65rem;
   font-weight: 700;
@@ -310,13 +310,13 @@
   padding: 0;
   transition: color 140ms ease;
 }
-.viewAllBtn:hover { color: rgba(232,240,235,0.65); }
+.viewAllBtn:hover { color: var(--text-soft); }
 
 .sessionRow {
   align-items: center;
   background: none;
   border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
   display: flex;
   gap: 12px;
@@ -326,13 +326,13 @@
   width: 100%;
 }
 .sessionRow:last-child { border-bottom: 0; }
-.sessionRow:hover { background: rgba(255,255,255,0.03); }
+.sessionRow:hover { background: var(--surface-subtle); }
 
 .sessionIcon {
   align-items: center;
-  background: rgba(255,255,255,0.05);
+  background: var(--surface-hover);
   border-radius: 8px;
-  color: rgba(232,240,235,0.4);
+  color: var(--text-faint);
   display: flex;
   flex-shrink: 0;
   font-size: 0.9rem;
@@ -359,7 +359,7 @@
 }
 
 .sessionMeta {
-  color: rgba(232,240,235,0.35);
+  color: var(--text-faint);
   font-size: 0.74rem;
 }
 
@@ -371,7 +371,7 @@
 }
 
 .recentEmpty {
-  color: rgba(232,240,235,0.3);
+  color: var(--text-faintest);
   font-size: 0.84rem;
   padding: 24px 18px;
   text-align: center;

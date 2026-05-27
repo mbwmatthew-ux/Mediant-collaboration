@@ -27,7 +27,7 @@
 }
 
 .brandMark {
-  color: var(--cream);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.3rem;
   letter-spacing: -0.02em;
@@ -103,7 +103,7 @@
 .input:focus,
 .select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(92,184,107,0.15);
+  box-shadow: 0 0 0 3px var(--accent-dim);
   outline: none;
 }
 

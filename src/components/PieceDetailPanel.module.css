@@ -225,7 +225,7 @@
 .deleteBtn {
   background: none;
   border: none;
-  color: rgba(88,121,101,0.3);
+  color: var(--text-faintest);
   cursor: pointer;
   font-size: 0.72rem;
   line-height: 1;
@@ -320,7 +320,7 @@
 
 .confirmCancel {
   background: none;
-  border: 1px solid rgba(88,121,101,0.22);
+  border: 1px solid var(--accent-border);
   border-radius: 999px;
   color: rgba(47,52,64,0.6);
   cursor: pointer;
@@ -329,8 +329,8 @@
   transition: background 130ms ease, border-color 130ms ease;
 }
 .confirmCancel:hover {
-  background: rgba(88,121,101,0.07);
-  border-color: rgba(88,121,101,0.38);
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .confirmDelete {
@@ -359,7 +359,7 @@
   .body { grid-template-columns: 1fr; }
   .scoreSection {
     border-right: none;
-    border-bottom: 1px solid rgba(88,121,101,0.1);
+    border-bottom: 1px solid var(--accent-bg);
     padding: 20px 16px;
   }
   .sessionsSection { padding: 20px 16px; }

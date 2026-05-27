@@ -202,7 +202,7 @@
 
 .sidebarAvatar {
   align-items: center;
-  background: rgba(92,184,107,0.2);
+  background: var(--accent-bg-hover);
   border-radius: 9px;
   color: var(--accent);
   display: flex;
@@ -283,7 +283,7 @@
   transform: scale(1.15);
 }
 .navLinkActive {
-  background: rgba(92,184,107,0.12);
+  background: var(--accent-bg);
   border-left: 2px solid var(--accent);
   color: var(--accent);
   padding-left: 8px;
@@ -402,7 +402,7 @@
 
 .acctAvatar {
   align-items: center;
-  background: rgba(92,184,107,0.18);
+  background: var(--accent-bg-hover);
   border-radius: 16px;
   color: var(--accent);
   display: flex;
@@ -431,8 +431,8 @@
 }
 
 .acctPlanBadge {
-  background: rgba(92,184,107,0.14);
-  border: 1px solid rgba(92,184,107,0.3);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 5px;
   color: var(--accent);
   display: inline-block;
@@ -482,7 +482,7 @@
   width: 32px;
 }
 
-.iconGreen { background: rgba(92,184,107,0.15); color: var(--accent); }
+.iconGreen { background: var(--accent-bg); color: var(--accent); }
 .iconGold  { background: rgba(214,177,104,0.16); color: var(--gold); }
 .iconMuted { background: var(--surface-hover); color: var(--text-dim); }
 
@@ -539,7 +539,7 @@
   width: 100%;
 }
 .acctExpandInput::placeholder { color: var(--text-faint); }
-.acctExpandInput:focus { border-color: rgba(92,184,107,0.5); }
+.acctExpandInput:focus { border-color: var(--accent-border); }
 
 .acctExpandBody {
   color: var(--text-soft);
@@ -550,7 +550,7 @@
 
 .acctSaveBtn {
   align-self: flex-start;
-  background: var(--hero-green);
+  background: var(--accent);
   border: none;
   border-radius: 8px;
   color: white;
@@ -561,7 +561,7 @@
   padding: 10px 22px;
   transition: filter 150ms ease, transform 150ms ease;
 }
-.acctSaveBtn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.acctSaveBtn:hover { filter: brightness(0.9); transform: translateY(-1px); }
 
 .acctDangerBtn {
   align-self: flex-start;

@@ -19,7 +19,7 @@
 
 .pageSub {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-faint);
   margin: 0;
 }
 
@@ -33,16 +33,16 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text-faint);
   margin: 0 0 8px 4px;
 }
 
 /* ── Card ────────────────────────────────────────────────────── */
 .card {
-  background: var(--surface);
+  background: var(--bg-card);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid var(--surface-border);
 }
 
 /* ── Profile card ────────────────────────────────────────────── */
@@ -83,7 +83,7 @@
 
 .profileEmail {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
 .profilePlan {
@@ -110,15 +110,15 @@
 .fieldLabel {
   font-size: 0.68rem;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--text-faint);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .fieldInput,
 .fieldSelect {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   color: var(--text);
   font-size: 0.875rem;
@@ -168,7 +168,7 @@
 .saveBtn:active { transform: scale(0.97); }
 
 .saveBtnSaved {
-  background: rgba(92,184,107,0.2);
+  background: var(--accent-bg-hover);
   color: var(--accent);
 }
 
@@ -179,7 +179,7 @@
   gap: 12px;
   padding: 0 16px;
   min-height: 52px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--line);
   transition: background 120ms ease;
 }
 
@@ -192,11 +192,11 @@
 }
 
 .rowClickable:hover {
-  background: rgba(255,255,255,0.03);
+  background: var(--surface-subtle);
 }
 
 .rowClickable:active {
-  background: rgba(255,255,255,0.06);
+  background: var(--surface-hover);
 }
 
 .rowDanger .rowLabel {
@@ -217,7 +217,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
 .rowText {
@@ -236,7 +236,7 @@
 
 .rowSub {
   font-size: 0.72rem;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
 .rowControl {
@@ -245,13 +245,13 @@
 
 .rowValue {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-faint);
   flex-shrink: 0;
 }
 
 .rowChevron {
   font-size: 1rem;
-  color: var(--muted);
+  color: var(--text-faint);
   opacity: 0.5;
   flex-shrink: 0;
 }
@@ -261,7 +261,7 @@
   width: 44px;
   height: 26px;
   border-radius: 13px;
-  background: rgba(255,255,255,0.12);
+  background: var(--input-border);
   border: none;
   cursor: pointer;
   padding: 3px;
@@ -300,13 +300,13 @@
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: 4px;
-  background: rgba(92,184,107,0.15);
+  background: var(--accent-bg);
   color: var(--accent);
 }
 
 .planBadgeFree {
-  background: rgba(255,255,255,0.06);
-  color: var(--muted);
+  background: var(--surface-hover);
+  color: var(--text-faint);
 }
 
 /* ── Shortcuts grid ──────────────────────────────────────────── */
@@ -321,7 +321,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--line);
 }
 
 .shortcutRow:last-child {
@@ -329,8 +329,8 @@
 }
 
 .shortcutKey {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 5px;
   font-family: monospace;
   font-size: 0.72rem;
@@ -343,7 +343,7 @@
 
 .shortcutDesc {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
 /* ── Sign out ────────────────────────────────────────────────── */
@@ -375,7 +375,7 @@
 
 .dangerBody {
   font-size: 0.78rem;
-  color: var(--muted);
+  color: var(--text-faint);
   line-height: 1.5;
   margin: 0;
 }
@@ -403,7 +403,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--line);
 }
 
 .versionRow:last-child {
@@ -412,7 +412,7 @@
 
 .versionLabel {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
 .versionValue {
