@@ -65,18 +65,42 @@
   transform: rotate(var(--angle)) scale(1);
 }
 
-/* Glide down */
-.introGliding {
-  transition:
-    opacity   1.9s cubic-bezier(0.4, 0, 0.6, 1)      calc(var(--i) * 45ms),
-    filter    1.6s ease                               calc(var(--i) * 45ms),
-    transform 2.1s cubic-bezier(0.25, 0.1, 0.1, 1)   calc(var(--i) * 45ms);
+/* Leaf fall */
+.introLeafFall {
+  animation: leafFall 3.2s cubic-bezier(0.33, 0, 0.66, 1) calc(var(--i) * 75ms) both;
 }
 
-.introSheetGlide {
-  filter: blur(3px);
-  opacity: 0;
-  transform: rotate(var(--angle)) scale(0.82) translateY(170vh);
+@keyframes leafFall {
+  0% {
+    filter: blur(0px);
+    opacity: 1;
+    transform: rotate(var(--angle)) scale(1);
+  }
+  18% {
+    filter: blur(0.4px);
+    opacity: 0.9;
+    transform: rotate(calc(var(--angle) + 9deg)) scale(0.97) translateY(20vh);
+  }
+  40% {
+    filter: blur(1px);
+    opacity: 0.62;
+    transform: rotate(calc(var(--angle) - 6deg)) scale(0.93) translateY(55vh);
+  }
+  62% {
+    filter: blur(1.5px);
+    opacity: 0.28;
+    transform: rotate(calc(var(--angle) + 14deg)) scale(0.89) translateY(95vh);
+  }
+  82% {
+    filter: blur(2px);
+    opacity: 0.08;
+    transform: rotate(calc(var(--angle) - 9deg)) scale(0.86) translateY(130vh);
+  }
+  100% {
+    filter: blur(3px);
+    opacity: 0;
+    transform: rotate(calc(var(--angle) + 5deg)) scale(0.83) translateY(160vh);
+  }
 }
 
 /* Settled decorative watermarks */

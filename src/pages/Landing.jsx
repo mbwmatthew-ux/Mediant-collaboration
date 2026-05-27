@@ -203,7 +203,7 @@ function MusicIntro() {
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
     const t1 = setTimeout(() => setState('gliding'), 2300)
-    const t2 = setTimeout(() => setState('settled'), 4500)
+    const t2 = setTimeout(() => setState('settled'), 6000)
     return () => { cancelAnimationFrame(id); clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
@@ -213,8 +213,7 @@ function MusicIntro() {
       side === 'right' && styles.introSheetR,
       state === 'fanned'  && styles.introFanning,
       state === 'fanned'  && styles.introSheetFanned,
-      state === 'gliding' && styles.introGliding,
-      state === 'gliding' && styles.introSheetGlide,
+      state === 'gliding' && styles.introLeafFall,
     ].filter(Boolean).join(' ')
   }
 
