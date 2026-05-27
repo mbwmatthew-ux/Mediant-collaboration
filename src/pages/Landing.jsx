@@ -393,6 +393,12 @@ export default function Landing() {
 
       {/* ── Hero ── */}
       <section className={styles.hero}>
+        <div className={styles.meshBg} aria-hidden="true">
+          <div className={`${styles.meshBlob} ${styles.meshBlob1}`} />
+          <div className={`${styles.meshBlob} ${styles.meshBlob2}`} />
+          <div className={`${styles.meshBlob} ${styles.meshBlob3}`} />
+          <div className={`${styles.meshBlob} ${styles.meshBlob4}`} />
+        </div>
         <canvas ref={canvasRef} className={styles.waveCanvas} aria-hidden="true" />
 
         <div className={styles.heroLogoLarge}>

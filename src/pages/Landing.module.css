@@ -165,8 +165,8 @@
   text-align: center;
 }
 
-/* Stagger children fade-up (skip canvas and logo) */
-.hero > *:not(.waveCanvas):not(.heroLogoLarge) {
+/* Stagger children fade-up (skip canvas, logo, mesh) */
+.hero > *:not(.waveCanvas):not(.heroLogoLarge):not(.meshBg) {
   animation: heroFadeUp 1.0s cubic-bezier(0.16, 1, 0.3, 1) both;
   position: relative;
   z-index: 1;
@@ -214,6 +214,80 @@
 @keyframes heroWCharIn {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Gradient mesh background (hero) ── */
+.meshBg {
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.meshBlob {
+  border-radius: 50%;
+  filter: blur(100px);
+  position: absolute;
+}
+
+.meshBlob1 {
+  animation: meshFloat1 20s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(92,184,107,0.16) 0%, transparent 70%);
+  height: 640px;
+  left: -120px;
+  top: -160px;
+  width: 640px;
+}
+
+.meshBlob2 {
+  animation: meshFloat2 26s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(165,143,232,0.11) 0%, transparent 70%);
+  height: 520px;
+  right: -100px;
+  top: 10%;
+  width: 520px;
+}
+
+.meshBlob3 {
+  animation: meshFloat3 17s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(225,134,118,0.08) 0%, transparent 70%);
+  height: 400px;
+  left: 28%;
+  top: 38%;
+  width: 400px;
+}
+
+.meshBlob4 {
+  animation: meshFloat4 28s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(214,177,104,0.07) 0%, transparent 70%);
+  bottom: -60px;
+  height: 460px;
+  left: 8%;
+  width: 460px;
+}
+
+@keyframes meshFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(110px, 90px) scale(1.12); }
+  66%       { transform: translate(50px, -70px) scale(0.94); }
+}
+
+@keyframes meshFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-90px, 70px) scale(1.09); }
+  75%       { transform: translate(-30px, -90px) scale(0.91); }
+}
+
+@keyframes meshFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(-70px, 110px) scale(1.14); }
+}
+
+@keyframes meshFloat4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30%       { transform: translate(90px, -70px) scale(1.07); }
+  70%       { transform: translate(-60px, 90px) scale(0.93); }
 }
 
 /* Waveform canvas */
@@ -1318,4 +1392,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .meshBlob1, .meshBlob2, .meshBlob3, .meshBlob4 { animation: none; }
 }
