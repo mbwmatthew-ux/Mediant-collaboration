@@ -116,16 +116,6 @@ a { text-decoration: none; color: inherit; }
   50% { opacity: 0.45; }
 }
 
-/* ── Cursor glow (dark mode only) ── */
-[data-theme="dark"] body::after {
-  background: radial-gradient(600px circle at var(--cx, -9999px) var(--cy, -9999px), rgba(201,164,74,0.04) 0%, transparent 70%);
-  content: '';
-  inset: 0;
-  pointer-events: none;
-  position: fixed;
-  z-index: 9998;
-}
-
 /* ── Public page fade-in ── */
 @keyframes publicPageIn {
   from { opacity: 0; transform: translateY(10px); }

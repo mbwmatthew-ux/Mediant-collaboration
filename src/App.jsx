@@ -1,4 +1,4 @@
-import { useEffect, Component } from 'react'
+import { Component } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -39,15 +39,6 @@ import Terms from './pages/Terms'
 import Contact from './pages/Contact'
 
 export default function App() {
-  useEffect(() => {
-    const onMove = (e) => {
-      document.documentElement.style.setProperty('--cx', e.clientX + 'px')
-      document.documentElement.style.setProperty('--cy', e.clientY + 'px')
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
-
   return (
     <ErrorBoundary>
     <ThemeProvider>
