@@ -296,14 +296,59 @@
 
 /* ── Hero logo ───────────────────────────────────────────────── */
 .heroLogoLarge {
-  animation: heroLogoFade 1.0s ease both;
-  animation-delay: 80ms;
+  animation: heroLogoIn 1.3s cubic-bezier(0.34, 1.46, 0.64, 1) both;
+  animation-delay: 120ms;
   position: relative;
   z-index: 1;
 }
-@keyframes heroLogoFade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+
+.heroLogoLarge::after {
+  animation: heroLogoGlow 1.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 120ms;
+  border-radius: 50%;
+  content: '';
+  inset: -40%;
+  pointer-events: none;
+  position: absolute;
+}
+
+@keyframes heroLogoIn {
+  0% {
+    filter: blur(14px);
+    opacity: 0;
+    transform: scale(0.3) rotate(-10deg);
+  }
+  55% {
+    filter: blur(0);
+    opacity: 1;
+  }
+  72% {
+    transform: scale(1.09) rotate(2.5deg);
+  }
+  88% {
+    transform: scale(0.97) rotate(-0.5deg);
+  }
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes heroLogoGlow {
+  0% {
+    background: radial-gradient(circle, rgba(184,146,42,0.55) 0%, transparent 65%);
+    opacity: 1;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    background: radial-gradient(circle, rgba(184,146,42,0) 0%, transparent 65%);
+    opacity: 0;
+    transform: scale(2.2);
+  }
 }
 
 /* ── Hero wordmark ───────────────────────────────────────────── */
