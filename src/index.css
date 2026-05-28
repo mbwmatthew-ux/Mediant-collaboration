@@ -8,86 +8,104 @@
   --panel-green: #6d5610;
   --accent: #b8922a;
   --accent-dim: rgba(184,146,42,0.16);
-  --accent-bg: rgba(184,146,42,0.1);
-  --accent-bg-hover: rgba(184,146,42,0.18);
-  --accent-border: rgba(184,146,42,0.32);
+  --accent-bg: rgba(184,146,42,0.06);
+  --accent-bg-hover: rgba(184,146,42,0.14);
+  --accent-border: rgba(184,146,42,0.28);
   --cream: #f5ede0;
   --cream-strong: #e8dfcb;
   --text: #1a0f05;
-  --text-soft: rgba(26,15,5,0.65);
-  --text-muted: rgba(26,15,5,0.40);
+  --text-soft: rgba(26,15,5,0.72);
+  --text-muted: rgba(26,15,5,0.48);
   --text-inverse: #fffdf9;
-  --border: rgba(26,15,5,0.18);
+  --border: rgba(26,15,5,0.14);
   --gold: #b8922a;
   --gold-soft: #e8d7a8;
   --coral: #c0534a;
   --coral-soft: #f5dfda;
   --mint: #4a8c58;
   --mint-soft: #ddeee2;
-  --line: rgba(26,15,5,0.12);
-  --shadow-lg: 0 24px 60px rgba(26,15,5,0.14);
-  --shadow-md: 0 8px 24px rgba(26,15,5,0.09);
-  --shadow-sm: 0 2px 8px rgba(26,15,5,0.06);
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --radius-sm: 8px;
-  --sidebar-w: 220px;
+  --line: rgba(26,15,5,0.10);
+  
+  /* Layered Premium Shadows */
+  --shadow-lg: 0 20px 40px -15px rgba(26,15,5,0.08), 0 1px 3px rgba(26,15,5,0.03);
+  --shadow-md: 0 12px 24px -10px rgba(26,15,5,0.06), 0 1px 2px rgba(26,15,5,0.02);
+  --shadow-sm: 0 4px 12px -4px rgba(26,15,5,0.04), 0 1px 1px rgba(26,15,5,0.01);
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --sidebar-w: 230px;
 
   /* Semantic surface tokens */
-  --surface-border: rgba(26,15,5,0.13);
-  --surface-hover: rgba(26,15,5,0.06);
-  --surface-subtle: rgba(26,15,5,0.03);
-  --text-dim: rgba(26,15,5,0.52);
-  --text-faint: rgba(26,15,5,0.44);
-  --text-faintest: rgba(26,15,5,0.30);
-  --nav-text: rgba(26,15,5,0.54);
-  --input-bg: rgba(26,15,5,0.04);
-  --input-border: rgba(26,15,5,0.18);
+  --surface-border: rgba(26,15,5,0.11);
+  --surface-hover: rgba(26,15,5,0.05);
+  --surface-subtle: rgba(26,15,5,0.02);
+  --text-dim: rgba(26,15,5,0.56);
+  --text-faint: rgba(26,15,5,0.46);
+  --text-faintest: rgba(26,15,5,0.32);
+  --nav-text: rgba(26,15,5,0.58);
+  --input-bg: rgba(26,15,5,0.03);
+  --input-border: rgba(26,15,5,0.15);
   --dropdown-bg: #ffffff;
+
+  /* Glassmorphism overlays */
+  --glass-bg: rgba(255, 253, 249, 0.72);
+  --glass-bg-hover: rgba(255, 253, 249, 0.88);
+  --glass-border: rgba(26, 15, 5, 0.06);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 160ms var(--ease-smooth);
+  --transition-medium: 300ms var(--ease-smooth);
 }
 
 [data-theme="dark"] {
   /* Warm dark brown theme */
-  --bg: #1c1007;
-  --bg-deep: #150c05;
-  --bg-card: #261709;
-  --bg-card-hover: #301e0b;
-  --hero-green: #9a7c1a;
-  --panel-green: #7a6215;
-  --accent: #c9a44a;
-  --accent-dim: rgba(201,164,74,0.16);
-  --accent-bg: rgba(201,164,74,0.12);
-  --accent-bg-hover: rgba(201,164,74,0.2);
-  --accent-border: rgba(201,164,74,0.35);
+  --bg: #150c05;
+  --bg-deep: #0a0602;
+  --bg-card: #201309;
+  --bg-card-hover: #2b1a0d;
+  --hero-green: #a38420;
+  --panel-green: #836a18;
+  --accent: #d4ae52;
+  --accent-dim: rgba(212,174,82,0.16);
+  --accent-bg: rgba(212,174,82,0.06);
+  --accent-bg-hover: rgba(212,174,82,0.15);
+  --accent-border: rgba(212,174,82,0.28);
   --cream: #f5ede0;
   --cream-strong: #e8dfcb;
-  --text: #f0e6d4;
-  --text-soft: rgba(240,230,212,0.70);
-  --text-muted: rgba(240,230,212,0.42);
-  --text-inverse: #1c1007;
-  --border: rgba(201,164,74,0.22);
-  --gold: #c9a44a;
+  --text: #f3edd8;
+  --text-soft: rgba(243,237,216,0.76);
+  --text-muted: rgba(243,237,216,0.50);
+  --text-inverse: #150c05;
+  --border: rgba(212,174,82,0.18);
+  --gold: #d4ae52;
   --gold-soft: #e8d7a8;
-  --coral: #d9706a;
+  --coral: #e06c64;
   --coral-soft: #f5dfda;
   --mint: #5cb86b;
   --mint-soft: #e3ece6;
-  --line: rgba(240,230,212,0.10);
-  --shadow-lg: 0 24px 60px rgba(0,0,0,0.55);
-  --shadow-md: 0 8px 24px rgba(0,0,0,0.35);
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.25);
+  --line: rgba(243,237,216,0.08);
+  
+  /* Layered Premium Shadows (Dark) */
+  --shadow-lg: 0 20px 50px -12px rgba(0,0,0,0.65), 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 12px 28px -8px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-sm: 0 4px 12px -4px rgba(0,0,0,0.25), 0 1px 1px rgba(0,0,0,0.1);
 
   /* Semantic surface tokens (dark warm) */
-  --surface-border: rgba(240,230,212,0.11);
-  --surface-hover: rgba(240,230,212,0.07);
-  --surface-subtle: rgba(240,230,212,0.04);
-  --text-dim: rgba(240,230,212,0.52);
-  --text-faint: rgba(240,230,212,0.40);
-  --text-faintest: rgba(240,230,212,0.26);
-  --nav-text: rgba(240,230,212,0.52);
-  --input-bg: rgba(240,230,212,0.07);
-  --input-border: rgba(240,230,212,0.16);
-  --dropdown-bg: #261709;
+  --surface-border: rgba(243,237,216,0.09);
+  --surface-hover: rgba(243,237,216,0.06);
+  --surface-subtle: rgba(243,237,216,0.03);
+  --text-dim: rgba(243,237,216,0.56);
+  --text-faint: rgba(243,237,216,0.44);
+  --text-faintest: rgba(243,237,216,0.28);
+  --nav-text: rgba(243,237,216,0.54);
+  --input-bg: rgba(243,237,216,0.05);
+  --input-border: rgba(243,237,216,0.12);
+  --dropdown-bg: #201309;
+
+  /* Glassmorphism overlays (Dark) */
+  --glass-bg: rgba(21, 12, 5, 0.76);
+  --glass-bg-hover: rgba(21, 12, 5, 0.90);
+  --glass-border: rgba(243, 237, 216, 0.05);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -110,6 +128,32 @@ button { font: inherit; cursor: pointer; }
 h1, h2, h3, h4 { margin: 0; }
 p { margin: 0; }
 a { text-decoration: none; color: inherit; }
+
+/* ── Custom Modern Scrollbars ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-border);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faintest);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Scrollbar styling for Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-border) transparent;
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }

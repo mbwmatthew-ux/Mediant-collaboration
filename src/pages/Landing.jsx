@@ -93,45 +93,104 @@ const INTRO_SHEETS = [
   { angle:  90, rx: '5px 10px  6px  9px' },
 ]
 
-// Left sheets cover 0–~47vw, leaving a tiny central gap
-const LEFT_CLUTTER = [
-  { x: '4vw',  y: '-10vh', r: '-18deg', s: 0.08 },
-  { x: '20vw', y: '-14vh', r: '22deg',  s: 0.10 },
-  { x: '33vw', y: '-5vh',  r: '-50deg', s: 0.12 },
-  { x: '9vw',  y: '5vh',   r: '10deg',  s: 0.06 },
-  { x: '34vw', y: '3vh',   r: '-64deg', s: 0.14 },
-  { x: '22vw', y: '15vh',  r: '35deg',  s: 0.10 },
-  { x: '-2vw', y: '27vh',  r: '-22deg', s: 0.07 },
-  { x: '28vw', y: '31vh',  r: '48deg',  s: 0.12 },
-  { x: '34vw', y: '24vh',  r: '-18deg', s: 0.13 },
-  { x: '10vw', y: '49vh',  r: '14deg',  s: 0.06 },
-  { x: '30vw', y: '57vh',  r: '-42deg', s: 0.10 },
-  { x: '18vw', y: '70vh',  r: '28deg',  s: 0.11 },
+/* Full-screen coverage grid (no hole — sheets tile the entire overlay).
+   Each target is the sheet's CENTER in viewport units (vw/vh), with a final rotation r.
+   Clutter (translate offset) is derived from each side's ball-pivot origin:
+     left pivot  = (0vw, 0vh)            → x = cx - HALF_W,        y = cy
+     right pivot = (100vw, RIGHT_BALL_Y) → x = cx + HALF_W - 100,  y = cy - RIGHT_BALL_Y
+   GROW grows each sheet to ~2× when spread so neighbours overlap and leave no gaps. */
+const HALF_W = 9          // half a covered sheet's width, in vw
+const RIGHT_BALL_Y = 32   // vh — mid-right ball origin
+const GROW = 1.0          // covered scale = 1 + GROW
+
+const LEFT_TARGETS = [
+  { cx: 7,  cy: 6,  r: -14 },
+  { cx: 27, cy: 5,  r: 10  },
+  { cx: 44, cy: 8,  r: -6  },
+  { cx: 8,  cy: 30, r: 12  },
+  { cx: 24, cy: 33, r: -10 },
+  { cx: 40, cy: 35, r: 5   },  // fills screen center
+  { cx: 40, cy: 57, r: -5  },  // fills screen center
+  { cx: 9,  cy: 55, r: -8  },
+  { cx: 24, cy: 58, r: 10  },
+  { cx: 11, cy: 82, r: 14  },
+  { cx: 29, cy: 80, r: -12 },
+  { cx: 44, cy: 84, r: 6   },
 ]
 
-// Right sheets mirror left — cover 53–100vw
-const RIGHT_CLUTTER = [
-  { x: '-4vw',  y: '10vh',  r: '18deg',  s: 0.08 },
-  { x: '-20vw', y: '14vh',  r: '-22deg', s: 0.10 },
-  { x: '-33vw', y: '5vh',   r: '50deg',  s: 0.12 },
-  { x: '-9vw',  y: '-5vh',  r: '-10deg', s: 0.06 },
-  { x: '-34vw', y: '-3vh',  r: '64deg',  s: 0.14 },
-  { x: '-22vw', y: '-15vh', r: '-35deg', s: 0.10 },
-  { x: '2vw',   y: '-27vh', r: '22deg',  s: 0.07 },
-  { x: '-28vw', y: '-31vh', r: '-48deg', s: 0.12 },
-  { x: '-34vw', y: '-24vh', r: '18deg',  s: 0.13 },
-  { x: '-10vw', y: '-49vh', r: '-14deg', s: 0.06 },
-  { x: '-30vw', y: '-57vh', r: '42deg',  s: 0.10 },
-  { x: '-18vw', y: '-70vh', r: '-28deg', s: 0.11 },
+const RIGHT_TARGETS = [
+  { cx: 93, cy: 6,  r: 14  },
+  { cx: 73, cy: 5,  r: -10 },
+  { cx: 56, cy: 8,  r: 6   },
+  { cx: 92, cy: 30, r: -12 },
+  { cx: 76, cy: 33, r: 10  },
+  { cx: 60, cy: 35, r: -5  },  // fills screen center
+  { cx: 60, cy: 57, r: 5   },  // fills screen center
+  { cx: 91, cy: 55, r: 8   },
+  { cx: 76, cy: 58, r: -10 },
+  { cx: 89, cy: 82, r: -14 },
+  { cx: 71, cy: 80, r: 12  },
+  { cx: 56, cy: 84, r: -6  },
 ]
 
-function MusicIntro() {
+
+// Scatter destinations — absolute translate from pivot, guaranteed off-screen
+const SCATTER_LEFT = [
+  { sx: '-160vw', sy: '-80vh',  sr: '-55deg' },
+  { sx: '-50vw',  sy: '-140vh', sr: '28deg'  },
+  { sx: '85vw',   sy: '-120vh', sr: '-32deg' },
+  { sx: '-175vw', sy: '15vh',   sr: '52deg'  },
+  { sx: '-105vw', sy: '-85vh',  sr: '-38deg' },
+  { sx: '15vw',   sy: '-155vh', sr: '-18deg' },
+  { sx: '25vw',   sy: '155vh',  sr: '22deg'  },
+  { sx: '-185vw', sy: '25vh',   sr: '-62deg' },
+  { sx: '-85vw',  sy: '125vh',  sr: '42deg'  },
+  { sx: '-135vw', sy: '95vh',   sr: '-28deg' },
+  { sx: '-15vw',  sy: '145vh',  sr: '38deg'  },
+  { sx: '65vw',   sy: '125vh',  sr: '-42deg' },
+]
+
+const SCATTER_RIGHT = [
+  { sx: '160vw',  sy: '-80vh',  sr: '55deg'  },
+  { sx: '50vw',   sy: '-140vh', sr: '-28deg' },
+  { sx: '-85vw',  sy: '-120vh', sr: '32deg'  },
+  { sx: '175vw',  sy: '15vh',   sr: '-52deg' },
+  { sx: '105vw',  sy: '-85vh',  sr: '38deg'  },
+  { sx: '-15vw',  sy: '-155vh', sr: '18deg'  },
+  { sx: '-25vw',  sy: '155vh',  sr: '-22deg' },
+  { sx: '185vw',  sy: '25vh',   sr: '62deg'  },
+  { sx: '85vw',   sy: '125vh',  sr: '-42deg' },
+  { sx: '135vw',  sy: '95vh',   sr: '28deg'  },
+  { sx: '15vw',   sy: '145vh',  sr: '-38deg' },
+  { sx: '-65vw',  sy: '125vh',  sr: '42deg'  },
+]
+
+const LEFT_CLUTTER = LEFT_TARGETS.map(t => ({
+  x: `${(t.cx - HALF_W).toFixed(1)}vw`,
+  y: `${t.cy}vh`,
+  r: `${t.r}deg`,
+  s: GROW,
+}))
+
+const RIGHT_CLUTTER = RIGHT_TARGETS.map(t => ({
+  x: `${(t.cx + HALF_W - 100).toFixed(1)}vw`,
+  y: `${(t.cy - RIGHT_BALL_Y).toFixed(1)}vh`,
+  r: `${t.r}deg`,
+  s: GROW,
+}))
+
+function MusicIntro({ analysisSectionRef }) {
   const [state, setState] = useState('initial')
   const [interactive, setInteractive] = useState(false)
   const containerRef = useRef(null)
+  const finishingRef = useRef(false)
+  const smoothRafRef = useRef(null)
+  const flyCurrentRef = useRef(0)
+  const flyTargetRef = useRef(0)
+  const leftSheetRefs = useRef([])
+  const rightSheetRefs = useRef([])
 
   useEffect(() => {
-    // Timed fan-out — mark interactive after all fan transitions finish
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
     const t1 = setTimeout(() => setInteractive(true), 1900)
     return () => { cancelAnimationFrame(id); clearTimeout(t1) }
@@ -139,33 +198,120 @@ function MusicIntro() {
 
   useEffect(() => {
     let ticking = false
-    let hasScrolled = false
 
-    const handleScroll = () => {
-      // Kill CSS transitions on first scroll so they don't fight the scroll-driven transform
-      if (!hasScrolled) {
-        hasScrolled = true
-        setInteractive(true)
+    // Lerp loop — smoothly chases flyTarget so the spread feels fluid, not mechanical
+    const smoothStep = () => {
+      const el = containerRef.current
+      if (!el) { smoothRafRef.current = null; return }
+      const diff = flyTargetRef.current - flyCurrentRef.current
+      if (Math.abs(diff) < 0.0006) {
+        flyCurrentRef.current = flyTargetRef.current
+        el.style.setProperty('--fly-progress', flyCurrentRef.current)
+        el.style.setProperty('--overlay-scale', 1 + 0.35 * flyCurrentRef.current)
+        smoothRafRef.current = null
+        return
+      }
+      flyCurrentRef.current += diff * 0.14
+      el.style.setProperty('--fly-progress', flyCurrentRef.current)
+      el.style.setProperty('--overlay-scale', 1 + 0.35 * flyCurrentRef.current)
+      smoothRafRef.current = requestAnimationFrame(smoothStep)
+    }
+
+    const triggerReveal = () => {
+      if (finishingRef.current) return
+      finishingRef.current = true
+
+      // Stop lerp and lock at full coverage
+      if (smoothRafRef.current) { cancelAnimationFrame(smoothRafRef.current); smoothRafRef.current = null }
+      flyCurrentRef.current = 1
+      flyTargetRef.current = 1
+
+      const el = containerRef.current
+      if (!el) return
+      el.style.setProperty('--fly-progress', 1)
+      el.style.setProperty('--overlay-scale', 1.35)
+
+      // Scroll to analysis simultaneously
+      const target = analysisSectionRef?.current
+      if (target) {
+        const scrollStart = window.scrollY
+        const analysisY = scrollStart + target.getBoundingClientRect().top - 54
+        const DUR = 900
+        const t0 = performance.now()
+        const tickScroll = (now) => {
+          const p = Math.min((now - t0) / DUR, 1)
+          const ease = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2
+          window.scrollTo(0, scrollStart + (analysisY - scrollStart) * ease)
+          if (p < 1) requestAnimationFrame(tickScroll)
+        }
+        requestAnimationFrame(tickScroll)
       }
 
+      // Reset overlay zoom back to 1 while sheets scatter simultaneously
+      el.classList.add(styles.introOverlayZoomOut)
+
+      const scatterSheet = (sheet, scatter, i) => {
+        if (!sheet || !scatter) return
+        const delay = i * 35
+        requestAnimationFrame(() => {
+          sheet.style.transition = [
+            `transform 720ms cubic-bezier(0.55, 0, 0.85, 0.45) ${delay}ms`,
+            `opacity 450ms ease ${delay + 260}ms`,
+          ].join(', ')
+          requestAnimationFrame(() => {
+            sheet.style.transform = `translate3d(${scatter.sx}, ${scatter.sy}, 0) rotate(${scatter.sr}) scale(0.75)`
+            sheet.style.opacity = '0'
+          })
+        })
+      }
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.style.setProperty('--overlay-scale', 1)
+          leftSheetRefs.current.forEach((sheet, i) => scatterSheet(sheet, SCATTER_LEFT[i], i))
+          rightSheetRefs.current.forEach((sheet, i) => scatterSheet(sheet, SCATTER_RIGHT[i], i))
+        })
+      })
+    }
+
+    const handleScroll = () => {
       if (!ticking) {
         requestAnimationFrame(() => {
-          const el = containerRef.current
-          if (el) {
-            const scrollY = Math.max(window.scrollY, 0)
-            // 1600px gives deliberate pacing — sheets fully cover screen around 880px of scroll
-            const maxScroll = 1600
-            const progress = Math.min(scrollY / maxScroll, 1)
+          const scrollY = Math.max(window.scrollY, 0)
 
-            // Phase 1 — sheets fly to coverage positions over 55% of scroll distance
-            const flyProgress = Math.min(progress / 0.55, 1)
+          if (finishingRef.current) {
+            if (scrollY < 4) {
+              finishingRef.current = false
+              flyCurrentRef.current = 0
+              flyTargetRef.current = 0
+              const el = containerRef.current
+              if (el) {
+                el.classList.remove(styles.introOverlayZoomOut)
+                el.style.setProperty('--fly-progress', 0)
+                el.style.setProperty('--overlay-scale', 1)
+              }
+              ;[...leftSheetRefs.current, ...rightSheetRefs.current].forEach(s => {
+                if (!s) return
+                s.style.transition = ''
+                s.style.transform = ''
+                s.style.opacity = ''
+              })
+            }
+            ticking = false
+            return
+          }
 
-            // Phase 2 — gap opens via container scale, overlapping phase 1 (starts at 40%)
-            // No cross-term with individual sheet motion — prevents quadratic acceleration
-            const zoomProgress = Math.max(0, (progress - 0.40) / 0.60)
+          const maxScroll = window.innerHeight * 1.2
+          const progress = Math.min(scrollY / maxScroll, 1)
+          flyTargetRef.current = Math.min(progress / 0.4, 1)
 
-            el.style.setProperty('--fly-progress', flyProgress)
-            el.style.setProperty('--zoom-progress', zoomProgress)
+          // Kick off the lerp loop if not already running
+          if (!smoothRafRef.current) {
+            smoothRafRef.current = requestAnimationFrame(smoothStep)
+          }
+
+          if (progress >= 0.55 && analysisSectionRef?.current) {
+            triggerReveal()
           }
           ticking = false
         })
@@ -175,8 +321,11 @@ function MusicIntro() {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (smoothRafRef.current) cancelAnimationFrame(smoothRafRef.current)
+    }
+  }, [analysisSectionRef])
 
   function cls(side) {
     return [
@@ -198,6 +347,7 @@ function MusicIntro() {
         return (
           <div
             key={`left_${i}`}
+            ref={el => { leftSheetRefs.current[i] = el }}
             className={cls('left')}
             style={{
               '--angle': `${s.angle}deg`,
@@ -207,11 +357,9 @@ function MusicIntro() {
               '--clutter-r': clutter.r,
               '--clutter-s': clutter.s,
               borderRadius: s.rx,
-              // Materialize extra sheets dynamically only when scrolling!
               opacity: i >= 6 ? 'var(--fly-progress, 0)' : undefined,
             }}
           >
-            {/* Restored full sheet music details by removing isSimplified prop */}
             <SheetMusicPage seed={i} showTitle={i === 4} />
           </div>
         )
@@ -221,6 +369,7 @@ function MusicIntro() {
         return (
           <div
             key={`right_${i}`}
+            ref={el => { rightSheetRefs.current[i] = el }}
             className={cls('right')}
             style={{
               '--angle': `${s.angle}deg`,
@@ -230,11 +379,9 @@ function MusicIntro() {
               '--clutter-r': clutter.r,
               '--clutter-s': clutter.s,
               borderRadius: s.rx,
-              // Materialize extra sheets dynamically only when scrolling!
               opacity: i >= 6 ? 'var(--fly-progress, 0)' : undefined,
             }}
           >
-            {/* Restored full sheet music details by removing isSimplified prop */}
             <SheetMusicPage seed={i + 12} showTitle={i === 2} />
           </div>
         )
@@ -551,6 +698,7 @@ export default function Landing() {
 
   const canvasRef = useRef(null)
   const [analysisRef, analysisInView] = useInView(0.15)
+  const analysisSectionRef = useRef(null)
   const heroRef        = useRef(null)
   const parallaxLogoRef  = useRef(null)
   const parallaxMeshRef  = useRef(null)
@@ -684,7 +832,7 @@ export default function Landing() {
   return (
     <div className={styles.page}>
 
-      <MusicIntro />
+      <MusicIntro analysisSectionRef={analysisSectionRef} />
 
       {/* ── Bottom watercolor glow (color-synced with hero) ── */}
       <div
@@ -752,7 +900,7 @@ export default function Landing() {
       </section>
 
       {/* ── Analysis Demo ── */}
-      <section className={styles.analysisSection}>
+      <section className={styles.analysisSection} ref={analysisSectionRef}>
         <div className={`${styles.analysisHead} ${styles.reveal}`}>
           <p className={styles.sectionLabel}>AI Co-Pilot</p>
           <h2 className={styles.analysisTitle}>Real-time performance review</h2>
