@@ -58,12 +58,20 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   useEffect(() => {
     let objectURL = null
 
+    function inferMediaType(filePath) {
+      const ext = filePath?.split('.').pop()?.toLowerCase()
+      if (ext === 'pdf')  return 'application/pdf'
+      if (ext === 'png')  return 'image/png'
+      if (ext === 'webp') return 'image/webp'
+      return 'image/jpeg'
+    }
+
     async function load() {
       setScoreFetching(true)
       setScoreReady(false)
 
-      // 1. For user-uploaded pieces, load the actual file from IndexedDB
-      if (piece.userUploaded) {
+      // 1. For user-uploaded pieces, try IndexedDB first, then Supabase storage
+      if (piece.userUploaded || piece.file_path) {
         const file = await getFile(piece.id).catch(() => null)
         if (file) {
           objectURL = URL.createObjectURL(file)
@@ -72,6 +80,24 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
           setScoreReady(true)
           setScoreFetching(false)
           return
+        }
+
+        // IndexedDB miss — fall back to Supabase storage signed URL
+        if (piece.file_path) {
+          const { data: signed } = await supabase.storage
+            .from('sheet-music')
+            .createSignedUrl(piece.file_path, 3600)
+            .catch(() => ({ data: null }))
+          if (signed?.signedUrl) {
+            const mediaType = piece.mediaType || inferMediaType(piece.file_path)
+            // store inferred type so the render branches below work
+            piece.mediaType = mediaType
+            setFileURL(signed.signedUrl)
+            setScoreSource('uploaded')
+            setScoreReady(true)
+            setScoreFetching(false)
+            return
+          }
         }
       }
 

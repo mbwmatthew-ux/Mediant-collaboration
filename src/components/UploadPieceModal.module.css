@@ -34,7 +34,7 @@
 }
 
 .modalTitle {
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.6rem;
   font-weight: 400;
@@ -89,12 +89,12 @@
 }
 
 .dzLabel {
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-size: 1rem;
 }
 
 .dzFileName {
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-size: 0.95rem;
   word-break: break-all;
 }
@@ -135,7 +135,7 @@
   background: var(--cream);
   border: 1px solid rgba(88, 121, 101, 0.22);
   border-radius: 10px;
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-size: 0.92rem;
   padding: 10px 14px;
   transition: border-color 140ms ease;
@@ -147,7 +147,7 @@
   background: var(--cream);
   border: 1px solid rgba(88, 121, 101, 0.22);
   border-radius: 10px;
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-size: 0.92rem;
   padding: 10px 14px;
   width: 100%;
@@ -250,7 +250,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .progressLabel {
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-size: 1rem;
   font-weight: 600;
   margin: 0;
@@ -287,7 +287,7 @@
 }
 
 .resultTitle {
-  color: var(--text-inverse);
+  color: #1a0f05;
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.45rem;
   font-weight: 400;

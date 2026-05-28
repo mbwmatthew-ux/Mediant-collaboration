@@ -35,7 +35,7 @@ export default function Search() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (error) throw error
-      setUserPieces(data ?? [])
+      setUserPieces((data ?? []).map(p => ({ ...p, userUploaded: true })))
     } catch (err) {
       console.warn('[Search] fetch error:', err.message)
       setFetchError('Could not load your library. Check your connection and try again.')
