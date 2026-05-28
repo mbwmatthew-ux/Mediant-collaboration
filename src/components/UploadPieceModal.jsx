@@ -216,11 +216,11 @@ export default function UploadPieceModal({ onClose, onAdded }) {
 
             <div className={styles.formRow}>
               <label className={styles.formLabel}>Title</label>
-              <input className={styles.formInput} value={form.title} onChange={set('title')} />
+              <input className={styles.formInput} value={form.title} onChange={set('title')} onFocus={e => e.target.select()} />
             </div>
             <div className={styles.formRow}>
               <label className={styles.formLabel}>Composer</label>
-              <input className={styles.formInput} value={form.composer} onChange={set('composer')} placeholder="Unknown" />
+              <input className={styles.formInput} value={form.composer} onChange={set('composer')} placeholder="Unknown" onFocus={e => e.target.select()} />
             </div>
             <div className={styles.formRowGroup}>
               <div className={styles.formRow}>
@@ -239,15 +239,15 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             <div className={styles.formRowGroup}>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>Key</label>
-                <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D minor, B♭ major" />
+                <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D minor, B♭ major" onFocus={e => e.target.select()} />
               </div>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>Time</label>
-                <input className={styles.formInput} value={form.time} onChange={set('time')} placeholder="e.g. 4/4" />
+                <input className={styles.formInput} value={form.time} onChange={set('time')} placeholder="e.g. 4/4" onFocus={e => e.target.select()} />
               </div>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>Tempo (BPM)</label>
-                <input className={styles.formInput} type="number" min="1" max="400" value={form.bpm} onChange={set('bpm')} placeholder="e.g. 56" />
+                <input className={styles.formInput} type="number" min="1" max="400" value={form.bpm} onChange={set('bpm')} placeholder="e.g. 56" onFocus={e => e.target.select()} />
               </div>
             </div>
           </div>
