@@ -1288,6 +1288,22 @@
   font-weight: bold;
 }
 
+.streamCursor {
+  display: inline-block;
+  width: 1.5px;
+  height: 0.85em;
+  background: currentColor;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: cursorBlink 0.7s step-end infinite;
+  opacity: 0.5;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0; }
+}
+
 .chatInputRow {
   display: flex;
   gap: 8px;
