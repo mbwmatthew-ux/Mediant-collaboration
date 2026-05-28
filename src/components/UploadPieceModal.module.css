@@ -135,12 +135,14 @@
   background: var(--cream);
   border: 1px solid rgba(88, 121, 101, 0.22);
   border-radius: 10px;
+  box-sizing: border-box;
   color: #1a0f05;
   font-size: 0.92rem;
   padding: 10px 14px;
   transition: border-color 140ms ease;
   width: 100%;
 }
+.formInput::placeholder { color: rgba(26,15,5,0.35); }
 .formInput:focus { border-color: var(--hero-green); outline: none; }
 
 .formSelect {
