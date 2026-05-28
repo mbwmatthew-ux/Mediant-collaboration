@@ -86,12 +86,10 @@ const INTRO_SHEETS = [
 
 function MusicIntro() {
   const [state, setState] = useState('initial')
-  const [faded, setFaded] = useState(false)
 
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
-    const t  = setTimeout(() => setFaded(true), 2200)
-    return () => { cancelAnimationFrame(id); clearTimeout(t) }
+    return () => cancelAnimationFrame(id)
   }, [])
 
   function cls(side) {
@@ -100,7 +98,6 @@ function MusicIntro() {
       side === 'right' && styles.introSheetR,
       state === 'fanned' && styles.introFanning,
       state === 'fanned' && styles.introSheetFanned,
-      faded && styles.introSheetFading,
     ].filter(Boolean).join(' ')
   }
 
@@ -251,7 +248,7 @@ function DocTyping({ text, active, delay = 0 }) {
 }
 
 /* ── Logo mark ── */
-function AnimatedLogo({ size = 28 }) {
+function AnimatedLogo({ size = 28, thicker = false }) {
   return (
     <div style={{
       width: size, height: size, flexShrink: 0,
@@ -260,6 +257,9 @@ function AnimatedLogo({ size = 28 }) {
       WebkitMaskMode: 'luminance',
       mask: `url('/logo-mark.png') center/contain no-repeat`,
       maskMode: 'luminance',
+      filter: thicker
+        ? 'drop-shadow(0 0 2px #1a0f05) drop-shadow(0 0 2px #1a0f05) drop-shadow(0 0 2px #1a0f05)'
+        : undefined,
     }} />
   )
 }
@@ -582,7 +582,7 @@ export default function Landing() {
       {/* ── Nav ── */}
       <nav className={styles.nav}>
         <Link to="/" className={styles.navBrand}>
-          <AnimatedLogo size={44} />
+          <AnimatedLogo size={54} />
           <Wordmark />
         </Link>
         <div className={styles.navRight}>
@@ -602,7 +602,7 @@ export default function Landing() {
         <canvas ref={canvasRef} className={styles.waveCanvas} aria-hidden="true" />
 
         <div className={styles.heroLogoLarge} ref={parallaxLogoRef}>
-          <AnimatedLogo size={170} />
+          <AnimatedLogo size={240} thicker />
         </div>
 
         <div ref={parallaxHeadRef} className={styles.parallaxNode}>

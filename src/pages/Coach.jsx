@@ -41,13 +41,18 @@ function buildSuggestions(take) {
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
 export default function Coach() {
-  const { user }                  = useAuth()
-  const [messages, setMessages]   = useState([])
-  const [input, setInput]         = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [take, setTake]           = useState(null)
-  const endRef   = useRef(null)
-  const inputRef = useRef(null)
+  const { user }                           = useAuth()
+  const [messages, setMessages]            = useState([])
+  const [input, setInput]                  = useState('')
+  const [loading, setLoading]              = useState(false)
+  const [take, setTake]                    = useState(null)
+  const [streamingText, setStreamingText]  = useState(null)
+  const endRef    = useRef(null)
+  const inputRef  = useRef(null)
+  const takeRef   = useRef(null)
+  const streamRef = useRef({ reply: '', index: 0, withUser: [] })
+
+  useEffect(() => { takeRef.current = take }, [take])
 
   useEffect(() => {
     supabase
@@ -72,13 +77,38 @@ export default function Coach() {
       })
   }, [])
 
+  const isStreaming = streamingText !== null
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, isStreaming])
+
+  // Typewriter streaming effect
+  useEffect(() => {
+    if (streamingText === null) return
+    const { reply, index } = streamRef.current
+    if (index >= reply.length) {
+      const updated = [...streamRef.current.withUser, { role: 'assistant', content: reply }]
+      setMessages(updated)
+      const t = takeRef.current
+      if (t?.id) {
+        supabase.from('takes').update({ chat_history: updated }).eq('id', t.id).catch(() => {})
+      }
+      setStreamingText(null)
+      inputRef.current?.focus()
+      return
+    }
+    const timer = setTimeout(() => {
+      const next = Math.min(index + 3, reply.length)
+      streamRef.current.index = next
+      setStreamingText(reply.slice(0, next))
+    }, 12)
+    return () => clearTimeout(timer)
+  }, [streamingText])
 
   async function send(text) {
     const msg = (text ?? input).trim()
-    if (!msg || loading) return
+    if (!msg || loading || isStreaming) return
     playPop()
     setInput('')
     const withUser = [...messages, { role: 'user', content: msg }]
@@ -102,18 +132,14 @@ export default function Coach() {
       if (error) throw new Error(error.message ?? String(error))
       if (data?.error) throw new Error(data.error)
       const reply = data?.reply ?? ''
-      const updated = [...withUser, { role: 'assistant', content: reply }]
-      setMessages(updated)
-      if (take?.id) {
-        supabase.from('takes').update({ chat_history: updated }).eq('id', take.id).catch(() => {})
-      }
+      setLoading(false)
+      streamRef.current = { reply, index: 0, withUser }
+      setStreamingText('')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const friendly = msg.includes('Daily coaching limit')
-        ? msg
-        : 'Something went wrong. Please try again.'
-      setMessages(prev => [...prev, { role: 'assistant', content: friendly }])
-    } finally {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      if (errMsg.includes('Daily coaching limit')) {
+        setMessages(prev => [...prev, { role: 'assistant', content: errMsg }])
+      }
       setLoading(false)
       inputRef.current?.focus()
     }
@@ -146,7 +172,7 @@ export default function Coach() {
 
       {/* Messages */}
       <div className={styles.coachMessages}>
-        {messages.length === 0 && (
+        {messages.length === 0 && !isStreaming && (
           <div className={styles.coachWelcome}>
             <span className={styles.coachWelcomeIcon}>♩</span>
             <p className={styles.coachWelcomeTitle}>Mediant is ready to help</p>
@@ -181,6 +207,13 @@ export default function Coach() {
           </div>
         )}
 
+        {isStreaming && (
+          <div className={styles.chatMsgAI} style={{ animation: 'none' }}>
+            {streamingText}
+            <span className={styles.streamCursor} />
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 
@@ -193,12 +226,12 @@ export default function Coach() {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
           placeholder="Ask Mediant anything…"
-          disabled={loading}
+          disabled={loading || isStreaming}
         />
         <button
           className={styles.coachSendBtn}
           onClick={() => send()}
-          disabled={loading || !input.trim()}
+          disabled={loading || isStreaming || !input.trim()}
         >↑</button>
       </div>
     </div>

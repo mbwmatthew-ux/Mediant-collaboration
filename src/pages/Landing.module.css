@@ -300,6 +300,7 @@
   animation-delay: 200ms;
   position: relative;
   z-index: 1;
+  margin-top: 20px;
 }
 
 @keyframes heroLogoReveal {
@@ -1513,7 +1514,7 @@
 .insightCard {
   background: rgba(255, 253, 249, 0.7);
   border: 1px solid rgba(184, 146, 42, 0.18);
-  border-left: 3px solid var(--accent, #b8922a);
+  border-left: 3px solid #d4ae52;
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -1533,7 +1534,7 @@
 }
 
 .insightMeasureBadge {
-  background: var(--accent, #b8922a);
+  background: #d4ae52;
   border-radius: 6px;
   color: #faf8f4;
   font-family: "Iowan Old Style", Georgia, serif;
