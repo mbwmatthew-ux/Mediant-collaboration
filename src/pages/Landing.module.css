@@ -1,4 +1,80 @@
-/* ── Page ─────────────────────────────────────────────────── */
+/* ── Music intro fan animation ─────────────────────────────────── */
+.introOverlay {
+  position: absolute;
+  top: 54px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100vh - 54px);
+  overflow: clip;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.introSheet {
+  /* Lightweight box shadow blur (12px instead of 28px) to eliminate GPU blur-map rasterization bottleneck */
+  box-shadow: 0 4px 12px rgba(26,15,5,0.08), inset 0 1px 0 rgba(255,255,255,0.45);
+  width: 14vw; /* Responsive card width scales perfectly across all screen resolutions */
+  height: 19.5vw; /* Keeps the high-end 0.72 vertical aspect ratio of cello sheet scores */
+  min-width: 140px;
+  min-height: 195px;
+  left: 0;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  top: 2vh; /* left pivot top */
+  /* all start collapsed at the pivot, stacked flat */
+  transform: rotate(0deg) scale(0.5);
+  transform-origin: 0% 50%;
+  will-change: transform, opacity;
+  /* sequential card-stack */
+  z-index: calc(var(--i) + 1);
+}
+
+/* Target internal SVG to add independent floating weight animations without coordinate conflicts */
+.introSheet > svg {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center !important;
+  will-change: transform;
+}
+
+/* Right-side mirror — ball forms at mid-right (not top-right) */
+.introSheetR {
+  left: auto;
+  right: 0;
+  top: calc(32vh - 121px);
+  transform-origin: 100% 50%;
+}
+
+/* Fan-in: sweep from first sheet to last, each one following the previous, with a satisfying spring bounce */
+.introFanning {
+  transition:
+    opacity   0.8s  cubic-bezier(0.25, 0.8, 0.25, 1)  calc(var(--i) * 52ms),
+    transform 0.85s cubic-bezier(0.34, 1.08, 0.64, 1) calc(var(--i) * 52ms),
+    filter    0.8s  ease-out                           calc(var(--i) * 52ms);
+}
+
+.introSheetFanned {
+  opacity: 1;
+  transform: rotate(var(--angle, 0deg)) scale(1);
+}
+
+.introSheetFading {
+  opacity: 0 !important;
+  transition:
+    opacity 0.9s ease calc(var(--i) * 70ms) !important;
+}
+
+/* ── Registered custom properties (Houdini) ───────────────────── */
+
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* ── Page ─────────────────────────────────────────────────────── */
 .page {
   background: var(--bg-deep);
   color: var(--text-inverse);
@@ -88,8 +164,12 @@
   align-items: center;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 96px 24px 72px;
+  gap: 28px;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 110px 24px 90px;
+  position: relative;
   text-align: center;
 }
 
