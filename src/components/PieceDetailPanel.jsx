@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { getFile } from '../lib/fileStore'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import styles from './PieceDetailPanel.module.css'
 
 function scoreColor(n) {
@@ -16,38 +17,61 @@ function formatDate(iso) {
   catch { return iso }
 }
 
-export default function PieceDetailPanel({ piece, onClose }) {
+export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   const nav        = useNavigate()
+  const { user }   = useAuth()
   const scoreEl    = useRef(null)
   const osmdRef    = useRef(null)
 
-  const [scoreFetching, setScoreFetching] = useState(false)
-  const [scoreReady,    setScoreReady]    = useState(false)
-  const [scoreSource,   setScoreSource]   = useState(null)
-  const [fileURL,       setFileURL]       = useState(null)  // object URL for uploaded file
-  const [pastSessions,  setPastSessions]  = useState([])
-  const [deletingId,    setDeletingId]    = useState(null)
+  const [scoreFetching,  setScoreFetching]  = useState(false)
+  const [scoreReady,     setScoreReady]     = useState(false)
+  const [scoreSource,    setScoreSource]    = useState(null)
+  const [fileURL,        setFileURL]        = useState(null)
+  const [pastSessions,   setPastSessions]   = useState([])
+  const [deletingId,     setDeletingId]     = useState(null)
+  const [deletingPiece,  setDeletingPiece]  = useState(false)
+  const [confirmDialog,  setConfirmDialog]  = useState(null) // { message, onConfirm }
 
-  // Load past sessions for this piece from localStorage
+  // Load past sessions for this piece from Supabase
   useEffect(() => {
-    try {
-      const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      setPastSessions(all.filter(t =>
-        t.piece_title?.toLowerCase() === piece.title?.toLowerCase()
-      ))
-    } catch { setPastSessions([]) }
-  }, [piece.title])
+    if (!user?.id) {
+      try {
+        const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        setPastSessions(all.filter(t =>
+          t.piece_title?.toLowerCase() === piece.title?.toLowerCase()
+        ))
+      } catch { setPastSessions([]) }
+      return
+    }
+
+    supabase
+      .from('takes')
+      .select('id, piece_title, score, flags, created_at, video_path, score_path')
+      .eq('user_id', user.id)
+      .ilike('piece_title', piece.title)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setPastSessions(data ?? []))
+      .catch(() => setPastSessions([]))
+  }, [piece.title, user?.id])
 
   // Load sheet music — use uploaded file if available, otherwise search online
   useEffect(() => {
     let objectURL = null
 
+    function inferMediaType(filePath) {
+      const ext = filePath?.split('.').pop()?.toLowerCase()
+      if (ext === 'pdf')  return 'application/pdf'
+      if (ext === 'png')  return 'image/png'
+      if (ext === 'webp') return 'image/webp'
+      return 'image/jpeg'
+    }
+
     async function load() {
       setScoreFetching(true)
       setScoreReady(false)
 
-      // 1. For user-uploaded pieces, load the actual file from IndexedDB
-      if (piece.userUploaded) {
+      // 1. For user-uploaded pieces, try IndexedDB first, then Supabase storage
+      if (piece.userUploaded || piece.file_path) {
         const file = await getFile(piece.id).catch(() => null)
         if (file) {
           objectURL = URL.createObjectURL(file)
@@ -56,6 +80,24 @@ export default function PieceDetailPanel({ piece, onClose }) {
           setScoreReady(true)
           setScoreFetching(false)
           return
+        }
+
+        // IndexedDB miss — fall back to Supabase storage signed URL
+        if (piece.file_path) {
+          const { data: signed } = await supabase.storage
+            .from('sheet-music')
+            .createSignedUrl(piece.file_path, 3600)
+            .catch(() => ({ data: null }))
+          if (signed?.signedUrl) {
+            const mediaType = piece.mediaType || inferMediaType(piece.file_path)
+            // store inferred type so the render branches below work
+            piece.mediaType = mediaType
+            setFileURL(signed.signedUrl)
+            setScoreSource('uploaded')
+            setScoreReady(true)
+            setScoreFetching(false)
+            return
+          }
         }
       }
 
@@ -89,24 +131,49 @@ export default function PieceDetailPanel({ piece, onClose }) {
   }, [piece.id, piece.title, piece.composer, piece.userUploaded])
 
   async function deleteSession(take) {
-    if (!window.confirm(`Delete this recording from ${formatDate(take.date)}? This cannot be undone.`)) return
+    setConfirmDialog({
+      message: `Delete this recording from ${formatDate(take.created_at || take.date)}?`,
+      onConfirm: () => doDeleteSession(take),
+    })
+  }
+
+  async function doDeleteSession(take) {
     setDeletingId(take.id)
     try {
-      // Remove from localStorage
-      const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
-      localStorage.setItem('mediant_takes', JSON.stringify(all.filter(t => t.id !== take.id)))
       setPastSessions(prev => prev.filter(t => t.id !== take.id))
 
-      // Delete video from Supabase Storage
-      if (take.video_path) {
-        await supabase.storage.from('recordings').remove([take.video_path])
+      // Delete DB row
+      if (user?.id) {
+        await supabase.from('takes').delete().eq('id', take.id)
+      } else {
+        const all = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        localStorage.setItem('mediant_takes', JSON.stringify(all.filter(t => t.id !== take.id)))
       }
-      // Delete sheet music from Supabase Storage
-      if (take.score_path) {
-        await supabase.storage.from('sheet-music').remove([take.score_path])
-      }
+
+      // Delete storage files
+      if (take.video_path) await supabase.storage.from('recordings').remove([take.video_path])
+      if (take.score_path) await supabase.storage.from('sheet-music').remove([take.score_path])
     } catch { /* storage errors are non-fatal */ }
     finally { setDeletingId(null) }
+  }
+
+  async function deletePiece() {
+    setConfirmDialog({
+      message: `Delete "${piece.title}" from your library?`,
+      onConfirm: doDeletePiece,
+    })
+  }
+
+  async function doDeletePiece() {
+    setDeletingPiece(true)
+    try {
+      await supabase.from('user_pieces').delete().eq('id', piece.id)
+      if (piece.file_path) await supabase.storage.from('sheet-music').remove([piece.file_path]).catch(() => {})
+      onDeleted?.(piece.id)
+      onClose()
+    } catch {
+      setDeletingPiece(false)
+    }
   }
 
   function startRecording() {
@@ -114,6 +181,9 @@ export default function PieceDetailPanel({ piece, onClose }) {
       pieceTitle: piece.title,
       composer:   piece.composer,
       instrument: piece.instrument,
+      key:        piece.key  && piece.key  !== '—' ? piece.key  : null,
+      timeSig:    piece.time && piece.time !== '—' ? piece.time : null,
+      bpm:        piece.bpm  || null,
       pieceId:    piece.userUploaded ? piece.id : null,
       mediaType:  piece.mediaType ?? null,
     }))
@@ -121,7 +191,29 @@ export default function PieceDetailPanel({ piece, onClose }) {
   }
 
   return (
-    <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && !confirmDialog && onClose()}>
+      {confirmDialog && (
+        <div className={styles.confirmOverlay} onClick={e => e.stopPropagation()}>
+          <div className={styles.confirmBox}>
+            <p className={styles.confirmMsg}>{confirmDialog.message}</p>
+            <p className={styles.confirmSub}>This cannot be undone.</p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.confirmCancel}
+                onClick={() => setConfirmDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmDelete}
+                onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null) }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={styles.panel}>
 
         {/* ── Header ─────────────────────────────────────────── */}
@@ -135,9 +227,19 @@ export default function PieceDetailPanel({ piece, onClose }) {
               {piece.time && piece.time !== '—' ? ` · ${piece.time}` : ''}
             </p>
           </div>
-          <button className={styles.recordBtn} onClick={startRecording}>
-            Start Recording →
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              className={styles.deletePieceBtn}
+              onClick={deletePiece}
+              disabled={deletingPiece}
+              title="Delete this piece from your library"
+            >
+              {deletingPiece ? 'Deleting…' : 'Delete piece'}
+            </button>
+            <button className={styles.recordBtn} onClick={startRecording}>
+              Start Recording →
+            </button>
+          </div>
         </div>
 
         {/* ── Body ───────────────────────────────────────────── */}
@@ -201,7 +303,7 @@ export default function PieceDetailPanel({ piece, onClose }) {
                 {pastSessions.map((t, i) => (
                   <div key={t.id || i} className={styles.sessionCard}>
                     <div className={styles.sessionRow}>
-                      <span className={styles.sessionDate}>{formatDate(t.date)}</span>
+                      <span className={styles.sessionDate}>{formatDate(t.created_at || t.date)}</span>
                       <div className={styles.sessionRowRight}>
                         {t.score != null && (
                           <span className={styles.sessionScore} style={{ color: scoreColor(t.score) }}>

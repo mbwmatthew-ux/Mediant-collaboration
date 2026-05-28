@@ -2,8 +2,10 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  max-width: 100%;
+  min-width: 0;
   padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid var(--line);
 }
 
 .sectionHeader {
@@ -14,7 +16,7 @@
 }
 
 .sectionTitle {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.1rem;
   font-weight: 400;
@@ -24,12 +26,12 @@
 }
 
 .sectionSub {
-  color: rgba(248,246,242,0.38);
+  color: var(--text-faint);
   font-size: 0.82rem;
   margin: 0;
 }
 .sectionSub em {
-  color: rgba(248,246,242,0.58);
+  color: var(--text-dim);
   font-style: normal;
 }
 
@@ -38,16 +40,22 @@
 .row {
   display: flex;
   gap: 14px;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding-bottom: 10px;
-  scrollbar-width: none;
+  scrollbar-color: var(--surface-border) transparent;
+  scrollbar-width: thin;
 }
-.row::-webkit-scrollbar { display: none; }
+.row::-webkit-scrollbar        { height: 4px; }
+.row::-webkit-scrollbar-track  { background: transparent; }
+.row::-webkit-scrollbar-thumb  { background: var(--surface-border); border-radius: 4px; }
+.row::-webkit-scrollbar-thumb:hover { background: var(--text-faintest); }
 
 /* ── Video card ───────────────────────────────────────────── */
 
 .card {
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--surface-border);
   border-radius: 10px;
   cursor: pointer;
   display: flex;
@@ -57,11 +65,11 @@
   text-decoration: none;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
   width: 232px;
-  background: rgba(255,255,255,0.035);
+  background: var(--surface-subtle);
 }
 .card:hover {
-  background: rgba(255,255,255,0.065);
-  border-color: rgba(255,255,255,0.15);
+  background: var(--surface-hover);
+  border-color: var(--border);
   transform: translateY(-3px);
 }
 
@@ -71,7 +79,7 @@
   overflow: hidden;
   position: relative;
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background: var(--surface-subtle);
 }
 
 .thumbImg {
@@ -85,7 +93,7 @@
 
 .thumbPlaceholder {
   align-items: center;
-  color: rgba(248,246,242,0.2);
+  color: var(--text-faintest);
   display: flex;
   font-size: 1.8rem;
   height: 100%;
@@ -145,7 +153,7 @@
 
 .videoTitle {
   -webkit-box-orient: vertical;
-  color: var(--text-inverse);
+  color: var(--text);
   display: -webkit-box;
   font-size: 0.83rem;
   -webkit-line-clamp: 2;
@@ -155,7 +163,7 @@
 }
 
 .channel {
-  color: rgba(248,246,242,0.4);
+  color: var(--text-dim);
   font-size: 0.75rem;
   margin: 0;
   overflow: hidden;
@@ -166,8 +174,8 @@
 /* ── Skeleton loading ─────────────────────────────────────── */
 
 .skeletonCard {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
   border-radius: 10px;
   flex-shrink: 0;
   overflow: hidden;
@@ -177,9 +185,9 @@
 .skeletonThumb {
   aspect-ratio: 16 / 9;
   background: linear-gradient(90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.09) 50%,
-    rgba(255,255,255,0.04) 100%
+    var(--surface-subtle) 0%,
+    var(--surface-border) 50%,
+    var(--surface-subtle) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s infinite;
@@ -195,9 +203,9 @@
 
 .skeletonLine {
   background: linear-gradient(90deg,
-    rgba(255,255,255,0.05) 0%,
-    rgba(255,255,255,0.1) 50%,
-    rgba(255,255,255,0.05) 100%
+    var(--surface-subtle) 0%,
+    var(--surface-border) 50%,
+    var(--surface-subtle) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s infinite;
@@ -208,9 +216,9 @@
 
 .skeletonLineShort {
   background: linear-gradient(90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 100%
+    var(--surface-subtle) 0%,
+    var(--surface-border) 50%,
+    var(--surface-subtle) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s infinite;
@@ -227,14 +235,14 @@
 /* ── States ───────────────────────────────────────────────── */
 
 .errorMsg {
-  color: rgba(248,246,242,0.35);
+  color: var(--text-faint);
   font-size: 0.84rem;
   margin: 0;
   padding: 8px 0;
 }
 
 .emptyMsg {
-  color: rgba(248,246,242,0.35);
+  color: var(--text-faint);
   font-size: 0.84rem;
   margin: 0;
   padding: 8px 0;

@@ -31,7 +31,7 @@
 }
 
 .modalTitle {
-  color: var(--text);
+  color: var(--text-inverse);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -44,7 +44,7 @@
   background: rgba(88, 121, 101, 0.08);
   border: 1px solid rgba(88, 121, 101, 0.16);
   border-radius: 999px;
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   cursor: pointer;
   font-size: 0.8rem;
   padding: 5px 10px;
@@ -68,14 +68,14 @@
 }
 
 .errorBody {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.87rem;
   line-height: 1.5;
   margin: 0 0 12px;
 }
 
 .errorSteps {
-  color: var(--text);
+  color: var(--text-inverse);
   font-size: 0.87rem;
   line-height: 1.7;
   margin: 0 0 16px;
@@ -86,7 +86,7 @@
   background: rgba(88, 121, 101, 0.1);
   border: 1px solid rgba(88, 121, 101, 0.22);
   border-radius: 999px;
-  color: var(--text);
+  color: var(--text-inverse);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 8px 18px;
@@ -110,14 +110,14 @@
 }
 
 .noteName {
-  color: var(--text);
+  color: var(--text-inverse);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 6rem;
   font-weight: 400;
 }
 
 .noteOctave {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 1.8rem;
   font-weight: 400;
 }
@@ -131,7 +131,7 @@
 }
 
 .gaugeSide {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 1.1rem;
   flex-shrink: 0;
   text-align: center;
@@ -171,7 +171,7 @@
 /* ── Status ───────────────────────────────────────────────── */
 .status {
   align-items: center;
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   display: flex;
   font-size: 0.9rem;
   gap: 16px;
@@ -182,7 +182,7 @@
 .statusMuted { color: rgba(88, 121, 101, 0.4); font-style: italic; }
 
 .freq {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.8rem;
 }
 

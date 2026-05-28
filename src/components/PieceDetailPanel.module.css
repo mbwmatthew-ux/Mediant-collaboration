@@ -38,7 +38,7 @@
   background: rgba(88, 121, 101, 0.08);
   border: 1px solid rgba(88, 121, 101, 0.18);
   border-radius: 999px;
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   cursor: pointer;
   flex-shrink: 0;
   font-size: 0.88rem;
@@ -51,7 +51,7 @@
 .headerMeta { flex: 1; min-width: 0; }
 
 .pieceTitle {
-  color: var(--text);
+  color: var(--text-inverse);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.5rem;
   font-weight: 400;
@@ -63,10 +63,36 @@
 }
 
 .pieceSub {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.85rem;
   margin: 3px 0 0;
 }
+
+.headerActions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.deletePieceBtn {
+  background: none;
+  border: 1px solid rgba(171,101,89,0.28);
+  border-radius: 999px;
+  color: rgba(171,101,89,0.8);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 0.83rem;
+  padding: 8px 16px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  white-space: nowrap;
+}
+.deletePieceBtn:hover:not(:disabled) {
+  background: rgba(171,101,89,0.08);
+  border-color: rgba(171,101,89,0.5);
+  color: #c06454;
+}
+.deletePieceBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .recordBtn {
   background: var(--hero-green);
@@ -101,7 +127,7 @@
 
 .scoreLoading {
   align-items: center;
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   display: flex;
   flex-direction: column;
   font-size: 0.88rem;
@@ -121,7 +147,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .sourceLabel {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.75rem;
   font-style: italic;
   margin: 12px 0 0;
@@ -130,7 +156,7 @@
 
 .noScore {
   align-items: center;
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   display: flex;
   font-size: 0.88rem;
   justify-content: center;
@@ -148,7 +174,7 @@
 }
 
 .sessionsTitle {
-  color: var(--text);
+  color: var(--text-inverse);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -157,7 +183,7 @@
 }
 
 .noSessions {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.88rem;
   line-height: 1.65;
   margin: 0;
@@ -186,7 +212,7 @@
 }
 
 .sessionDate {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.82rem;
 }
 
@@ -199,7 +225,7 @@
 .deleteBtn {
   background: none;
   border: none;
-  color: rgba(88,121,101,0.3);
+  color: var(--text-faintest);
   cursor: pointer;
   font-size: 0.72rem;
   line-height: 1;
@@ -227,7 +253,7 @@
 }
 
 .flagTag {
-  color: var(--text-soft);
+  color: rgba(47,52,64,0.6);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -235,10 +261,90 @@
 }
 
 .flagTitle {
-  color: var(--text);
+  color: var(--text-inverse);
   font-size: 0.84rem;
   line-height: 1.4;
 }
+
+/* ── Confirm dialog ───────────────────────────────────────── */
+.confirmOverlay {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: rgba(29, 40, 36, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 10;
+}
+
+.confirmBox {
+  background: var(--cream-strong);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(20, 30, 26, 0.22);
+  max-width: 360px;
+  padding: 32px 28px 24px;
+  width: calc(100% - 48px);
+  animation: confirmIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes confirmIn {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.confirmMsg {
+  color: var(--text-inverse);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+  margin: 0 0 6px;
+}
+
+.confirmSub {
+  color: rgba(47,52,64,0.5);
+  font-size: 0.84rem;
+  margin: 0 0 24px;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.confirmCancel {
+  background: none;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  color: rgba(47,52,64,0.6);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 9px 20px;
+  transition: background 130ms ease, border-color 130ms ease;
+}
+.confirmCancel:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.confirmDelete {
+  background: #c06454;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 9px 22px;
+  transition: filter 130ms ease, transform 130ms ease;
+}
+.confirmDelete:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 /* ── Responsive: tablet + mobile (≤768px) ───────────────────── */
 @media (max-width: 768px) {
@@ -253,7 +359,7 @@
   .body { grid-template-columns: 1fr; }
   .scoreSection {
     border-right: none;
-    border-bottom: 1px solid rgba(88,121,101,0.1);
+    border-bottom: 1px solid var(--accent-bg);
     padding: 20px 16px;
   }
   .sessionsSection { padding: 20px 16px; }

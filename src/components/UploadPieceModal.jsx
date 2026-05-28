@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { saveFile } from '../lib/fileStore'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import styles from './UploadPieceModal.module.css'
 
 const ACCEPTED    = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -18,11 +21,13 @@ function fileToBase64(file) {
 }
 
 export default function UploadPieceModal({ onClose, onAdded }) {
-  const inputRef = useRef(null)
+  const { user }  = useAuth()
+  const nav       = useNavigate()
+  const inputRef  = useRef(null)
   const [file,       setFile]       = useState(null)
   const [drag,       setDrag]       = useState(false)
   const [instrument, setInstrument] = useState('')
-  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready
+  const [phase,      setPhase]      = useState('idle')   // idle | analyzing | ready | saving | saving-record
   const [form,       setForm]       = useState(null)
   const [error,      setError]      = useState(null)
 
@@ -31,27 +36,26 @@ export default function UploadPieceModal({ onClose, onAdded }) {
     setError(null)
     try {
       const imageBase64 = await fileToBase64(f)
-      const res = await fetch('/api/analyze-sheet-music', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64, mediaType: f.type }),
+      const { data, error } = await supabase.functions.invoke('analyze-sheet-music', {
+        body: { imageBase64, mediaType: f.type },
       })
-      if (!res.ok) throw new Error()
-      const data = await res.json()
+      if (error) throw new Error(error.message ?? String(error))
       const name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
       setForm({
         title:      data.title      || name,
         composer:   data.composer   || '',
         era:        ERAS.includes(data.era) ? data.era : 'Romantic',
         difficulty: LEVELS.includes(data.difficulty) ? data.difficulty : 'Intermediate',
-        key:        data.key        || '',
+        key:        '',
         time:       data.time       || '',
+        bpm:        data.bpm        || '',
       })
       setPhase('ready')
     } catch {
       setError('Could not analyze the file — fill in the details manually.')
       const name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-      setForm({ title: name, composer: '', era: 'Romantic', difficulty: 'Intermediate', key: '', time: '' })
+      setForm({ title: name, composer: '', era: 'Romantic', difficulty: 'Intermediate', key: '', time: '', bpm: '' })
+
       setPhase('ready')
     }
   }
@@ -69,24 +73,76 @@ export default function UploadPieceModal({ onClose, onAdded }) {
     return e => setForm(prev => ({ ...prev, [field]: e.target.value }))
   }
 
-  async function handleAdd() {
-    if (!file || !form) return
-    const id = `upload-${Date.now()}`
-    const piece = {
-      id,
-      ...form,
-      title:       form.title.trim()    || file.name,
-      composer:    form.composer.trim() || 'Unknown',
-      key:         form.key.trim()      || '—',
-      time:        form.time.trim()     || '—',
-      instrument,
-      mediaType:   file.type,
-      userUploaded: true,
+  async function handleAdd({ andRecord = false } = {}) {
+    if (!file || !form || !instrument) return
+    setPhase(andRecord ? 'saving-record' : 'saving')
+    setError(null)
+    try {
+      // Upload file to Supabase storage
+      const ext      = file.name.split('.').pop() ?? 'bin'
+      const filePath = `${user.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('sheet-music')
+        .upload(filePath, file, { contentType: file.type })
+      if (uploadErr) throw uploadErr
+
+      // Insert into user_pieces
+      const { data: inserted, error: insertErr } = await supabase
+        .from('user_pieces')
+        .insert({
+          user_id:    user.id,
+          title:      form.title.trim()    || file.name,
+          composer:   form.composer.trim() || 'Unknown',
+          instrument,
+          era:        form.era,
+          difficulty: form.difficulty,
+          key:        form.key.trim()  || '—',
+          time:       form.time.trim() || '—',
+          bpm:        parseInt(form.bpm) || null,
+          file_path:  filePath,
+        })
+        .select('id')
+        .single()
+      if (insertErr) throw insertErr
+
+      // Save to IndexedDB so the score viewer works offline
+      await saveFile(inserted.id, file).catch(() => {})
+
+      const piece = {
+        id:           inserted.id,
+        ...form,
+        title:        form.title.trim()    || file.name,
+        composer:     form.composer.trim() || 'Unknown',
+        instrument,
+        key:          form.key.trim()  || '—',
+        time:         form.time.trim() || '—',
+        bpm:          parseInt(form.bpm) || null,
+        file_path:    filePath,
+        userUploaded: true,
+        mediaType:    file.type,
+      }
+
+      onAdded(piece)
+
+      if (andRecord) {
+        sessionStorage.setItem('mediant_prefill', JSON.stringify({
+          pieceTitle: piece.title,
+          composer:   piece.composer,
+          instrument: piece.instrument,
+          key:        piece.key  !== '—' ? piece.key  : null,
+          timeSig:    piece.time !== '—' ? piece.time : null,
+          bpm:        piece.bpm  || null,
+          pieceId:    piece.id,
+          mediaType:  file.type,
+        }))
+        nav('/record')
+      } else {
+        onClose()
+      }
+    } catch (err) {
+      setError(`Failed to save: ${err.message}`)
+      setPhase('ready')
     }
-    // Save the actual file to IndexedDB so it can be viewed later
-    await saveFile(id, file).catch(() => {})
-    onAdded(piece)
-    onClose()
   }
 
   return (
@@ -183,12 +239,16 @@ export default function UploadPieceModal({ onClose, onAdded }) {
             </div>
             <div className={styles.formRowGroup}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>Key <span className={styles.formRequired}>— enter manually</span></label>
+                <label className={styles.formLabel}>Key</label>
                 <input className={styles.formInput} value={form.key} onChange={set('key')} placeholder="e.g. D minor, B♭ major" />
               </div>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>Time</label>
                 <input className={styles.formInput} value={form.time} onChange={set('time')} placeholder="e.g. 4/4" />
+              </div>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>Tempo (BPM)</label>
+                <input className={styles.formInput} type="number" min="1" max="400" value={form.bpm} onChange={set('bpm')} placeholder="e.g. 56" />
               </div>
             </div>
           </div>
@@ -197,11 +257,18 @@ export default function UploadPieceModal({ onClose, onAdded }) {
         <div className={styles.modalActions}>
           <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
           <button
-            className={styles.uploadBtn}
-            onClick={handleAdd}
+            className={styles.uploadBtnSecondary}
+            onClick={() => handleAdd({ andRecord: false })}
             disabled={phase !== 'ready' || !instrument}
           >
-            Add to library
+            {phase === 'saving' ? 'Saving…' : 'Add to library'}
+          </button>
+          <button
+            className={styles.uploadBtn}
+            onClick={() => handleAdd({ andRecord: true })}
+            disabled={phase !== 'ready' || !instrument}
+          >
+            {phase === 'saving-record' ? 'Saving…' : 'Add & Record →'}
           </button>
         </div>
 

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import UploadPieceModal from '../components/UploadPieceModal'
 import PieceDetailPanel from '../components/PieceDetailPanel'
 import styles from './Page.module.css'
+import { playTick, playPop } from '../utils/sounds'
 
 const difficultyColor = { Beginner: 'green', Intermediate: 'gold', Advanced: 'coral' }
 
@@ -10,20 +13,38 @@ function unique(arr) { return [...new Set(arr.filter(Boolean))].sort() }
 
 export default function Search() {
   const { user } = useAuth()
+  const nav = useNavigate()
   const [query,      setQuery]      = useState('')
   const [instrument, setInstrument] = useState(null)
   const [era,        setEra]        = useState(null)
   const [difficulty, setDifficulty] = useState(null)
-  const [userPieces, setUserPieces] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('mediant_user_pieces') || '[]') }
-    catch { return [] }
-  })
+  const [userPieces,    setUserPieces]    = useState([])
+  const [loadingPieces, setLoadingPieces] = useState(true)
+  const [fetchError,    setFetchError]    = useState(null)
   const [showUpload,    setShowUpload]    = useState(false)
   const [selectedPiece, setSelectedPiece] = useState(null)
 
-  useEffect(() => {
-    localStorage.setItem('mediant_user_pieces', JSON.stringify(userPieces))
-  }, [userPieces])
+  async function fetchPieces() {
+    if (!user?.id) { setUserPieces([]); setLoadingPieces(false); return }
+    setLoadingPieces(true)
+    setFetchError(null)
+    try {
+      const { data, error } = await supabase
+        .from('user_pieces')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setUserPieces((data ?? []).map(p => ({ ...p, userUploaded: true })))
+    } catch (err) {
+      console.warn('[Search] fetch error:', err.message)
+      setFetchError('Could not load your library. Check your connection and try again.')
+    } finally {
+      setLoadingPieces(false)
+    }
+  }
+
+  useEffect(() => { fetchPieces() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePieceAdded(piece) {
     setUserPieces(prev => [piece, ...prev])
@@ -58,6 +79,7 @@ export default function Search() {
         <PieceDetailPanel
           piece={selectedPiece}
           onClose={() => setSelectedPiece(null)}
+          onDeleted={id => setUserPieces(prev => prev.filter(p => p.id !== id))}
         />
       )}
 
@@ -71,7 +93,10 @@ export default function Search() {
           </p>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.primaryBtn} onClick={() => setShowUpload(true)}>
+          <button className={styles.ghostBtn} onClick={() => { playTick(); nav('/record') }}>
+            + New recording
+          </button>
+          <button className={styles.primaryBtn} onClick={() => { playPop(); setShowUpload(true) }}>
             ↑ Upload sheet music
           </button>
         </div>
@@ -146,6 +171,39 @@ export default function Search() {
         )}
       </div>
 
+      {fetchError && (
+        <div className={styles.errorBanner}>
+          <span>⚠</span>
+          <span>{fetchError}</span>
+          <button className={styles.errorRetry} onClick={fetchPieces}>Retry</button>
+        </div>
+      )}
+
+      {loadingPieces && !fetchError ? (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead className={styles.tableHead}>
+              <tr>
+                {['Title','Composer','Instrument','Era','Level','Key · Time'].map(h => (
+                  <th key={h} className={styles.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[0,1,2,3,4].map(i => (
+                <tr key={i} className={styles.tableRow} style={{ pointerEvents: 'none' }}>
+                  {[70,55,50,42,36,48].map((w, j) => (
+                    <td key={j} className={styles.td}>
+                      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 3, height: 10, width: w, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+      <>
       <div className={styles.sectionHeader}>
         <span className={styles.sectionHeaderTitle}>
           {results.length} result{results.length !== 1 ? 's' : ''}
@@ -179,7 +237,7 @@ export default function Search() {
             </thead>
             <tbody>
               {results.map(p => (
-                <tr key={p.id} className={styles.tableRow} onClick={() => setSelectedPiece(p)}>
+                <tr key={p.id} className={styles.tableRow} onClick={() => { playTick(); setSelectedPiece(p) }}>
                   <td className={styles.td}>
                     {p.title}
                     {p.userUploaded && <span className={styles.uploadedTag}> · Uploaded</span>}
@@ -198,6 +256,8 @@ export default function Search() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   )

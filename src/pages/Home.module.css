@@ -1,0 +1,398 @@
+/* ── Dashboard entrance animations ──────────────────────────── */
+@keyframes dashIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Dashboard layout ───────────────────────────────────────── */
+.dashboard {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr 280px;
+  min-height: calc(100vh - 48px);
+  padding: 28px 28px 60px;
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Greeting ───────────────────────────────────────────────── */
+.greeting {
+  animation: dashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 0ms;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.greetTitle {
+  color: var(--text);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.greetSub {
+  color: var(--text-dim);
+  font-size: 0.87rem;
+  margin: 0;
+}
+
+/* ── Hero card (live analysis) ──────────────────────────────── */
+.heroCard {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 80ms;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-smooth);
+}
+.heroCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.heroCardHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+}
+
+.heroCardTitleRow {
+  align-items: center;
+  color: var(--text-soft);
+  display: flex;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.piecePill {
+  background: var(--surface-subtle);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 3px 10px;
+}
+
+.heroCardAction {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 4px 0;
+  transition: color 140ms ease;
+}
+.heroCardAction:hover { color: var(--text-soft); }
+
+
+/* Waveform */
+.waveformWrap {
+  align-items: flex-end;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 2px;
+  height: 72px;
+  padding: 12px 20px 0;
+}
+
+.waveBar {
+  animation: barRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(130ms + var(--bi, 0) * 6ms);
+  border-radius: 4px 4px 0 0;
+  flex: 1;
+  min-width: 3px;
+  transition: opacity 0.2s ease, transform 0.2s var(--ease-spring), filter 0.2s ease;
+}
+.waveBar:hover {
+  transform: scaleY(1.15) translateY(-2px);
+  filter: brightness(1.15);
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+@keyframes barRise {
+  from { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+  to   { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+}
+
+.waveFooter {
+  color: var(--text-faintest);
+  display: flex;
+  font-size: 0.7rem;
+  justify-content: space-between;
+  letter-spacing: 0.04em;
+  padding: 8px 20px 16px;
+}
+
+.waveLegend {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.65rem;
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+
+.heroEmpty {
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+  padding: 16px 20px;
+}
+
+.heroUploadBtn {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 500;
+  padding: 9px 20px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.heroUploadBtn:hover { background: var(--accent-bg-hover); border-color: var(--accent); }
+
+/* ── Technique tips ─────────────────────────────────────────── */
+.tipsSection {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 160ms;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tipsSectionHeader {
+  align-items: center;
+  color: var(--text-soft);
+  display: flex;
+  font-size: 0.84rem;
+  font-weight: 600;
+  gap: 7px;
+  letter-spacing: 0.01em;
+}
+
+.tipItem {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px;
+}
+
+.tipTitle {
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tipBody {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.tipsEmpty {
+  color: var(--text-faint);
+  font-size: 0.84rem;
+  padding: 8px 0;
+}
+
+/* ── Stats card ─────────────────────────────────────────────── */
+.statsCard {
+  animation: dashIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 60ms;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.statBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+}
+
+.statLabel {
+  color: var(--text-faintest);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.statValue {
+  color: var(--text);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.statUnit {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-family: "Avenir Next", "Inter", sans-serif;
+  letter-spacing: 0;
+}
+
+.statDivider {
+  background: var(--line);
+  height: 1px;
+  margin: 0 16px;
+}
+
+.scoreBar {
+  background: var(--surface-border);
+  border-radius: 999px;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.scoreBarFill {
+  border-radius: 999px;
+  height: 100%;
+  transition: width 600ms ease;
+}
+
+/* ── Recent sessions card ───────────────────────────────────── */
+.recentCard {
+  animation: dashIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both 140ms;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.recentHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+}
+
+.recentHeaderLeft {
+  align-items: center;
+  color: var(--text-soft);
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 600;
+  gap: 7px;
+}
+
+.viewAllBtn {
+  background: none;
+  border: none;
+  color: var(--text-faintest);
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 0;
+  transition: color 140ms ease;
+}
+.viewAllBtn:hover { color: var(--text-soft); }
+
+.sessionRow {
+  align-items: center;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  padding: 11px 18px;
+  text-align: left;
+  transition: background 120ms ease;
+  width: 100%;
+}
+.sessionRow:last-child { border-bottom: 0; }
+.sessionRow:hover { background: var(--surface-subtle); }
+
+.sessionIcon {
+  align-items: center;
+  background: var(--surface-hover);
+  border-radius: 8px;
+  color: var(--text-faint);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.sessionInfo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sessionPiece {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionMeta {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+
+.sessionScore {
+  flex-shrink: 0;
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.recentEmpty {
+  color: var(--text-faintest);
+  font-size: 0.84rem;
+  padding: 24px 18px;
+  text-align: center;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dashboard { grid-template-columns: 1fr; padding: 20px 16px 40px; }
+  .rightCol  { flex-direction: row; flex-wrap: wrap; }
+  .statsCard { flex: 1; min-width: 200px; }
+  .recentCard { flex: 1; min-width: 260px; }
+}

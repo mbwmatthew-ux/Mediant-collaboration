@@ -1,33 +1,75 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTakes } from '../hooks/useTakes'
+import { supabase } from '../lib/supabase'
 import styles from './Page.module.css'
+import { playSave, playThud } from '../utils/sounds'
 
 const COACHING_STYLES = ['Constructive and direct', 'Encouraging and gentle', 'Technical and precise']
-const DISPLAY_MODES   = ['Playback follow-along', 'Static score review', 'Both']
+const INSTRUMENTS = [
+  'Piano', 'Violin', 'Viola', 'Cello', 'Double Bass',
+  'Flute', 'Oboe', 'Clarinet', 'Bassoon',
+  'French Horn', 'Trumpet', 'Trombone', 'Tuba',
+  'Guitar', 'Harp', 'Voice', 'Other',
+]
 
 export default function Profile() {
-  const { user, logout } = useAuth()
-  const nav = useNavigate()
+  const { user, subscription, logout } = useAuth()
+  const nav    = useNavigate()
+  const takes  = useTakes() ?? []
 
-  const [coachingStyle, setCoachingStyle] = useState('Constructive and direct')
-  const [displayMode, setDisplayMode] = useState('Playback follow-along')
-  const [defaultBpm, setDefaultBpm] = useState(60)
-  const [saved, setSaved] = useState(false)
+  const [name,          setName]          = useState(user?.name       || '')
+  const [instrument,    setInstrument]    = useState(user?.instrument || '')
+  const [coachingStyle, setCoachingStyle] = useState(
+    user?.user_metadata?.coaching_style || 'Constructive and direct'
+  )
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
+  const [saveErr, setSaveErr] = useState('')
 
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  const stats = useMemo(() => {
+    const totalSessions  = takes.length
+    const uniquePieces   = new Set(takes.map(t => t.piece_title).filter(Boolean)).size
+    const bestStreak     = calcBestStreak(takes)
+    return { totalSessions, uniquePieces, bestStreak }
+  }, [takes])
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveErr('')
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        name:           name.trim()    || user?.name,
+        instrument:     instrument     || user?.instrument,
+        coaching_style: coachingStyle,
+      },
+    })
+    setSaving(false)
+    if (error) {
+      setSaveErr(error.message)
+    } else {
+      playSave()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
   }
 
   function handleLogout() {
+    playThud()
     logout()
     nav('/')
   }
 
-  const initials = user?.name
-    ? user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const initials = name
+    ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?'
+
+  const planLabel = subscription?.status === 'active' && subscription?.plan
+    ? `Pro · ${subscription.plan}`
+    : subscription?.status === 'active'
+    ? 'Pro'
+    : 'Free'
 
   return (
     <div className={styles.page}>
@@ -35,7 +77,7 @@ export default function Profile() {
         <div>
           <p className={styles.label}>Account</p>
           <h1 className={styles.title}>{user?.name || 'Your Profile'}</h1>
-          <p className={styles.sub}>{user?.instrument} · {user?.email}</p>
+          <p className={styles.sub}>{[user?.instrument, user?.email].filter(Boolean).join(' · ')}</p>
         </div>
         <div className={styles.avatarLg}>{initials}</div>
       </div>
@@ -43,10 +85,10 @@ export default function Profile() {
       {/* Stats */}
       <div className={styles.statsRow}>
         {[
-          { label: 'Total sessions', value: '23' },
-          { label: 'Hours practiced', value: '11.4 h' },
-          { label: 'Best streak', value: '12 days' },
-          { label: 'Pieces reviewed', value: '7' },
+          { label: 'Total sessions',  value: takes === undefined ? '…' : String(stats.totalSessions) },
+          { label: 'Pieces reviewed', value: takes === undefined ? '…' : String(stats.uniquePieces) },
+          { label: 'Best streak',     value: takes === undefined ? '…' : `${stats.bestStreak} days` },
+          { label: 'Plan',            value: planLabel },
         ].map(({ label, value }) => (
           <div key={label} className={styles.statCard}>
             <p className={styles.label}>{label}</p>
@@ -55,32 +97,51 @@ export default function Profile() {
         ))}
       </div>
 
-      {/* Practice goals */}
+      {/* Profile */}
       <div className={styles.profileSection}>
-        <h4 className={styles.sectionLabel}>Practice Goals</h4>
-        <div className={styles.goalsGrid}>
-          {[
-            { label: 'Daily target',     value: '30 minutes' },
-            { label: 'Weekly sessions',  value: '5 sessions' },
-            { label: 'Current focus',    value: 'Timing & articulation' },
-            { label: 'Exam / recital',   value: 'June 14, 2026' },
-          ].map(({ label, value }) => (
-            <div key={label} className={styles.goalCard}>
-              <p className={styles.label}>{label}</p>
-              <strong className={styles.goalValue}>{value}</strong>
+        <h4 className={styles.sectionLabel}>Your Profile</h4>
+        <div className={styles.prefList}>
+          <div className={styles.prefRow}>
+            <div>
+              <strong className={styles.prefLabel}>Name</strong>
             </div>
-          ))}
+            <input
+              className={styles.prefInput}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Your name"
+            />
+          </div>
+          <div className={styles.prefRow}>
+            <div>
+              <strong className={styles.prefLabel}>Primary instrument</strong>
+            </div>
+            <select
+              className={styles.prefSelect}
+              value={instrument}
+              onChange={e => setInstrument(e.target.value)}
+            >
+              <option value="">Select instrument…</option>
+              {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
+            </select>
+          </div>
+          <div className={styles.prefRow}>
+            <div>
+              <strong className={styles.prefLabel}>Email</strong>
+              <p className={styles.prefSub}>Contact support to change</p>
+            </div>
+            <span className={styles.prefReadonly}>{user?.email}</span>
+          </div>
         </div>
       </div>
 
       {/* Preferences */}
       <div className={styles.profileSection}>
-        <h4 className={styles.sectionLabel}>Preferences</h4>
-
+        <h4 className={styles.sectionLabel}>Feedback Preferences</h4>
         <div className={styles.prefList}>
           <div className={styles.prefRow}>
             <div>
-              <strong className={styles.prefLabel}>Coaching style</strong>
+              <strong className={styles.prefLabel}>Feedback style</strong>
               <p className={styles.prefSub}>How Mediant frames its feedback</p>
             </div>
             <select
@@ -91,43 +152,13 @@ export default function Profile() {
               {COACHING_STYLES.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
-
-          <div className={styles.prefRow}>
-            <div>
-              <strong className={styles.prefLabel}>Default score view</strong>
-              <p className={styles.prefSub}>How scores are displayed during review</p>
-            </div>
-            <select
-              className={styles.prefSelect}
-              value={displayMode}
-              onChange={e => setDisplayMode(e.target.value)}
-            >
-              {DISPLAY_MODES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div className={styles.prefRow}>
-            <div>
-              <strong className={styles.prefLabel}>Default tempo</strong>
-              <p className={styles.prefSub}>Starting BPM for Follow Along</p>
-            </div>
-            <div className={styles.bpmControl}>
-              <button
-                className={styles.bpmBtn}
-                onClick={() => setDefaultBpm(b => Math.max(40, b - 5))}
-              >−</button>
-              <span className={styles.bpmValue}>{defaultBpm}</span>
-              <button
-                className={styles.bpmBtn}
-                onClick={() => setDefaultBpm(b => Math.min(200, b + 5))}
-              >+</button>
-            </div>
-          </div>
         </div>
 
+        {saveErr && <p className={styles.errorMsg}>{saveErr}</p>}
+
         <div className={styles.prefActions}>
-          <button className={styles.primaryBtn} onClick={handleSave}>
-            {saved ? 'Saved ✓' : 'Save preferences'}
+          <button className={styles.primaryBtn} onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
           </button>
         </div>
       </div>
@@ -135,20 +166,7 @@ export default function Profile() {
       {/* Account */}
       <div className={styles.profileSection}>
         <h4 className={styles.sectionLabel}>Account</h4>
-        <div className={styles.settingsList}>
-          {[
-            { label: 'Name',       value: user?.name       || '—' },
-            { label: 'Email',      value: user?.email      || '—' },
-            { label: 'Instrument', value: user?.instrument || '—' },
-            { label: 'Plan',       value: 'Free' },
-          ].map(({ label, value }) => (
-            <div key={label} className={styles.settingRow}>
-              <span className={styles.settingLabel}>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 8 }}>
           <button className={styles.dangerBtn} onClick={handleLogout}>
             Sign out
           </button>
@@ -156,4 +174,19 @@ export default function Profile() {
       </div>
     </div>
   )
+}
+
+function calcBestStreak(takes) {
+  if (!takes.length) return 0
+  const days = [...new Set(
+    takes.map(t => new Date(t.created_at).toDateString())
+  )].map(d => new Date(d)).sort((a, b) => b - a)
+
+  let best = 1, cur = 1
+  for (let i = 1; i < days.length; i++) {
+    const diff = (days[i - 1] - days[i]) / 86400000
+    cur = diff === 1 ? cur + 1 : 1
+    if (cur > best) best = cur
+  }
+  return best
 }

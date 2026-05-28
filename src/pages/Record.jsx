@@ -1,16 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getFile } from '../lib/fileStore'
+import { INSTRUMENTS } from '../lib/instruments'
 import styles from './Page.module.css'
-
-const INSTRUMENTS = [
-  'Piano', 'Violin', 'Viola', 'Cello', 'Double Bass',
-  'Flute', 'Oboe', 'Clarinet', 'Bassoon',
-  'French Horn', 'Trumpet', 'Trombone', 'Tuba',
-  'Guitar', 'Harp', 'Voice', 'Other',
-]
+import { playDrop, playAnalyzeStart, playAnalyzeComplete, playThud } from '../utils/sounds'
 
 const OCR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
@@ -30,8 +25,10 @@ export default function Record() {
   const [instrument,    setInstrument]    = useState('')
   const [part,          setPart]          = useState('')
   const [timeSig,       setTimeSig]       = useState('4/4')
+  const [keySignature,  setKeySignature]  = useState('')
   const [startMeasure,  setStartMeasure]  = useState('')
   const [endMeasure,    setEndMeasure]    = useState('')
+  const [tempo,         setTempo]         = useState('')
 
   // Video recording (required)
   const [file,      setFile]      = useState(null)
@@ -53,10 +50,13 @@ export default function Record() {
         const raw = sessionStorage.getItem('mediant_prefill')
         if (!raw) return
         sessionStorage.removeItem('mediant_prefill')
-        const { pieceTitle: t, composer: c, instrument: ins, pieceId } = JSON.parse(raw)
+        const { pieceTitle: t, composer: c, instrument: ins, key: k, timeSig: ts, bpm: b, pieceId } = JSON.parse(raw)
         if (t)   setPieceTitle(t)
         if (c)   setComposer(c)
         if (ins && INSTRUMENTS.includes(ins)) setInstrument(ins)
+        if (k)   setKeySignature(k)
+        if (ts)  setTimeSig(ts)
+        if (b)   setTempo(String(b))
         if (pieceId) {
           const f = await getFile(pieceId)
           if (f) setScoreFile(f)
@@ -72,17 +72,15 @@ export default function Record() {
     if (!OCR_TYPES.has(f.type)) return  // skip for XML/MXL
     setOcrLoading(true)
     try {
-      const buf    = await f.arrayBuffer()
-      const b64    = btoa(String.fromCharCode(...new Uint8Array(buf)))
-      const res    = await fetch('/api/analyze-sheet-music', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64: b64, mediaType: f.type }),
+      const buf  = await f.arrayBuffer()
+      const b64  = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      const { data } = await supabase.functions.invoke('analyze-sheet-music', {
+        body: { imageBase64: b64, mediaType: f.type },
       })
-      const data = await res.json()
-      if (data.title)    setPieceTitle(data.title)
-      if (data.composer) setComposer(data.composer)
-      if (data.time)     setTimeSig(data.time)
+      if (data?.title)    setPieceTitle(data.title)
+      if (data?.composer) setComposer(data.composer)
+      if (data?.time)     setTimeSig(data.time)
+      if (data?.bpm)      setTempo(String(data.bpm))
     } catch { /* silently skip — user can fill manually */ }
     finally { setOcrLoading(false) }
   }
@@ -92,6 +90,7 @@ export default function Record() {
     setScoreDrag(false)
     const f = e.dataTransfer.files[0]
     if (!f) return
+    playDrop()
     setScoreFile(f)
     runOcr(f)
   }
@@ -99,20 +98,99 @@ export default function Record() {
   function handleScoreFile(e) {
     const f = e.target.files[0]
     if (!f) return
+    playDrop()
     setScoreFile(f)
     runOcr(f)
+  }
+
+  const [videoError, setVideoError] = useState('')
+
+  async function applyVideoFile(f) {
+    if (!f) return
+    setVideoError('')
+    if (f.size > 500 * 1024 * 1024) {
+      setVideoError(`File is ${Math.round(f.size / 1024 / 1024)} MB — please trim or compress to under 500 MB.`)
+      return
+    }
+    const duration = await new Promise(resolve => {
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      const url = URL.createObjectURL(f)
+      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration) }
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+      v.src = url
+    })
+    setFile(f)
   }
 
   function handleVideoDrop(e) {
     e.preventDefault()
     setVideoDrag(false)
-    const f = e.dataTransfer.files[0]
-    if (f) setFile(f)
+    playDrop()
+    applyVideoFile(e.dataTransfer.files[0])
   }
 
   function handleVideoFile(e) {
-    const f = e.target.files[0]
-    if (f) setFile(f)
+    playDrop()
+    applyVideoFile(e.target.files[0])
+  }
+
+  // ── Frame extraction for Mediant analysis ──────────────
+
+  function extractVideoFrames(videoFile, count = 5) {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      const objectURL = URL.createObjectURL(videoFile)
+      video.src = objectURL
+      video.muted = true
+      video.preload = 'metadata'
+
+      video.addEventListener('error', () => {
+        URL.revokeObjectURL(objectURL)
+        resolve([])
+      })
+
+      video.addEventListener('loadedmetadata', () => {
+        const duration = video.duration
+        if (!duration || !isFinite(duration) || video.videoWidth === 0) {
+          URL.revokeObjectURL(objectURL)
+          resolve([])
+          return
+        }
+
+        const timestamps = Array.from({ length: count }, (_, i) =>
+          parseFloat(((i / (count - 1)) * duration).toFixed(1))
+        )
+        const frames = []
+        let index = 0
+
+        function seekNext() {
+          if (index >= timestamps.length) {
+            URL.revokeObjectURL(objectURL)
+            resolve(frames)
+            return
+          }
+          video.currentTime = timestamps[index]
+        }
+
+        video.addEventListener('seeked', () => {
+          try {
+            const scale = Math.min(1, 640 / video.videoWidth)
+            const canvas = document.createElement('canvas')
+            canvas.width  = Math.round(video.videoWidth  * scale)
+            canvas.height = Math.round(video.videoHeight * scale)
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const dataURL = canvas.toDataURL('image/jpeg', 0.65)
+            frames.push({ base64: dataURL.split(',')[1], timestamp: timestamps[index] })
+          } catch { /* skip malformed frame */ }
+          index++
+          seekNext()
+        })
+
+        seekNext()
+      })
+    })
   }
 
   // ── Submit ────────────────────────────────────────────────────
@@ -125,6 +203,7 @@ export default function Record() {
       return
     }
 
+    playAnalyzeStart()
     setPhase('uploading')
     setProgress(0)
     setErrorMsg('')
@@ -158,14 +237,17 @@ export default function Record() {
       clearInterval(progressTick)
       if (uploadError) throw new Error(uploadError.message || 'Upload failed')
 
-      // Analyzing phase
+      // Analyzing phase — extract frames then dispatch job
       setProgress(50)
       setPhase('analyzing')
-      const analysisTick = setInterval(() => {
-        setProgress(p => Math.min(p + 2, 95))
-      }, 800)
 
-      const { data: result, error: fnError } = await supabase.functions.invoke('analyze-performance', {
+      // Extract video frames for Mediant analysis (best-effort, non-fatal)
+      let videoFrames = []
+      try {
+        videoFrames = await extractVideoFrames(file)
+      } catch { /* skip if extraction fails */ }
+
+      const { data: jobResult, error: fnError } = await supabase.functions.invoke('analyze-performance', {
         body: {
           videoPath:      filePath,
           videoMimeType:  file.type || 'video/mp4',
@@ -176,70 +258,85 @@ export default function Record() {
           instrument,
           part:           part.trim() || undefined,
           timeSig:        timeSig.trim() || '4/4',
+          keySignature:   keySignature.trim() || undefined,
           startMeasure:   startMeasure || undefined,
           endMeasure:     endMeasure || undefined,
+          tempo:          tempo ? parseInt(tempo) : undefined,
+          videoFrames:    videoFrames.length > 0 ? videoFrames : undefined,
         },
       })
 
-      clearInterval(analysisTick)
-
-      if (fnError || result?.error) {
-        // Try to extract the real error body from the Edge Function response
-        let realError = result?.error || fnError?.message || 'Analysis failed'
-        let realDetails = Array.isArray(result?.analysisQuality?.reasons)
-          ? result.analysisQuality.reasons
-          : Array.isArray(result?.suggestions)
-            ? result.suggestions
-            : []
-        try {
-          if (fnError?.context) {
-            const rawText = await fnError.context.text()
-            if (rawText) {
-              try {
-                const body = JSON.parse(rawText)
-                if (body?.error) realError = body.error
-                if (Array.isArray(body?.analysisQuality?.reasons)) {
-                  realDetails = body.analysisQuality.reasons
-                } else if (Array.isArray(body?.suggestions)) {
-                  realDetails = body.suggestions
-                }
-              } catch {
-                realError = rawText
-              }
-            }
-          }
-        } catch { /* ignore */ }
-        const error = new Error(realError)
-        error.details = realDetails
-        throw error
+      if (fnError || jobResult?.error) {
+        let msg = jobResult?.error || fnError?.message || 'Failed to start analysis'
+        if (msg === 'Edge Function returned a non-2xx status code' && fnError?.context) {
+          try { const b = await fnError.context.json(); if (b?.error) msg = b.error } catch { /* keep generic */ }
+        }
+        throw new Error(msg)
       }
 
+      const jobId = jobResult?.jobId
+      if (!jobId) throw new Error('No job ID returned from analysis service')
+
+      // Poll job-status every 4s until done or failed (max 4 min = 60 attempts)
+      // If the function already completed inline it returns status:'done' — skip straight to polling
+      const { data: { session } } = await supabase.auth.getSession()
+      const token   = session?.access_token
+      const fnBase  = supabase.supabaseUrl + '/functions/v1'
+      const anonKey = supabase.supabaseKey
+
+      let finalResult = null
+      const alreadyDone = jobResult?.status === 'done'
+      for (let attempt = 0; attempt < 60; attempt++) {
+        if (!alreadyDone || attempt > 0) await new Promise(r => setTimeout(r, 4000))
+        setProgress(p => Math.min(p + 0.75, 95))
+
+        try {
+          const resp = await fetch(
+            `${fnBase}/job-status?takeId=${encodeURIComponent(jobId)}`,
+            { headers: { Authorization: `Bearer ${token}`, apikey: anonKey } },
+          )
+          if (!resp.ok) continue
+          const status = await resp.json()
+
+          if (status.status === 'done') {
+            finalResult = status
+            break
+          }
+          if (status.status === 'failed') {
+            throw new Error(status.error || 'Analysis failed on the server.')
+          }
+        } catch (pollErr) {
+          // Re-throw real errors (not network blips)
+          if (pollErr.message && !pollErr.message.includes('Failed to fetch')) throw pollErr
+        }
+      }
+
+      if (!finalResult) throw new Error('Analysis timed out after 4 minutes. Please try a shorter recording.')
+
       const takeRecord = {
-        id:              result.takeId ?? `local-${Date.now()}`,
-        piece_title:     pieceTitle.trim() || 'Untitled',
-        piece_composer:  composer.trim() || 'Unknown',
-        score:           result.score,
-        flags:           result.flags,
-        video_path:      filePath,
-        video_mime_type: file.type || 'video/mp4',
-        score_path:      scorePath,
-        analysis_quality: result.analysisQuality ?? null,
-        analysis_backend: result.analysisBackend ?? null,
-        date:            new Date().toISOString(),
+        id:               jobId,
+        piece_title:      pieceTitle.trim() || 'Untitled',
+        piece_composer:   composer.trim() || 'Unknown',
+        score:            finalResult.score ?? null,
+        flags:            finalResult.flags ?? [],
+        video_path:       filePath,
+        video_mime_type:  file.type || 'video/mp4',
+        score_path:       scorePath,
+        analysis_quality: finalResult.analysisQuality ?? null,
+        analysis_backend: finalResult.analysisBackend ?? null,
+        date:             new Date().toISOString(),
       }
 
       localStorage.setItem('mediant_last_take', JSON.stringify(takeRecord))
 
-      // Append to per-piece history so the library panel can show past sessions
       try {
         const existing = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
         localStorage.setItem('mediant_takes', JSON.stringify([takeRecord, ...existing]))
       } catch { /* ignore storage errors */ }
 
       setProgress(100)
-      setTimeout(() => {
-        nav(result.takeId ? `/analysis?takeId=${encodeURIComponent(result.takeId)}` : '/analysis')
-      }, 400)
+      playAnalyzeComplete()
+      setTimeout(() => nav(`/analysis?takeId=${encodeURIComponent(jobId)}`), 700)
 
     } catch (err) {
       setErrorMsg(err.message ?? 'Something went wrong. Please try again.')
@@ -256,7 +353,7 @@ export default function Record() {
       : 'Analyzing your performance…'
     const sub = phase === 'uploading'
       ? 'Sending your recording and sheet music to the server.'
-      : 'Gemini is analyzing timing, dynamics, and technique. This takes about 30 seconds.'
+      : 'Mediant is analyzing your performance — timing, dynamics, intonation, and technique. This takes 1–3 minutes.'
 
     return (
       <div className={styles.page}>
@@ -293,15 +390,21 @@ export default function Record() {
 
       {phase === 'error' && (
         <div className={styles.errorBanner}>
-          <strong>Analysis failed:</strong> {errorMsg}
-          {errorDetails.length > 0 && (
-            <ul className={styles.analysisNoticeList} style={{ marginTop: 10 }}>
-              {errorDetails.map((detail) => (
-                <li key={detail}>{detail}</li>
-              ))}
-            </ul>
+          <strong>{errorMsg.includes('Upgrade') ? 'Analysis limit reached' : 'Analysis failed'}:</strong> {errorMsg}
+          {errorMsg.includes('Upgrade') ? (
+            <Link to="/pricing" className={styles.errorUpgradeLink}>View Pro plans →</Link>
+          ) : (
+            <>
+              {errorDetails.length > 0 && (
+                <ul className={styles.analysisNoticeList} style={{ marginTop: 10 }}>
+                  {errorDetails.map((detail) => (
+                    <li key={detail}>{detail}</li>
+                  ))}
+                </ul>
+              )}
+              <button className={styles.errorRetry} onClick={() => { playThud(); setPhase('idle') }}>Try again</button>
+            </>
           )}
-          <button className={styles.errorRetry} onClick={() => setPhase('idle')}>Try again</button>
         </div>
       )}
 
@@ -342,7 +445,7 @@ export default function Record() {
                 <>
                   <span className={styles.dropzoneIcon}>♩</span>
                   <strong>Photo, PDF, or MusicXML</strong>
-                  <span className={styles.dropzoneSub}>MusicXML/MXL is most accurate; clean PDFs/photos are converted first</span>
+                  <span className={styles.dropzoneSub}>MusicXML/MXL gives the most accurate measure mapping. Photos and PDFs work but may have lower confidence.</span>
                 </>
               )}
             </div>
@@ -410,9 +513,33 @@ export default function Record() {
                   onChange={e => setTimeSig(e.target.value)}
                   placeholder="4/4"
                 />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Tempo (BPM)
+                  {tempo && <span className={styles.ocrBadge}>Auto-detected</span>}
+                </label>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  max="400"
+                  value={tempo}
+                  onChange={e => setTempo(e.target.value)}
+                  placeholder="e.g. 56"
+                />
                 <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  Used to keep measure numbers aligned.
+                  Used for precise measure mapping.
                 </span>
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Key</label>
+                <input
+                  className={styles.formInput}
+                  value={keySignature}
+                  onChange={e => setKeySignature(e.target.value)}
+                  placeholder="e.g. D minor, B♭ major"
+                />
               </div>
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>Starting measure</label>
@@ -476,8 +603,11 @@ export default function Record() {
                 <>
                   <span className={styles.dropzoneIcon}>↑</span>
                   <strong>Drag a video here or click to upload</strong>
-                  <span className={styles.dropzoneSub}>MP4, MOV, or WebM · max 200 MB</span>
+                  <span className={styles.dropzoneSub}>MP4, MOV, or WebM · under 5 minutes</span>
                 </>
+              )}
+              {videoError && (
+                <span className={styles.dropzoneSub} style={{ color: '#e05b5b', marginTop: 6 }}>{videoError}</span>
               )}
             </div>
           </div>

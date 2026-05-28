@@ -1,11 +1,82 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
 import MasterclassPanel from '../components/MasterclassPanel'
+import { SkeletonCard } from '../components/Skeleton'
 import styles from './Page.module.css'
+import aStyles from './Analysis.module.css'
+import { playTick } from '../utils/sounds'
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
+
+const TYPE_META = {
+  technique:    { icon: '⊙', cls: 'iconGreen' },
+  intonation:   { icon: '♯', cls: 'iconCoral' },
+  rhythm:       { icon: '♩', cls: 'iconGold'  },
+  timing:       { icon: '♩', cls: 'iconGold'  },
+  dynamics:     { icon: 'ƒ', cls: 'iconCoral' },
+  articulation: { icon: '▸', cls: 'iconGold'  },
+  tone:         { icon: '◎', cls: 'iconGreen' },
+  phrasing:     { icon: '∿', cls: 'iconGold'  },
+  expression:   { icon: '∿', cls: 'iconGold'  },
+  posture:      { icon: '⊕', cls: 'iconGreen' },
+}
+function flagTypeMeta(type) {
+  return TYPE_META[(type ?? '').toLowerCase()] ?? { icon: '◆', cls: 'iconCoral' }
+}
+
+const DEMO_TAKE = {
+  id: 'demo',
+  piece_title: 'Clair de lune',
+  piece_composer: 'Claude Debussy',
+  instrument: 'Piano',
+  score: 74,
+  analysis_quality: { trust: 'high', reasons: [] },
+  analysis_backend: 'gemini-inline',
+  created_at: new Date().toISOString(),
+  flags: [
+    {
+      measure: 5,
+      type: 'timing',
+      confidence: 91,
+      title: 'Rushing the triplet descent',
+      detail: 'The right-hand triplet run in m.5 arrives roughly 40ms early, clipping the lyrical line. Subdivide each triplet group against a slow metronome (♩=40) until the three notes feel even, then gradually raise tempo.',
+      timestamp_start: 8.2,
+      timestamp_end: 10.1,
+    },
+    {
+      measure: 14,
+      type: 'dynamics',
+      confidence: 88,
+      title: 'Subito forte too percussive',
+      detail: 'The fortissimo chord in m.14 is struck rather than weighted — the tone loses its warmth. Approach it with arm weight from the shoulder rather than a finger strike, letting the key beds down through the sound.',
+      timestamp_start: 22.4,
+      timestamp_end: 23.9,
+    },
+    {
+      measure: 21,
+      type: 'intonation',
+      confidence: 85,
+      title: 'Left-hand bass F♯ tuning',
+      detail: 'The bass F♯ octave in m.21 sits slightly thin — likely a touch of excessive damper pedal blurring the lower partial. Clear the pedal just before this beat and use a deeper key contact to reinforce the fundamental.',
+      timestamp_start: 35.0,
+      timestamp_end: 36.5,
+    },
+    {
+      measure: 27,
+      type: 'technique',
+      confidence: 82,
+      title: 'Thumb tuck on inner voice D♭',
+      detail: 'The thumb crosses under the hand awkwardly on the D♭ in m.27, creating a slight accent in an inner voice that should be nearly inaudible. Practice the LH alone, voicing the top melody note and letting the inner D♭ fall naturally under the palm.',
+      timestamp_start: 46.8,
+      timestamp_end: 48.3,
+    },
+  ],
+  video_path: null,
+  score_path: null,
+  _demo: true,
+}
 
 function timeAgo(iso) {
   if (!iso) return null
@@ -30,6 +101,27 @@ function trustTone(level) {
   return 'Low'
 }
 
+function formatTs(sec) {
+  if (sec == null) return '—'
+  const s = Number(sec)
+  if (!isFinite(s) || s < 0) return '—'
+  const m = Math.floor(s / 60)
+  const r = (s % 60).toFixed(1).padStart(4, '0')
+  return `${m}:${r}`
+}
+
+function confColor(confidence) {
+  if (confidence >= 90) return 'var(--accent)'
+  if (confidence >= 70) return 'var(--gold)'
+  return 'var(--coral)'
+}
+
+function confLabel(confidence) {
+  if (confidence >= 90) return 'High'
+  if (confidence >= 70) return 'Medium'
+  return 'Low'
+}
+
 // Maps a piece title to a bundled score file in /public/scores/
 function scoreFileForPiece(title) {
   if (!title) return null
@@ -42,14 +134,17 @@ function scoreFileForPiece(title) {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function Analysis() {
+export default function Analysis({ demo: demoProp = false }) {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const scoreEl  = useRef(null)
   const osmdRef  = useRef(null)
 
   const videoRef    = useRef(null)
-  const loopRef     = useRef(null)   // {start, end} for current excerpt loop
+  const loopRef     = useRef(null)
+
+  // Summary marks the bottom boundary after the two-column review area.
+  const summaryRef = useRef(null)
 
   const [take, setTake]               = useState(undefined)
   const [scoreUrl, setScoreUrl]       = useState(null)
@@ -57,24 +152,40 @@ export default function Analysis() {
   const [activeFlag, setActiveFlag]   = useState(null)
   const [isLooping, setIsLooping]     = useState(false)
   const [scoreReady, setScoreReady]   = useState(false)
-  const [highlights, setHighlights]   = useState([])  // [{flagId, x, y, w, h}]
+  const [highlights, setHighlights]   = useState([])
+  const [videoSpeed, setVideoSpeed]     = useState(1)
+  const [videoDuration, setVideoDuration] = useState(null)
+  const [activeTab, setActiveTab] = useState('overview')
+
+  // AI summary state
+  const [summary, setSummary]             = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError]   = useState(null)
+
+  // Keyboard shortcut state ref — always current without re-registering the listener
+  const kbRef = useRef({})
 
   // Chat state
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput]       = useState('')
   const [chatLoading, setChatLoading]   = useState(false)
   const chatEndRef = useRef(null)
-  const takeId = searchParams.get('takeId')
+  const takeId  = searchParams.get('takeId')
+  const isDemo  = demoProp || searchParams.get('demo') === 'true'
 
   // Load take from Supabase when takeId is present; otherwise fall back to localStorage.
+  // If the take is still processing, poll every 4s until it finishes.
   useEffect(() => {
+    if (isDemo) { setTake(DEMO_TAKE); return }
+
     let cancelled = false
+    let pollTimer = null
 
     async function loadTake() {
       if (takeId) {
         const { data, error } = await supabase
           .from('takes')
-          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, analysis_quality, analysis_backend, created_at')
+          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, analysis_quality, analysis_backend, job_status, job_error, created_at')
           .eq('id', takeId)
           .single()
 
@@ -82,6 +193,10 @@ export default function Analysis() {
           if (error) {
             console.error('Could not load take from Supabase:', error)
             setTake(null)
+          } else if (data?.job_status === 'processing') {
+            // Job still running — show a waiting screen and poll again in 4s
+            setTake({ ...data, _polling: true })
+            pollTimer = setTimeout(loadTake, 4000)
           } else {
             setTake(data)
           }
@@ -98,15 +213,15 @@ export default function Analysis() {
     }
 
     loadTake()
-    return () => { cancelled = true }
-  }, [takeId])
+    return () => { cancelled = true; clearTimeout(pollTimer) }
+  }, [takeId, isDemo])
 
   // Generate signed URL for uploaded score (if stored in Supabase)
   useEffect(() => {
     if (!take?.score_path) return
     supabase.storage
       .from('sheet-music')
-      .createSignedUrl(take.score_path, 3600)
+      .createSignedUrl(take.score_path, 86400)
       .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
   }, [take])
 
@@ -115,7 +230,7 @@ export default function Analysis() {
     if (!take?.video_path) return
     supabase.storage
       .from('recordings')
-      .createSignedUrl(take.video_path, 3600)
+      .createSignedUrl(take.video_path, 86400)
       .then(({ data }) => { if (data?.signedUrl) setVideoUrl(data.signedUrl) })
   }, [take])
 
@@ -166,17 +281,70 @@ export default function Analysis() {
   // Stop loop when active flag changes
   useEffect(() => { stopLoop() }, [activeFlag, stopLoop])
 
+  // Derive activeFlagRaw here so hooks below can reference it without TDZ
+  const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
+  const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
+  const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
+    && Number(activeFlagRaw.timestamp_end) > Number(activeFlagRaw.timestamp_start)
+
+  const flagsMap = take?.flags?.length
+    ? Object.fromEntries(
+        take.flags.map((f, i) => [
+          `flag_${i}`,
+          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.detail ?? f.body ?? '', confidence: f.confidence ?? 100 },
+        ])
+      )
+    : {}
+
+  const chips = take?.flags?.length
+    ? take.flags.map((f, i) => ({
+        flag:       `flag_${i}`,
+        label:      `m.${f.measure} · ${capitalize(f.type)}`,
+        confidence: f.confidence ?? 100,
+      }))
+    : []
+
+  // Auto-seek video to flag's timestamp when a flag is selected
+  useEffect(() => {
+    if (!activeFlagRaw) return
+    const start = Number(activeFlagRaw.timestamp_start)
+    const end   = Number(activeFlagRaw.timestamp_end)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return
+
+    function seek() {
+      const video = videoRef.current
+      if (video) video.currentTime = start
+    }
+
+    // Video may not be in DOM yet — wait one frame for React to commit
+    const raf = requestAnimationFrame(() => {
+      const video = videoRef.current
+      if (!video) return
+      if (video.readyState >= 1) {
+        seek()
+      } else {
+        video.addEventListener('loadedmetadata', seek, { once: true })
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [activeFlagRaw])
+
   // Determine if score is a visual file (photo/PDF) vs MusicXML
   const isVisualScore = scoreUrl && (() => {
     const p = (take?.score_path ?? '').toLowerCase()
     return /\.(jpe?g|png|webp|heic|pdf)$/.test(p)
   })()
+  const scorePathLower = (take?.score_path ?? '').toLowerCase()
+  const isPdfScore = isVisualScore && scorePathLower.endsWith('.pdf')
+  const isImageScore = isVisualScore && !isPdfScore
 
   // Render score once take is resolved (only for MusicXML files)
   useEffect(() => {
     if (take === undefined) return
     if (!scoreEl.current) return
     if (scoreReady) return
+    // If the take has a score_path, wait for the signed URL before deciding
+    if (take?.score_path && !scoreUrl) return
     if (isVisualScore) { setScoreReady(true); return }
 
     const pieceTitle = take?.piece_title ?? ''
@@ -187,9 +355,14 @@ export default function Analysis() {
       return
     }
 
-    const flagMeasures = take?.flags?.length
-      ? new Map(take.flags.map((f, i) => [f.measure, `flag_${i}`]))
-      : new Map()
+    const flagMeasures = new Map()
+    if (take?.flags?.length) {
+      take.flags.forEach((f, i) => {
+        const arr = flagMeasures.get(f.measure) ?? []
+        arr.push(`flag_${i}`)
+        flagMeasures.set(f.measure, arr)
+      })
+    }
 
     const osmd = new OpenSheetMusicDisplay(scoreEl.current, {
       autoResize: true,
@@ -214,14 +387,15 @@ export default function Analysis() {
           const zoom = osmd.zoom * 10
           const newHighlights = []
 
-          flagMeasures.forEach((flagId, measureNum) => {
+          flagMeasures.forEach((flagIds, measureNum) => {
             const row = measureList[measureNum - 1]
             if (!row) return
             const gm = row[0]
             if (!gm) return
             const pos = gm.PositionAndShape
             newHighlights.push({
-              flagId,
+              flagIds,
+              measureNum,
               x: pos.AbsolutePosition.x * zoom,
               y: pos.AbsolutePosition.y * zoom,
               w: pos.Size.width * zoom,
@@ -244,6 +418,75 @@ export default function Analysis() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages, chatLoading])
 
+  // Apply playback rate whenever videoSpeed changes
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = videoSpeed
+  }, [videoSpeed])
+
+  // Keep keyboard shortcut ref current on every render
+  kbRef.current = { activeFlagIndex, activeFlagRaw, chips, hasTimestamps, isLooping }
+
+  // Global keyboard shortcuts — registered once, reads latest state via ref
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      const s = kbRef.current
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault()
+        const v = videoRef.current
+        if (v) { if (v.paused) v.play().catch(() => {}); else v.pause() }
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        if (s.activeFlagIndex > 0) setActiveFlag(`flag_${s.activeFlagIndex - 1}`)
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        const next = s.activeFlagIndex >= 0 ? s.activeFlagIndex + 1 : 0
+        if (next < s.chips.length) setActiveFlag(`flag_${next}`)
+      }
+      if (e.key === 'l' || e.key === 'L') {
+        if (s.isLooping) stopLoop()
+        else if (s.activeFlagRaw && s.hasTimestamps) startLoop(s.activeFlagRaw)
+      }
+      if (e.key === 'Escape') setActiveFlag(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [startLoop, stopLoop])
+
+  async function generateSummary() {
+    if (!take?.flags?.length) return
+    setSummaryLoading(true)
+    setSummaryError(null)
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('analysis-summary', {
+        body: {
+          pieceTitle:    take.piece_title    ?? '',
+          pieceComposer: take.piece_composer ?? '',
+          instrument:    take.instrument     ?? null,
+          score:         take.score          ?? null,
+          flags:         take.flags,
+        },
+      })
+      if (fnErr) throw new Error(fnErr.message ?? String(fnErr))
+      if (data?.error) throw new Error(data.error)
+      setSummary(data.summary)
+    } catch {
+      setSummaryError('Could not generate summary. Try again.')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  // Auto-generate summary once when the take finishes loading
+  useEffect(() => {
+    if (take && take.flags?.length && !take._polling) {
+      generateSummary()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [take?.id])
+
   async function sendMessage() {
     const msg = chatInput.trim()
     if (!msg || chatLoading) return
@@ -258,45 +501,27 @@ export default function Analysis() {
     setChatLoading(true)
 
     try {
-      const res = await fetch('/api/ask-coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('coach-chat', {
+        body: {
           message: msg,
           context: {
-            pieceTitle:      take?.piece_title    ?? '',
-            pieceComposer:   take?.piece_composer ?? '',
-            score:           take?.score,
-            flags:           take?.flags ?? [],
-            activeFlag:      flagContext ?? null,
-            measureLayout:   take?.measure_layout ?? null,
-            audioAlignment:  take?.audio_alignment ?? null,
+            pieceTitle:    take?.piece_title    ?? '',
+            pieceComposer: take?.piece_composer ?? '',
+            instrument:    take?.instrument     ?? null,
+            flags:         take?.flags          ?? [],
+            activeFlag:    flagContext          ?? null,
           },
           history: chatMessages,
-        }),
+        },
       })
-      const { reply, error } = await res.json()
-      if (error) throw new Error(error)
-      setChatMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      if (error) throw new Error(error.message ?? String(error))
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data?.reply ?? '' }])
     } catch {
       setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Try again.' }])
     } finally {
       setChatLoading(false)
     }
   }
-
-  const flagsMap = take?.flags?.length
-    ? Object.fromEntries(
-        take.flags.map((f, i) => [
-          `flag_${i}`,
-          { tag: `Measure ${f.measure} · ${capitalize(f.type)}`, title: f.title, body: f.body },
-        ])
-      )
-    : {}
-
-  const chips = take?.flags?.length
-    ? take.flags.map((f, i) => ({ flag: `flag_${i}`, label: `m.${f.measure} · ${capitalize(f.type)}` }))
-    : []
 
   const pieceTitle    = take?.piece_title    ?? ''
   const pieceComposer = take?.piece_composer ?? ''
@@ -305,14 +530,20 @@ export default function Analysis() {
   const score         = take?.score
   const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
   const analysisQuality = take?.analysis_quality ?? null
-  const analysisBackend = take?.analysis_backend ?? null
-
-  // Raw flag data for the active flag (has timestamps, bbox, etc.)
-  const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
-  const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
-  const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
 
   const info = activeFlag ? flagsMap[activeFlag] : null
+
+  // Chips sorted by measure for the new issue grid
+  const sortedChips = useMemo(() => {
+    return [...chips].sort((a, b) => {
+      const ia = parseInt(a.flag.replace('flag_', ''), 10)
+      const ib = parseInt(b.flag.replace('flag_', ''), 10)
+      const ma = take?.flags?.[ia]?.measure ?? 0
+      const mb = take?.flags?.[ib]?.measure ?? 0
+      return ma - mb
+    })
+  }, [chips, take?.flags])
+
 
   if (take === undefined) {
     return (
@@ -320,6 +551,26 @@ export default function Analysis() {
         <div className={styles.analyzeScreen}>
           <div className={styles.analyzeIcon}>♩</div>
           <p className={styles.analyzeSub}>Loading your analysis…</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24, width: '100%', maxWidth: 480 }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (take?._polling) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.analyzeScreen}>
+          <div className={styles.analyzeIcon}>♪</div>
+          <h2 className={styles.analyzeTitle}>Analysis in progress…</h2>
+          <p className={styles.analyzeSub}>Mediant is analyzing your performance — this takes 1–3 minutes. This page will update automatically.</p>
+          {take.job_error && (
+            <p style={{ color: 'var(--coral)', marginTop: 12, fontSize: 14 }}>{take.job_error}</p>
+          )}
         </div>
       </div>
     )
@@ -340,254 +591,467 @@ export default function Analysis() {
     )
   }
 
+  // ── Score area JSX (shared between columns) ──────────────────
+  const scoreAreaContent = (
+    <div className={`${styles.scoreArea} ${isImageScore ? styles.scoreAreaImage : ''}`}>
+      {isVisualScore && scoreUrl && (
+        isPdfScore ? (
+          <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
+        ) : (
+          <div className={styles.scorePhotoWrap}>
+            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" loading="lazy" decoding="async" />
+            {(take?.flags ?? []).map((f, i) => {
+              if (!f.spot) return null
+              const flagId = `flag_${i}`
+              if (activeFlag !== flagId) return null
+              const [y0, x0, y1, x1] = f.spot
+              const angle = f.spot_angle ?? 0
+              const cx = (x0 + x1) / 2 / 10, cy = (y0 + y1) / 2 / 10
+              const w = (x1 - x0) / 10, h = (y1 - y0) / 10
+              return (
+                <div key={flagId} onClick={() => setActiveFlag(a => a === flagId ? null : flagId)}
+                  style={{
+                    position: 'absolute', left: `${cx}%`, top: `${cy}%`,
+                    width: `${w}%`, height: `${h}%`,
+                    transform: `translate(-50%, -50%) rotate(${angle}deg)`,
+                    transformOrigin: 'center center',
+                    background: 'rgba(88,121,101,0.3)', borderRadius: 3,
+                    cursor: 'pointer', transition: 'background 150ms ease',
+                  }}
+                />
+              )
+            })}
+          </div>
+        )
+      )}
+      {!isVisualScore && (
+        <>
+          {!hasScore && scoreReady && (
+            <div className={styles.scoreUnavailable}>
+              <p>Score not available for <em>{pieceTitle}</em> yet.</p>
+              <p>Feedback is based on the performance analysis.</p>
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
+            <div ref={scoreEl} />
+            {scoreReady && highlights.map(({ flagIds, measureNum, x, y, w, h }) => {
+              const isMeasureActive = flagIds.includes(activeFlag)
+              return (
+                <div key={measureNum}
+                  onClick={() => {
+                    setActiveFlag(prev => {
+                      if (!isMeasureActive) {
+                        return flagIds[0]
+                      }
+                      const idx = flagIds.indexOf(prev)
+                      if (idx === flagIds.length - 1) {
+                        return null
+                      }
+                      return flagIds[idx + 1]
+                    })
+                  }}
+                  style={{
+                    position: 'absolute', left: x, top: y, width: w, height: h,
+                    background: isMeasureActive ? 'rgba(88,121,101,0.22)' : 'rgba(88,121,101,0.08)',
+                    border: `1.5px solid rgba(88,121,101,${isMeasureActive ? '0.55' : '0.28'})`,
+                    borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
+                  }}
+                />
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className={styles.page}>
+
+      {/* ── Demo banner ── */}
+      {isDemo && (
+        <div style={{
+          background: 'rgba(92,184,107,0.1)',
+          border: '1px solid rgba(92,184,107,0.25)',
+          borderRadius: 8,
+          color: 'rgba(248,246,242,0.75)',
+          fontSize: '0.85rem',
+          marginBottom: 16,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <span style={{ color: 'var(--hero-green)', fontWeight: 600 }}>Demo</span>
+          This is a sample analysis for Clair de lune. Create a free account to analyze your own recordings.
+          <a href="#/signup" style={{ color: 'var(--hero-green)', marginLeft: 'auto', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            Get started free →
+          </a>
+        </div>
+      )}
+
+      {/* ── Header ── */}
       <div className={styles.header}>
         <div>
           <p className={styles.label}>Score Review</p>
           <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
           <p className={styles.sub}>
-            {pieceComposer}{instrument ? ` · ${instrument}` : ''} · {issueCount} issue{issueCount !== 1 ? 's' : ''} found
-            {score != null && <> · <span style={{ color: scoreColor(score) }}>{score}/100</span></>}
+            {[pieceComposer, instrument].filter(Boolean).join(' · ')}
+            {analysisQuality?.trust && (
+              <> · <span style={{
+                color: analysisQuality.trust === 'high' ? 'var(--hero-green)' : analysisQuality.trust === 'medium' ? 'var(--gold)' : 'var(--coral)',
+                fontWeight: 500,
+              }}>
+                {analysisQuality.trust === 'high' ? '● High confidence' : analysisQuality.trust === 'medium' ? '◑ Medium confidence' : '○ Low confidence'}
+              </span></>
+            )}
             {timeAgo(take?.created_at ?? take?.date) && (
-              <> · <span style={{ color: 'rgba(248,246,242,0.35)' }}>Analyzed {timeAgo(take?.created_at ?? take?.date)}</span></>
+              <> · <span style={{ color: 'rgba(248,246,242,0.32)' }}>Analyzed {timeAgo(take?.created_at ?? take?.date)}</span></>
             )}
           </p>
         </div>
-        <div className={styles.headerActions}>
-          <button className={styles.ghostBtn} onClick={() => nav('/record')}>Re-upload</button>
-        </div>
-      </div>
-
-      {analysisQuality && (
-        <div className={`${styles.analysisNotice} ${styles[`analysisNotice${trustTone(analysisQuality.trust)}`]}`}>
-          <p className={styles.analysisNoticeTitle}>{trustLabel(analysisQuality.trust)}</p>
-          <p className={styles.analysisNoticeBody}>
-            {analysisBackend ? `Pipeline: ${analysisBackend}. ` : ''}
-            {analysisQuality.trust === 'high'
-              ? 'This review is grounded in aligned score and recording evidence with direct listening corroboration.'
-              : 'This review was generated from usable evidence, but some parts of the analysis chain were weaker than ideal.'}
-          </p>
-          {Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-            <ul className={styles.analysisNoticeList}>
-              {analysisQuality.reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      <div className={styles.issueStrip}>
-        <span className={styles.issueStripLabel}>Issues:</span>
-        {chips.length === 0
-          ? <span className={styles.issueStripHint}>No issues detected — performance looks clean.</span>
-          : <>
-              {chips.map(({ flag, label }) => (
-                <button
-                  key={flag}
-                  className={`${styles.issueChip} ${activeFlag === flag ? styles.issueChipActive : ''}`}
-                  onClick={() => setActiveFlag(activeFlag === flag ? null : flag)}
-                >
-                  {label}
-                </button>
-              ))}
-              <span className={styles.issueStripHint}>Click a highlighted measure or issue to read feedback.</span>
-            </>
-        }
-      </div>
-
-      <div className={styles.reviewBody}>
-        <div className={styles.scoreArea}>
-          {/* Photo or PDF uploaded by user — with bbox overlays */}
-          {isVisualScore && scoreUrl && (
-            (take?.score_path ?? '').toLowerCase().endsWith('.pdf') ? (
-              <iframe
-                src={scoreUrl}
-                className={styles.scorePdf}
-                title="Sheet music"
-              />
-            ) : (
-              <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                <img
-                  src={scoreUrl}
-                  className={styles.scorePhoto}
-                  alt="Sheet music"
-                />
-                {(take?.flags ?? []).map((f, i) => {
-                  if (!f.spot) return null
-                  const flagId = `flag_${i}`
-                  const active = activeFlag === flagId
-                  if (!active) return null
-                  const [y0, x0, y1, x1] = f.spot
-                  const angle = f.spot_angle ?? 0
-                  // Center the div at the midpoint, then rotate around that center
-                  const cx = (x0 + x1) / 2 / 10
-                  const cy = (y0 + y1) / 2 / 10
-                  const w  = (x1 - x0) / 10
-                  const h  = (y1 - y0) / 10
-                  return (
-                    <div
-                      key={flagId}
-                      onClick={() => setActiveFlag(a => a === flagId ? null : flagId)}
-                      style={{
-                        position:        'absolute',
-                        left:            `${cx}%`,
-                        top:             `${cy}%`,
-                        width:           `${w}%`,
-                        height:          `${h}%`,
-                        transform:       `translate(-50%, -50%) rotate(${angle}deg)`,
-                        transformOrigin: 'center center',
-                        background:      active ? 'rgba(210,60,60,0.38)' : 'rgba(210,60,60,0.18)',
-                        borderRadius:    3,
-                        cursor:          'pointer',
-                        transition:      'background 150ms ease',
-                        pointerEvents:   'auto',
-                      }}
-                    />
-                  )
-                })}
+        <div className={aStyles.headerRight}>
+          {score != null && (
+            <div className={aStyles.scoreBadge}>
+              <p className={aStyles.scoreBadgeLabel}>Technique Score</p>
+              <div className={aStyles.scoreBadgeMain}>
+                <span className={aStyles.scoreBadgeNum} style={{ color: scoreColor(score) }}>{score}</span>
+                <span className={aStyles.scoreBadgeDen}>/100</span>
               </div>
-            )
+              <div className={aStyles.scoreBadgeTrack}>
+                <div className={aStyles.scoreBadgeFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+              </div>
+            </div>
+          )}
+          <button className={styles.ghostBtn} onClick={() => nav('/record')}>↺ Re-analyze</button>
+        </div>
+      </div>
+
+      {/* ── Tab strip ── */}
+      <div className={aStyles.tabStrip}>
+        <button
+          className={`${aStyles.tab} ${activeTab === 'overview' ? aStyles.tabActive : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >Overview</button>
+        <button
+          className={`${aStyles.tab} ${activeTab === 'summary' ? aStyles.tabActive : ''}`}
+          onClick={() => setActiveTab('summary')}
+        >Session Summary</button>
+      </div>
+
+      {activeTab === 'overview' ? (
+        <>
+          {/* ── Confidence notices ── */}
+          {analysisQuality?.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+            <div className={`${styles.analysisNotice} ${styles.analysisNoticeLow}`}>
+              <p className={styles.analysisNoticeTitle}>Analysis confidence was too low for precise feedback</p>
+              <ul className={styles.analysisNoticeList}>
+                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
+              </ul>
+              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>Try uploading a MusicXML file for higher accuracy, or record a cleaner excerpt with less background noise.</p>
+            </div>
+          )}
+          {analysisQuality?.trust === 'medium' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
+            <div className={`${styles.analysisNotice} ${styles.analysisNoticeMedium}`}>
+              <p className={styles.analysisNoticeTitle}>Medium confidence — feedback may be slightly imprecise</p>
+              <ul className={styles.analysisNoticeList}>
+                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
+              </ul>
+              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
+            </div>
           )}
 
-          {/* OSMD render target + highlight overlays (MusicXML only) */}
-          {!isVisualScore && (
-            <>
-              {!hasScore && scoreReady && (
-                <div className={styles.scoreUnavailable}>
-                  <p>Score not available for <em>{pieceTitle}</em> yet.</p>
-                  <p>Coaching feedback above is based on the audio analysis.</p>
+          {/* ── Two-column: score left + insights right ── */}
+          <div className={`${aStyles.reviewLayout} ${isImageScore ? aStyles.reviewLayoutImageScore : ''}`}>
+
+            {/* Left: sticky score panel */}
+            <div className={aStyles.scoreColumnWrap}>
+              <div className={aStyles.scoreColumn}>
+                <div className={aStyles.scoreInner}>
+                  {scoreAreaContent}
                 </div>
-              )}
-              <div style={{ position: 'relative' }}>
-                <div ref={scoreEl} />
-                {scoreReady && highlights.map(({ flagId, x, y, w, h }) => (
-                  <div
-                    key={flagId}
-                    onClick={() => setActiveFlag(f => f === flagId ? null : flagId)}
-                    style={{
-                      position:     'absolute',
-                      left:         x,
-                      top:          y,
-                      width:        w,
-                      height:       h,
-                      background:   activeFlag === flagId ? 'rgba(225,134,118,0.18)' : 'rgba(225,134,118,0.09)',
-                      border:       '1.5px solid rgba(225,134,118,0.5)',
-                      borderRadius: 6,
-                      cursor:       'pointer',
-                      transition:   'background 150ms ease',
-                    }}
-                  />
-                ))}
               </div>
-            </>
-          )}
-        </div>
+            </div>
 
-        <aside className={styles.feedbackSidebar}>
-          <div className={styles.feedbackPanel}>
-            {!info ? (
-              <div className={styles.feedbackIdle}>
-                <span className={styles.feedbackIdleIcon}>♩</span>
-                <p>Click a highlighted measure in the score, or one of the issue chips above, to read coaching feedback.</p>
-              </div>
-            ) : (
-              <div className={styles.feedbackDetail}>
-                <p className={styles.detailTag}>{info.tag}</p>
-                <h3 className={styles.detailTitle}>{info.title}</h3>
-                <p className={styles.detailBody}>{info.body}</p>
+            {/* Right: AI insights + video + chat */}
+            <div className={aStyles.rightColumn}>
 
-                {/* Video excerpt player */}
-                {videoUrl && hasTimestamps && (
-                  <div className={styles.excerptPlayer}>
-                    <video
-                      ref={videoRef}
-                      src={videoUrl}
-                      className={styles.excerptVideo}
-                      playsInline
-                      preload="metadata"
-                    />
-                    <div className={styles.excerptControls}>
-                      {!isLooping ? (
-                        <button className={styles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
-                          ▶ Loop m.{activeFlagRaw.measure}
+              {/* AI Insights Timeline */}
+              <section className={aStyles.insightsPanel}>
+                <div className={aStyles.insightsPanelHeader}>
+                  <span className={aStyles.insightsPanelTitle}>
+                    AI Insights Timeline
+                    {issueCount > 0 && <span className={aStyles.insightCount}>{issueCount}</span>}
+                  </span>
+                  <div className={aStyles.confLegend}>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--accent)' }} />High</span>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--gold)' }} />Medium</span>
+                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--coral)' }} />Low</span>
+                  </div>
+                </div>
+
+                {issueCount === 0 ? (
+                  <div className={aStyles.issueClean}>✓ No issues detected — clean performance.</div>
+                ) : (
+                  <div className={aStyles.timeline}>
+                    {sortedChips.map(({ flag, confidence }) => {
+                      const idx = parseInt(flag.replace('flag_', ''), 10)
+                      const f = take.flags[idx]
+                      const isActive = activeFlag === flag
+                      const cc = confColor(confidence)
+                      return (
+                        <button
+                          key={flag}
+                          className={`${aStyles.timelineRow} ${isActive ? aStyles.timelineRowActive : ''}`}
+                          onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
+                        >
+                          <span className={aStyles.timelineConfDot} style={{ background: cc }} />
+                          <span className={aStyles.timelineTs}>{formatTs(f?.timestamp_start)}</span>
+                          <span className={aStyles.timelineMeasure}>m.{f?.measure}</span>
+                          <span className={aStyles.timelineTypePill} data-type={(f?.type ?? 'technique').toLowerCase()}>{capitalize(f?.type)}</span>
+                          <span className={aStyles.timelineTitle}>{f?.title}</span>
+                          <span className={aStyles.timelineConfBadge} style={{ color: cc }}>{confLabel(confidence)}</span>
                         </button>
-                      ) : (
-                        <button className={styles.loopBtn} style={{ background: 'var(--coral)' }} onClick={stopLoop}>
-                          ■ Stop loop
-                        </button>
-                      )}
-                      <span className={styles.excerptTime}>
-                        {activeFlagRaw.timestamp_start.toFixed(1)}s – {activeFlagRaw.timestamp_end.toFixed(1)}s
-                      </span>
-                    </div>
+                      )
+                    })}
                   </div>
                 )}
 
-                <button className={styles.dismissBtn} onClick={() => setActiveFlag(null)}>Dismiss</button>
-              </div>
-            )}
-          </div>
+                {/* Expanded insight card */}
+                {info && activeFlagRaw && (
+                  <div className={aStyles.insightCard}>
+                    <div className={aStyles.insightCardHeader}>
+                      <span className={aStyles.insightMeasureBadge}>m.{activeFlagRaw.measure}</span>
+                      <h3 className={aStyles.insightTitle}>{info.title}</h3>
+                      <span className={aStyles.insightConfBadge} style={{ color: confColor(info.confidence ?? 100) }}>
+                        {confLabel(info.confidence ?? 100)}
+                      </span>
+                      <button className={aStyles.insightDismiss} onClick={() => setActiveFlag(null)}>✕</button>
+                    </div>
+                    <p className={aStyles.insightBody}>{info.body}</p>
+                    <div className={aStyles.insightTags}>
+                      <span className={aStyles.insightTag}>{capitalize(activeFlagRaw.type)}</span>
+                      {info.confidence != null && (
+                        <span className={aStyles.insightTag}>Confidence: {confLabel(info.confidence)}</span>
+                      )}
+                    </div>
+                    {videoUrl && hasTimestamps && (
+                      <div className={aStyles.insightActions}>
+                        {!isLooping ? (
+                          <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                            ↺ Loop m.{activeFlagRaw.measure}
+                            <span className={aStyles.loopExcerptTime}>
+                              {formatTs(activeFlagRaw.timestamp_start)} – {formatTs(activeFlagRaw.timestamp_end)}
+                            </span>
+                          </button>
+                        ) : (
+                          <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
 
-          <div className={styles.chatSection}>
-            <div className={styles.chatHeader}>
-              <p className={styles.chatLabel}>Ask your coach</p>
-              {activeFlagRaw && (
-                <span className={styles.chatContextPill}>
-                  Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
-                </span>
+              {/* Video recording */}
+              {videoUrl && (
+                <div className={styles.videoBar}>
+                  <span className={styles.videoBarLabel}>Recording</span>
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className={styles.videoBarPlayer}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration || null)}
+                  />
+
+                  {/* Flag position timeline — clickable markers over the video duration */}
+                  {videoDuration > 0 && take?.flags?.some(f => f.timestamp_start != null) && (
+                    <div className={aStyles.flagTimeline}>
+                      <div className={aStyles.flagTimelineTrack}>
+                        {take.flags.map((f, i) => {
+                          const ts = Number(f.timestamp_start)
+                          if (!Number.isFinite(ts) || ts < 0) return null
+                          const pct = Math.min(100, (ts / videoDuration) * 100)
+                          const flagId = `flag_${i}`
+                          const isActive = activeFlag === flagId
+                          const cc = confColor(f.confidence ?? 100)
+                          return (
+                            <button
+                              key={flagId}
+                              className={aStyles.flagTimelineMarker}
+                              title={`m.${f.measure} · ${capitalize(f.type)} — ${formatTs(ts)}`}
+                              style={{
+                                left: `${pct}%`,
+                                background: cc,
+                                transform: isActive ? 'translate(-50%, -50%) scale(1.5)' : 'translate(-50%, -50%)',
+                                boxShadow: isActive ? `0 0 0 3px ${cc}40` : 'none',
+                              }}
+                              onClick={() => {
+                                const video = videoRef.current
+                                if (video) video.currentTime = ts
+                                setActiveFlag(f2 => f2 === flagId ? null : flagId)
+                                playTick()
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.videoControls}>
+                    <span className={styles.videoControlsLabel}>Speed</span>
+                    <div className={styles.speedBtns}>
+                      {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
+                        <button
+                          key={s}
+                          className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
+                          onClick={() => setVideoSpeed(s)}
+                        >{s}×</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
-            <div className={styles.chatMessages}>
-              {chatMessages.length === 0 && (
-                <p className={styles.chatEmpty}>
-                  {activeFlagRaw
-                    ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything else about your performance.`
-                    : 'Select an issue above, then ask your coach about it — or ask anything about your performance.'}
-                </p>
-              )}
-              {chatMessages.map((m, i) => (
-                <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
-                  {m.role === 'user' && m.flagContext && (
-                    <span className={styles.chatMsgContext}>
-                      Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
+
+              {/* Ask Mediant chat */}
+              <section className={aStyles.chatSection}>
+                <div className={aStyles.chatSectionHeader}>
+                  <p className={styles.label}>Ask Mediant</p>
+                  {activeFlagRaw && (
+                    <span className={aStyles.chatContextPill}>
+                      Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
                     </span>
                   )}
-                  {m.content}
                 </div>
-              ))}
-              {chatLoading && (
-                <div className={styles.chatMsgAI}>
-                  <span className={styles.chatTyping}>···</span>
+                <div className={styles.chatMessages}>
+                  {chatMessages.length === 0 && (
+                    <p className={styles.chatEmpty}>
+                      {activeFlagRaw
+                        ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything about your performance.`
+                        : 'Select an issue above, then ask Mediant about it — or ask anything about your performance.'}
+                    </p>
+                  )}
+                  {chatMessages.map((m, i) => (
+                    <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
+                      {m.role === 'user' && m.flagContext && (
+                        <span className={styles.chatMsgContext}>
+                          Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
+                        </span>
+                      )}
+                      {m.content}
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className={styles.chatMsgAI}><span className={styles.chatTyping}>···</span></div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className={styles.chatInputRow}>
-              <input
-                className={styles.chatInput}
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                placeholder="Ask about your performance…"
-                disabled={chatLoading}
-              />
-              <button
-                className={styles.chatSend}
-                onClick={sendMessage}
-                disabled={chatLoading || !chatInput.trim()}
-              >↑</button>
+                <div className={styles.chatInputRow}>
+                  <input
+                    className={styles.chatInput}
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                    placeholder="Ask about your performance…"
+                    disabled={chatLoading}
+                  />
+                  <button
+                    className={styles.chatSend}
+                    onClick={sendMessage}
+                    disabled={chatLoading || !chatInput.trim()}
+                  >↑</button>
+                </div>
+              </section>
+
             </div>
           </div>
-        </aside>
-      </div>
+        </>
+      ) : (
+        /* ── Session Summary tab ── */
+        <section className={aStyles.summaryTab} ref={summaryRef}>
+          <div className={aStyles.summaryTabTop}>
+            {score != null && (
+              <div className={aStyles.summaryScoreBlock}>
+                <span className={aStyles.summaryScoreNum} style={{ color: scoreColor(score) }}>{score}</span>
+                <div className={aStyles.summaryScoreMeta}>
+                  <span className={aStyles.summaryScoreDen}>/100</span>
+                  <p className={aStyles.summaryScoreLabel}>Technique Score</p>
+                  <div className={aStyles.summaryScoreTrack}>
+                    <div className={aStyles.summaryScoreFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className={aStyles.summaryTabMeta}>
+              <div className={aStyles.summaryTabMetaTop}>
+                <p className={styles.label}>Session Summary</p>
+                {summary && !summaryLoading && (
+                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
+                )}
+              </div>
+              {summaryLoading && (
+                <div className={aStyles.summaryLoading}>
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span className={aStyles.summaryLoadingDot} />
+                  <span style={{ marginLeft: 8 }}>Generating your session summary…</span>
+                </div>
+              )}
+              {summaryError && !summaryLoading && (
+                <p className={aStyles.summaryError}>
+                  {summaryError}
+                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
+                </p>
+              )}
+              {summary?.headline && !summaryLoading && (
+                <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
+              )}
+              {summary?.overview && !summaryLoading && (
+                <p className={aStyles.summaryOverview}>{summary.overview}</p>
+              )}
+              {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
+                <p className={aStyles.summaryOverview} style={{ color: 'var(--accent)' }}>
+                  No issues were flagged — great performance.
+                </p>
+              )}
+            </div>
+          </div>
 
-      <MasterclassPanel
-        pieceTitle={pieceTitle}
-        composer={pieceComposer}
-        instrument={instrument}
-      />
+          {summary && !summaryLoading && (
+            <div className={aStyles.summaryColumns}>
+              {summary.strengths?.length > 0 && (
+                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardStrengths}`}>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>✓ Strengths</p>
+                  <ul className={aStyles.summaryList}>
+                    {summary.strengths.map((s, i) => (
+                      <li key={i} className={aStyles.summaryListItem}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {summary.improvements?.length > 0 && (
+                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardImprovements}`}>
+                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>→ Areas to work on</p>
+                  <ul className={aStyles.summaryList}>
+                    {summary.improvements.map((item, i) => (
+                      <li key={i} className={aStyles.summaryListItem}>
+                        {item.area && <span className={aStyles.summaryImprovementArea}>{item.area}</span>}
+                        {item.guidance ?? item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
     </div>
   )
 }
