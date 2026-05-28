@@ -318,7 +318,7 @@ export default function Record() {
         piece_title:      pieceTitle.trim() || 'Untitled',
         piece_composer:   composer.trim() || 'Unknown',
         score:            finalResult.score ?? null,
-        flags:            [],
+        flags:            finalResult.flags ?? [],
         video_path:       filePath,
         video_mime_type:  file.type || 'video/mp4',
         score_path:       scorePath,

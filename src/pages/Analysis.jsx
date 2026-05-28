@@ -355,9 +355,14 @@ export default function Analysis({ demo: demoProp = false }) {
       return
     }
 
-    const flagMeasures = take?.flags?.length
-      ? new Map(take.flags.map((f, i) => [f.measure, `flag_${i}`]))
-      : new Map()
+    const flagMeasures = new Map()
+    if (take?.flags?.length) {
+      take.flags.forEach((f, i) => {
+        const arr = flagMeasures.get(f.measure) ?? []
+        arr.push(`flag_${i}`)
+        flagMeasures.set(f.measure, arr)
+      })
+    }
 
     const osmd = new OpenSheetMusicDisplay(scoreEl.current, {
       autoResize: true,
@@ -382,14 +387,15 @@ export default function Analysis({ demo: demoProp = false }) {
           const zoom = osmd.zoom * 10
           const newHighlights = []
 
-          flagMeasures.forEach((flagId, measureNum) => {
+          flagMeasures.forEach((flagIds, measureNum) => {
             const row = measureList[measureNum - 1]
             if (!row) return
             const gm = row[0]
             if (!gm) return
             const pos = gm.PositionAndShape
             newHighlights.push({
-              flagId,
+              flagIds,
+              measureNum,
               x: pos.AbsolutePosition.x * zoom,
               y: pos.AbsolutePosition.y * zoom,
               w: pos.Size.width * zoom,
@@ -628,16 +634,31 @@ export default function Analysis({ demo: demoProp = false }) {
           )}
           <div style={{ position: 'relative' }}>
             <div ref={scoreEl} />
-            {scoreReady && highlights.map(({ flagId, x, y, w, h }) => (
-              <div key={flagId} onClick={() => setActiveFlag(f => f === flagId ? null : flagId)}
-                style={{
-                  position: 'absolute', left: x, top: y, width: w, height: h,
-                  background: activeFlag === flagId ? 'rgba(88,121,101,0.22)' : 'rgba(88,121,101,0.08)',
-                  border: `1.5px solid rgba(88,121,101,${activeFlag === flagId ? '0.55' : '0.28'})`,
-                  borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
-                }}
-              />
-            ))}
+            {scoreReady && highlights.map(({ flagIds, measureNum, x, y, w, h }) => {
+              const isMeasureActive = flagIds.includes(activeFlag)
+              return (
+                <div key={measureNum}
+                  onClick={() => {
+                    setActiveFlag(prev => {
+                      if (!isMeasureActive) {
+                        return flagIds[0]
+                      }
+                      const idx = flagIds.indexOf(prev)
+                      if (idx === flagIds.length - 1) {
+                        return null
+                      }
+                      return flagIds[idx + 1]
+                    })
+                  }}
+                  style={{
+                    position: 'absolute', left: x, top: y, width: w, height: h,
+                    background: isMeasureActive ? 'rgba(88,121,101,0.22)' : 'rgba(88,121,101,0.08)',
+                    border: `1.5px solid rgba(88,121,101,${isMeasureActive ? '0.55' : '0.28'})`,
+                    borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
+                  }}
+                />
+              )
+            })}
           </div>
         </>
       )}

@@ -50,6 +50,7 @@ serve(async (req: Request) => {
       status:          take.job_status ?? 'done',
       error:           take.job_error  ?? null,
       score:           take.score      ?? null,
+      flags:           take.flags      ?? [],
       analysisQuality: take.analysis_quality ?? null,
       analysisBackend: take.analysis_backend ?? null,
     }), {

@@ -9,30 +9,25 @@
   overflow: clip;
   pointer-events: none;
   z-index: 10000;
-  transform: scale(var(--overlay-scale, 1));
-  transform-origin: center center;
-  will-change: transform;
-}
-
-/* Reveal phase: overlay scale resets to 1 while sheets scatter */
-.introOverlayZoomOut {
-  overflow: visible;
-  transition: transform 750ms cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .introSheet {
-  box-shadow: 3px 6px 24px rgba(26,15,5,0.22), inset 0 1px 0 rgba(255,255,255,0.45);
-  filter: blur(1.5px);
-  height: 242px;
+  /* Lightweight box shadow blur (12px instead of 28px) to eliminate GPU blur-map rasterization bottleneck */
+  box-shadow: 0 4px 12px rgba(26,15,5,0.08), inset 0 1px 0 rgba(255,255,255,0.45);
+  width: 14vw; /* Responsive card width scales perfectly across all screen resolutions */
+  height: 19.5vw; /* Keeps the high-end 0.72 vertical aspect ratio of cello sheet scores */
+  min-width: 140px;
+  min-height: 195px;
   left: 0;
   opacity: 0;
   overflow: hidden;
   position: absolute;
-  top: -121px;
+  top: 2vh; /* left pivot top */
+  /* all start collapsed at the pivot, stacked flat */
   transform: rotate(0deg) scale(0.5);
   transform-origin: 0% 50%;
-  width: 175px;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
+  /* sequential card-stack */
   z-index: calc(var(--i) + 1);
 }
 
@@ -61,29 +56,14 @@
 }
 
 .introSheetFanned {
-  filter: blur(0px);
   opacity: 1;
-  /* Spread to coverage position, rotate from fan angle → covered angle, grow to ~2×.
-     All driven by --fly-progress so spreading and rotating happen as one motion. */
-  transform: translate3d(
-    calc(var(--clutter-x, 0px) * var(--fly-progress, 0)),
-    calc(var(--clutter-y, 0px) * var(--fly-progress, 0)),
-    0
-  )
-  rotate(
-    calc(
-      var(--angle, 0deg) * (1 - var(--fly-progress, 0))
-      + var(--clutter-r, 0deg) * var(--fly-progress, 0)
-    )
-  )
-  scale(
-    calc(1 + var(--clutter-s, 0) * var(--fly-progress, 0))
-  );
+  transform: rotate(var(--angle, 0deg)) scale(1);
 }
 
-/* Quick interactive transitions once initial fanning animation is complete */
-.introOverlayInteractive .introSheet {
-  transition: opacity 0.15s ease-out;
+.introSheetFading {
+  opacity: 0 !important;
+  transition:
+    opacity 0.9s ease calc(var(--i) * 70ms) !important;
 }
 
 /* ── Registered custom properties (Houdini) ───────────────────── */
