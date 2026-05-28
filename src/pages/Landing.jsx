@@ -582,7 +582,7 @@ export default function Landing() {
       {/* ── Nav ── */}
       <nav className={styles.nav}>
         <Link to="/" className={styles.navBrand}>
-          <AnimatedLogo size={34} />
+          <AnimatedLogo size={44} />
           <Wordmark />
         </Link>
         <div className={styles.navRight}>
@@ -602,7 +602,7 @@ export default function Landing() {
         <canvas ref={canvasRef} className={styles.waveCanvas} aria-hidden="true" />
 
         <div className={styles.heroLogoLarge} ref={parallaxLogoRef}>
-          <AnimatedLogo size={140} />
+          <AnimatedLogo size={170} />
         </div>
 
         <div ref={parallaxHeadRef} className={styles.parallaxNode}>
@@ -878,7 +878,7 @@ export default function Landing() {
       <footer className={styles.footer}>
         <div className={styles.footerLeft}>
           <Link to="/" className={styles.navBrand} style={{ opacity: 0.6 }}>
-            <AnimatedLogo size={28} />
+            <AnimatedLogo size={36} />
             <Wordmark />
           </Link>
           <p className={styles.footerTagline}>Intelligent music performance analysis.</p>
