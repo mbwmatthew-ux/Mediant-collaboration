@@ -1,6 +1,6 @@
 /* ── Backdrop ─────────────────────────────────────────────── */
 .backdrop {
-  background: rgba(29, 40, 36, 0.45);
+  background: rgba(26, 15, 5, 0.5);
   backdrop-filter: blur(4px);
   bottom: 0;
   display: flex;
@@ -15,9 +15,10 @@
 
 /* ── Modal ────────────────────────────────────────────────── */
 .modal {
-  background: var(--cream-strong);
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
   border-radius: 20px;
-  box-shadow: 0 24px 80px rgba(20, 30, 26, 0.22);
+  box-shadow: var(--shadow-lg);
   padding: 28px 32px 32px;
   width: 90%;
   max-width: 420px;
@@ -31,26 +32,25 @@
 }
 
 .modalTitle {
-  color: var(--text-inverse);
-  font-size: 1rem;
+  color: var(--text-faint);
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
   margin: 0;
   text-transform: uppercase;
-  font-size: 0.8rem;
 }
 
 .closeBtn {
-  background: rgba(88, 121, 101, 0.08);
-  border: 1px solid rgba(88, 121, 101, 0.16);
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
   border-radius: 999px;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-faint);
   cursor: pointer;
   font-size: 0.8rem;
   padding: 5px 10px;
-  transition: background 140ms ease;
+  transition: background 140ms ease, color 140ms ease;
 }
-.closeBtn:hover { background: rgba(88, 121, 101, 0.14); }
+.closeBtn:hover { background: var(--surface-hover); color: var(--text); }
 
 /* ── Error box ────────────────────────────────────────────── */
 .errorBox {
@@ -68,14 +68,14 @@
 }
 
 .errorBody {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.87rem;
   line-height: 1.5;
   margin: 0 0 12px;
 }
 
 .errorSteps {
-  color: var(--text-inverse);
+  color: var(--text);
   font-size: 0.87rem;
   line-height: 1.7;
   margin: 0 0 16px;
@@ -83,16 +83,16 @@
 }
 
 .retryBtn {
-  background: rgba(88, 121, 101, 0.1);
-  border: 1px solid rgba(88, 121, 101, 0.22);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 999px;
-  color: var(--text-inverse);
+  color: var(--accent);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 8px 18px;
   transition: background 140ms ease;
 }
-.retryBtn:hover { background: rgba(88, 121, 101, 0.18); }
+.retryBtn:hover { background: var(--accent-bg-hover); }
 
 /* ── Tuner display ────────────────────────────────────────── */
 .display {
@@ -110,14 +110,14 @@
 }
 
 .noteName {
-  color: var(--text-inverse);
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 6rem;
   font-weight: 400;
 }
 
 .noteOctave {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-faint);
   font-size: 1.8rem;
   font-weight: 400;
 }
@@ -131,7 +131,7 @@
 }
 
 .gaugeSide {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-faint);
   font-size: 1.1rem;
   flex-shrink: 0;
   text-align: center;
@@ -139,7 +139,7 @@
 }
 
 .gaugeTrack {
-  background: rgba(88, 121, 101, 0.1);
+  background: var(--surface-border);
   border-radius: 999px;
   flex: 1;
   height: 6px;
@@ -147,7 +147,7 @@
 }
 
 .gaugeCenter {
-  background: rgba(88, 121, 101, 0.4);
+  background: var(--accent-border);
   border-radius: 999px;
   height: 100%;
   left: 50%;
@@ -171,7 +171,7 @@
 /* ── Status ───────────────────────────────────────────────── */
 .status {
   align-items: center;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   display: flex;
   font-size: 0.9rem;
   gap: 16px;
@@ -179,15 +179,15 @@
   min-height: 1.3em;
 }
 
-.statusMuted { color: rgba(88, 121, 101, 0.4); font-style: italic; }
+.statusMuted { color: var(--text-faintest); font-style: italic; }
 
 .freq {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-faint);
   font-size: 0.8rem;
 }
 
 .reference {
-  color: rgba(88, 121, 101, 0.4);
+  color: var(--text-faintest);
   font-size: 0.75rem;
   margin: 4px 0 0;
 }
