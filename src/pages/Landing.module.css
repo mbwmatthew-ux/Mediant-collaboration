@@ -2076,3 +2076,46 @@
   0%, 100% { transform: scale(0.6); opacity: 0.3; }
   50% { transform: scale(1.2); opacity: 1; }
 }
+
+/* ── Mobile Responsive Optimizations (≤ 900px & ≤ 600px) ── */
+@media (max-width: 900px) {
+  .calloutBox {
+    display: none !important; /* Hide decorative floating callout boxes on mobile to declutter layout */
+  }
+}
+
+@media (max-width: 600px) {
+  .introSheet {
+    width: 22vw !important; /* Elegant scaled down cards fit screen ratios without overflowing narrow mobile screens */
+    height: 30.6vw !important;
+    min-width: 80px !important;
+    min-height: 111px !important;
+    top: 5vh !important;
+  }
+  .introSheetR {
+    top: calc(25vh - 55px) !important;
+  }
+  .timelineRow {
+    gap: 8px !important;
+    padding: 8px 10px !important;
+  }
+  .timelineConfBadge {
+    display: none !important;
+  }
+  .timelineTypePill {
+    width: auto !important;
+    font-size: 0.62rem !important;
+    padding: 1px 5px !important;
+  }
+  .timelineTitle {
+    font-size: 0.78rem !important;
+  }
+  .timelineMeasure {
+    font-size: 0.78rem !important;
+    width: auto !important;
+  }
+  .timelineTs {
+    font-size: 0.68rem !important;
+    width: auto !important;
+  }
+}
