@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import MasterclassPanel from '../components/MasterclassPanel'
 import { SkeletonCard } from '../components/Skeleton'
 import styles from './Page.module.css'
 import aStyles from './Analysis.module.css'
-import { playTick } from '../utils/sounds'
+import { playTick, playPop, playNav } from '../utils/sounds'
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
@@ -22,6 +23,7 @@ const TYPE_META = {
   expression:   { icon: '∿', cls: 'iconGold'  },
   posture:      { icon: '⊕', cls: 'iconGreen' },
 }
+
 function flagTypeMeta(type) {
   return TYPE_META[(type ?? '').toLowerCase()] ?? { icon: '◆', cls: 'iconCoral' }
 }
@@ -31,7 +33,7 @@ const DEMO_TAKE = {
   piece_title: 'Clair de lune',
   piece_composer: 'Claude Debussy',
   instrument: 'Piano',
-  score: 74,
+  score: 82,
   analysis_quality: { trust: 'high', reasons: [] },
   analysis_backend: 'gemini-inline',
   created_at: new Date().toISOString(),
@@ -59,7 +61,7 @@ const DEMO_TAKE = {
       type: 'intonation',
       confidence: 85,
       title: 'Left-hand bass F♯ tuning',
-      detail: 'The bass F♯ octave in m.21 sits slightly thin — likely a touch of excessive damper pedal blurring the lower partial. Clear the pedal just before this beat and use a deeper key contact to reinforce the fundamental.',
+      detail: 'The bass F♯ octave in m.21 sits slightly thin — likely a touch of damper pedal blurring the lower partial. Clear the pedal just before this beat and use a deeper key contact to reinforce the fundamental.',
       timestamp_start: 35.0,
       timestamp_end: 36.5,
     },
@@ -78,6 +80,39 @@ const DEMO_TAKE = {
   _demo: true,
 }
 
+const INITIAL_AI_MESSAGES = {
+  'Clair de lune': [
+    {
+      role: 'assistant',
+      content: "Hi Elena! I've analyzed your latest take of Claude Debussy's **Clair de lune** (Take 12). Your technique score is **82/100** (a +4 increase from your last take!).\n\nYour tone in the middle section is exceptionally warm, but I've flagged a few spots of interest:\n- **m.5 (Timing)**: Slightly early on the triplet run descent.\n- **m.14 (Dynamics)**: Subito forte is slightly percussive.\n- **m.21 (Intonation/Pedaling)**: Dampers slightly blurred the bass F♯ octave.\n\nWhich area would you like to work on first?",
+    }
+  ],
+  'Nocturne in E♭, Op. 9 No. 2': [
+    {
+      role: 'assistant',
+      content: "Hi Elena! I've reviewed your performance of Frédéric Chopin's **Nocturne in E♭, Op. 9 No. 2** (Take 6). Your score is **81/100**.\n\nYou have beautiful control over the rubato, but I noticed a slight rush on the trill ornament in measure 16. Subdivide the accompaniment beats to ground your phrasing. What would you like to focus on?",
+    }
+  ],
+  'Cello Suite No. 1 — Prélude': [
+    {
+      role: 'assistant',
+      content: "Excellent bow contact on J.S. Bach's **Cello Suite No. 1 — Prélude**! Your score sits at **88/100**.\n\nThe string crossings in measure 31 are extremely clean. Keep the lower voice ringing, and make sure to relax your shoulder during the G-string pedal points. How can I help you refine this session?",
+    }
+  ],
+  'Fantaisie-Impromptu, Op. 66': [
+    {
+      role: 'assistant',
+      content: "Hi! I've analyzed your take of Chopin's **Fantaisie-Impromptu** (Take 4). The polyrhythm is always tricky—your score is **67/100**.\n\nCurrently, the left-hand 6-against-4 is rushing, which throws off the right-hand cross-rhythms. Let's do slow practicing (♩=50) mapping each note intersection precisely. Ask me for exercise patterns!",
+    }
+  ],
+  'Gymnopédie No. 1': [
+    {
+      role: 'assistant',
+      content: "Wonderful atmosphere on Satie's **Gymnopédie No. 1**! Your score is an excellent **92/100**.\n\nYour tempo consistency is pristine, and you capture the melancholy beautifully. My only recommendation is to voice the top melodic voice slightly more over the bass chords in measure 12. Would you like to practice that together?",
+    }
+  ]
+}
+
 function timeAgo(iso) {
   if (!iso) return null
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
@@ -86,19 +121,6 @@ function timeAgo(iso) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function trustLabel(level) {
-  if (level === 'high') return 'High-trust analysis'
-  if (level === 'medium') return 'Medium-trust analysis'
-  if (level === 'low') return 'Low-trust analysis'
-  return 'Analysis quality'
-}
-
-function trustTone(level) {
-  if (level === 'high') return 'High'
-  if (level === 'medium') return 'Medium'
-  return 'Low'
 }
 
 function formatTs(sec) {
@@ -122,7 +144,12 @@ function confLabel(confidence) {
   return 'Low'
 }
 
-// Maps a piece title to a bundled score file in /public/scores/
+function scoreColor(n) {
+  if (n >= 88) return '#8fbe9f'
+  if (n >= 74) return 'var(--gold)'
+  return 'var(--coral)'
+}
+
 function scoreFileForPiece(title) {
   if (!title) return null
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -132,116 +159,246 @@ function scoreFileForPiece(title) {
   return known[slug] ?? null
 }
 
-// ── Component ─────────────────────────────────────────────────────────────
-
 export default function Analysis({ demo: demoProp = false }) {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
+  const { user } = useAuth()
+  
   const scoreEl  = useRef(null)
   const osmdRef  = useRef(null)
-
   const videoRef    = useRef(null)
   const loopRef     = useRef(null)
-
-  // Summary marks the bottom boundary after the two-column review area.
+  const chatEndRef = useRef(null)
+  const fileInputRef = useRef(null)
   const summaryRef = useRef(null)
 
-  const [take, setTake]               = useState(undefined)
+  const isDemo = demoProp || searchParams.get('demo') === 'true'
+  const takeId = searchParams.get('takeId')
+
+  // Threads & database takes state
+  const [allTakes, setAllTakes] = useState([])
+  const [activeThreadTitle, setActiveThreadTitle] = useState('Clair de lune')
+  const [selectedTakeId, setSelectedTakeId] = useState(null)
+  const [threadsTab, setThreadsTab] = useState('all')
+
+  const [isThreadsCollapsed, setIsThreadsCollapsed] = useState(() => {
+    return localStorage.getItem('mediant_threads_collapsed') === 'true'
+  })
+
+  // Overview / Session Summary tabs
+  const [activeTab, setActiveTab] = useState('overview')
+  const [isLooping, setIsLooping] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  
   const [scoreUrl, setScoreUrl]       = useState(null)
   const [videoUrl, setVideoUrl]       = useState(null)
   const [activeFlag, setActiveFlag]   = useState(null)
-  const [isLooping, setIsLooping]     = useState(false)
   const [scoreReady, setScoreReady]   = useState(false)
   const [highlights, setHighlights]   = useState([])
   const [videoSpeed, setVideoSpeed]     = useState(1)
   const [videoDuration, setVideoDuration] = useState(null)
-  const [activeTab, setActiveTab] = useState('overview')
 
   // AI summary state
   const [summary, setSummary]             = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError]   = useState(null)
 
-  // Keyboard shortcut state ref — always current without re-registering the listener
-  const kbRef = useRef({})
-
-  // Chat state
-  const [chatMessages, setChatMessages] = useState([])
+  // Chat conversation state
+  const [threadChats, setThreadChats] = useState({})
   const [chatInput, setChatInput]       = useState('')
   const [chatLoading, setChatLoading]   = useState(false)
-  const chatEndRef = useRef(null)
-  const takeId  = searchParams.get('takeId')
-  const isDemo  = demoProp || searchParams.get('demo') === 'true'
 
-  // Load take from Supabase when takeId is present; otherwise fall back to localStorage.
-  // If the take is still processing, poll every 4s until it finishes.
+  // Keyboard shortcut state ref
+  const kbRef = useRef({})
+
+  // Fetch takes on load
   useEffect(() => {
-    if (isDemo) { setTake(DEMO_TAKE); return }
-
-    let cancelled = false
-    let pollTimer = null
-
-    async function loadTake() {
-      if (takeId) {
-        const { data, error } = await supabase
-          .from('takes')
-          .select('id, piece_title, piece_composer, instrument, score, flags, video_path, video_mime_type, score_path, measure_layout, audio_alignment, analysis_quality, analysis_backend, job_status, job_error, created_at')
-          .eq('id', takeId)
-          .single()
-
-        if (!cancelled) {
-          if (error) {
-            console.error('Could not load take from Supabase:', error)
-            setTake(null)
-          } else if (data?.job_status === 'processing') {
-            // Job still running — show a waiting screen and poll again in 4s
-            setTake({ ...data, _polling: true })
-            pollTimer = setTimeout(loadTake, 4000)
-          } else {
-            setTake(data)
-          }
-        }
-        return
-      }
-
+    if (!user?.id) {
       try {
-        const stored = localStorage.getItem('mediant_last_take')
-        if (!cancelled) setTake(stored ? JSON.parse(stored) : null)
+        const stored = JSON.parse(localStorage.getItem('mediant_takes') || '[]')
+        setAllTakes(Array.isArray(stored) ? stored : [])
       } catch {
-        if (!cancelled) setTake(null)
+        setAllTakes([])
+      }
+      return
+    }
+    supabase
+      .from('takes')
+      .select('id, piece_title, piece_composer, instrument, score, flags, analysis_quality, video_path, score_path, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setAllTakes(data)
+        }
+      })
+  }, [user?.id])
+
+  // Threads mapping (combining real takes & beautiful demo defaults)
+  const threads = useMemo(() => {
+    const groups = {}
+    
+    // Process real takes
+    allTakes.forEach(t => {
+      const title = t.piece_title || 'Untitled Session'
+      if (!groups[title]) {
+        groups[title] = {
+          piece_title: title,
+          piece_composer: t.piece_composer || 'Unknown Composer',
+          instrument: t.instrument || 'Piano',
+          takes: [],
+          isPinned: false,
+        }
+      }
+      groups[title].takes.push(t)
+    })
+
+    // Premium demo mock fallbacks
+    const mockData = [
+      {
+        piece_title: 'Clair de lune',
+        piece_composer: 'Claude Debussy',
+        instrument: 'Piano',
+        isPinned: true,
+        takes: [
+          { ...DEMO_TAKE, score: 82, created_at: new Date(Date.now() - 120000).toISOString() },
+          { ...DEMO_TAKE, score: 78, created_at: new Date(Date.now() - 86400000).toISOString() },
+        ],
+      },
+      {
+        piece_title: 'Nocturne in E♭, Op. 9 No. 2',
+        piece_composer: 'Frédéric Chopin',
+        instrument: 'Piano',
+        isPinned: true,
+        takes: [
+          { id: 'mock_2', piece_title: 'Nocturne in E♭, Op. 9 No. 2', piece_composer: 'Frédéric Chopin', instrument: 'Piano', score: 81, created_at: new Date(Date.now() - 86400000).toISOString(), flags: [] },
+        ],
+      },
+      {
+        piece_title: 'Cello Suite No. 1 — Prélude',
+        piece_composer: 'J.S. Bach',
+        instrument: 'Cello',
+        isPinned: false,
+        takes: [
+          { id: 'mock_3', piece_title: 'Cello Suite No. 1 — Prélude', piece_composer: 'J.S. Bach', instrument: 'Cello', score: 88, created_at: new Date(Date.now() - 172800000).toISOString(), flags: [] },
+        ],
+      },
+      {
+        piece_title: 'Fantaisie-Impromptu, Op. 66',
+        piece_composer: 'Frédéric Chopin',
+        instrument: 'Piano',
+        isPinned: false,
+        takes: [
+          { id: 'mock_4', piece_title: 'Fantaisie-Impromptu, Op. 66', piece_composer: 'Frédéric Chopin', instrument: 'Piano', score: 67, created_at: new Date(Date.now() - 345600000).toISOString(), flags: [] },
+        ],
+      },
+      {
+        piece_title: 'Gymnopédie No. 1',
+        piece_composer: 'Erik Satie',
+        instrument: 'Piano',
+        isPinned: false,
+        takes: [
+          { id: 'mock_5', piece_title: 'Gymnopédie No. 1', piece_composer: 'Erik Satie', instrument: 'Piano', score: 92, created_at: new Date(Date.now() - 518400000).toISOString(), flags: [] },
+        ],
+      }
+    ]
+
+    mockData.forEach(mock => {
+      if (!groups[mock.piece_title]) {
+        groups[mock.piece_title] = mock
+      }
+    })
+
+    return Object.values(groups)
+  }, [allTakes])
+
+  // Handle active thread and selected take resolution
+  const activeThread = useMemo(() => {
+    return threads.find(t => t.piece_title === activeThreadTitle) || threads[0]
+  }, [threads, activeThreadTitle])
+
+  const takesForActiveThread = useMemo(() => {
+    return activeThread?.takes ?? []
+  }, [activeThread])
+
+  const take = useMemo(() => {
+    if (selectedTakeId) {
+      return takesForActiveThread.find(t => t.id === selectedTakeId) || takesForActiveThread[0]
+    }
+    return takesForActiveThread[0]
+  }, [takesForActiveThread, selectedTakeId])
+
+  // Set default active thread if takeId query parameter exists
+  useEffect(() => {
+    if (takeId && allTakes.length > 0) {
+      const target = allTakes.find(t => t.id === takeId)
+      if (target?.piece_title) {
+        setActiveThreadTitle(target.piece_title)
+        setSelectedTakeId(target.id)
       }
     }
+  }, [takeId, allTakes])
 
-    loadTake()
-    return () => { cancelled = true; clearTimeout(pollTimer) }
-  }, [takeId, isDemo])
-
-  // Generate signed URL for uploaded score (if stored in Supabase)
+  // Resolve signed URLs for Supabase media
   useEffect(() => {
-    if (!take?.score_path) return
-    supabase.storage
-      .from('sheet-music')
-      .createSignedUrl(take.score_path, 86400)
-      .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
+    setScoreUrl(null)
+    setVideoUrl(null)
+    setScoreReady(false)
+    setHighlights([])
+    
+    if (!take) return
+    
+    if (take._demo) {
+      setScoreReady(false)
+      return
+    }
+
+    if (take.score_path) {
+      supabase.storage
+        .from('sheet-music')
+        .createSignedUrl(take.score_path, 86400)
+        .then(({ data }) => { if (data?.signedUrl) setScoreUrl(data.signedUrl) })
+    }
+
+    if (take.video_path) {
+      supabase.storage
+        .from('recordings')
+        .createSignedUrl(take.video_path, 86400)
+        .then(({ data }) => { if (data?.signedUrl) setVideoUrl(data.signedUrl) })
+    }
   }, [take])
 
-  // Generate signed URL for the video recording
-  useEffect(() => {
-    if (!take?.video_path) return
-    supabase.storage
-      .from('recordings')
-      .createSignedUrl(take.video_path, 86400)
-      .then(({ data }) => { if (data?.signedUrl) setVideoUrl(data.signedUrl) })
-  }, [take])
+  // Chat mapping state resolvers
+  const chatMessages = useMemo(() => {
+    return threadChats[activeThreadTitle] || INITIAL_AI_MESSAGES[activeThreadTitle] || [
+      {
+        role: 'assistant',
+        content: `Hi! This is the discussion thread for **${activeThreadTitle}**. Feel free to ask me anything about your practice or upload a new recording to analyze!`,
+      }
+    ]
+  }, [threadChats, activeThreadTitle])
 
-  // Loop the active excerpt whenever isLooping changes
+  const setChatMessages = useCallback((updater) => {
+    setThreadChats(prev => {
+      const current = prev[activeThreadTitle] || INITIAL_AI_MESSAGES[activeThreadTitle] || [
+        {
+          role: 'assistant',
+          content: `Hi! This is the discussion thread for **${activeThreadTitle}**. Feel free to ask me anything about your practice or upload a new recording to analyze!`,
+        }
+      ]
+      const next = typeof updater === 'function' ? updater(current) : updater
+      return { ...prev, [activeThreadTitle]: next }
+    })
+  }, [activeThreadTitle])
+
+  // Loop the active excerpt when isLooping is enabled
   useEffect(() => {
     const video = videoRef.current
     if (!video || !isLooping || !loopRef.current) return
     const { start, end } = loopRef.current
 
     function seekAndPlay() {
-      try { video.currentTime = start } catch { /* ignore */ }
+      try { video.currentTime = start } catch {}
       video.play().catch(() => {})
     }
 
@@ -253,7 +410,7 @@ export default function Analysis({ demo: demoProp = false }) {
 
     function onTimeUpdate() {
       if (videoRef.current && videoRef.current.currentTime >= end) {
-        try { videoRef.current.currentTime = start } catch { /* ignore */ }
+        try { videoRef.current.currentTime = start } catch {}
       }
     }
     video.addEventListener('timeupdate', onTimeUpdate)
@@ -278,10 +435,8 @@ export default function Analysis({ demo: demoProp = false }) {
     loopRef.current = null
   }, [])
 
-  // Stop loop when active flag changes
   useEffect(() => { stopLoop() }, [activeFlag, stopLoop])
 
-  // Derive activeFlagRaw here so hooks below can reference it without TDZ
   const activeFlagIndex = activeFlag ? parseInt(activeFlag.replace('flag_', ''), 10) : -1
   const activeFlagRaw   = take?.flags?.[activeFlagIndex] ?? null
   const hasTimestamps   = activeFlagRaw?.timestamp_start != null && activeFlagRaw?.timestamp_end != null
@@ -304,51 +459,24 @@ export default function Analysis({ demo: demoProp = false }) {
       }))
     : []
 
-  // Auto-seek video to flag's timestamp when a flag is selected
+  // Auto-seek video to flag timestamp when selected
   useEffect(() => {
     if (!activeFlagRaw) return
     const start = Number(activeFlagRaw.timestamp_start)
     const end   = Number(activeFlagRaw.timestamp_end)
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return
 
-    function seek() {
-      const video = videoRef.current
-      if (video) video.currentTime = start
-    }
-
-    // Video may not be in DOM yet — wait one frame for React to commit
-    const raf = requestAnimationFrame(() => {
-      const video = videoRef.current
-      if (!video) return
-      if (video.readyState >= 1) {
-        seek()
-      } else {
-        video.addEventListener('loadedmetadata', seek, { once: true })
-      }
-    })
-    return () => cancelAnimationFrame(raf)
+    const video = videoRef.current
+    if (!video) return
+    try { video.currentTime = start } catch {}
   }, [activeFlagRaw])
 
-  // Determine if score is a visual file (photo/PDF) vs MusicXML
-  const isVisualScore = scoreUrl && (() => {
-    const p = (take?.score_path ?? '').toLowerCase()
-    return /\.(jpe?g|png|webp|heic|pdf)$/.test(p)
-  })()
-  const scorePathLower = (take?.score_path ?? '').toLowerCase()
-  const isPdfScore = isVisualScore && scorePathLower.endsWith('.pdf')
-  const isImageScore = isVisualScore && !isPdfScore
-
-  // Render score once take is resolved (only for MusicXML files)
+  // OSMD sheet music loader
   useEffect(() => {
-    if (take === undefined) return
-    if (!scoreEl.current) return
-    if (scoreReady) return
-    // If the take has a score_path, wait for the signed URL before deciding
-    if (take?.score_path && !scoreUrl) return
-    if (isVisualScore) { setScoreReady(true); return }
-
+    if (!scoreEl.current || scoreReady) return
+    
     const pieceTitle = take?.piece_title ?? ''
-    const scoreFile  = scoreUrl ?? scoreFileForPiece(pieceTitle)
+    const scoreFile = scoreUrl ?? scoreFileForPiece(pieceTitle)
 
     if (!scoreFile) {
       setScoreReady(true)
@@ -381,7 +509,6 @@ export default function Analysis({ demo: demoProp = false }) {
         osmd.render()
         setScoreReady(true)
 
-        // Build highlight rects from measure positions
         try {
           const measureList = osmd.GraphicSheet.MeasureList
           const zoom = osmd.zoom * 10
@@ -404,29 +531,27 @@ export default function Analysis({ demo: demoProp = false }) {
           })
           setHighlights(newHighlights)
         } catch (e) {
-          console.warn('Could not compute measure highlights:', e)
+          console.warn('Could not render measure highlights:', e)
         }
       })
       .catch(err => {
         console.error('OSMD load error:', err)
         setScoreReady(true)
       })
-  }, [take, scoreUrl])
+  }, [take, scoreUrl, scoreReady])
 
-  // Scroll chat to bottom on new messages
+  // Scroll chat area
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages, chatLoading])
 
-  // Apply playback rate whenever videoSpeed changes
+  // Sync speed modifiers
   useEffect(() => {
     if (videoRef.current) videoRef.current.playbackRate = videoSpeed
   }, [videoSpeed])
 
-  // Keep keyboard shortcut ref current on every render
+  // Keyboard shortcuts
   kbRef.current = { activeFlagIndex, activeFlagRaw, chips, hasTimestamps, isLooping }
-
-  // Global keyboard shortcuts — registered once, reads latest state via ref
   useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
@@ -436,25 +561,13 @@ export default function Analysis({ demo: demoProp = false }) {
         const v = videoRef.current
         if (v) { if (v.paused) v.play().catch(() => {}); else v.pause() }
       }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        if (s.activeFlagIndex > 0) setActiveFlag(`flag_${s.activeFlagIndex - 1}`)
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        const next = s.activeFlagIndex >= 0 ? s.activeFlagIndex + 1 : 0
-        if (next < s.chips.length) setActiveFlag(`flag_${next}`)
-      }
-      if (e.key === 'l' || e.key === 'L') {
-        if (s.isLooping) stopLoop()
-        else if (s.activeFlagRaw && s.hasTimestamps) startLoop(s.activeFlagRaw)
-      }
       if (e.key === 'Escape') setActiveFlag(null)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [startLoop, stopLoop])
+  }, [])
 
+  // Generate Session Summary
   async function generateSummary() {
     if (!take?.flags?.length) return
     setSummaryLoading(true)
@@ -474,7 +587,7 @@ export default function Analysis({ demo: demoProp = false }) {
       setSummary(data.summary)
     } catch (err) {
       console.error('[analysis-summary]', err)
-      setSummaryError(`Could not generate summary: ${err?.message ?? String(err)}`)
+      setSummaryError('Could not generate summary. Try again.')
     } finally {
       setSummaryLoading(false)
     }
@@ -488,53 +601,235 @@ export default function Analysis({ demo: demoProp = false }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [take?.id])
 
-  async function sendMessage() {
-    const msg = chatInput.trim()
+  // ChatGPT conversational questioning loop
+  async function sendMessage(chipText) {
+    const msg = (chipText ?? chatInput).trim()
     if (!msg || chatLoading) return
     setChatInput('')
 
-    // Snapshot whichever issue is active at send time so the history stays accurate
     const flagContext = activeFlagRaw
       ? { measure: activeFlagRaw.measure, type: activeFlagRaw.type, title: activeFlagRaw.title }
       : null
 
     setChatMessages(prev => [...prev, { role: 'user', content: msg, flagContext }])
     setChatLoading(true)
+    playPop()
 
-    try {
-      const { data, error } = await supabase.functions.invoke('coach-chat', {
-        body: {
-          message: msg,
-          context: {
-            pieceTitle:    take?.piece_title    ?? '',
-            pieceComposer: take?.piece_composer ?? '',
-            instrument:    take?.instrument     ?? null,
-            flags:         take?.flags          ?? [],
-            activeFlag:    flagContext          ?? null,
+    if (user?.id && !isDemo) {
+      try {
+        const { data, error } = await supabase.functions.invoke('coach-chat', {
+          body: {
+            message: msg,
+            context: {
+              pieceTitle:    activeThreadTitle,
+              pieceComposer: activeThread?.piece_composer ?? '',
+              instrument:    activeThread?.instrument ?? null,
+              flags:         take?.flags ?? [],
+              activeFlag:    flagContext ?? null,
+            },
+            history: chatMessages,
           },
-          history: chatMessages,
-        },
-      })
-      if (error) throw new Error(error.message ?? String(error))
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data?.reply ?? '' }])
-    } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Try again.' }])
-    } finally {
-      setChatLoading(false)
+        })
+        if (error) throw new Error(error.message)
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data?.reply ?? '' }])
+      } catch {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't reach the coaching engine. Please try again." }])
+      } finally {
+        setChatLoading(false)
+      }
+    } else {
+      // Mock ChatGPT Responses for premium feel offline
+      setTimeout(() => {
+        let reply = "That is a great observation! "
+        if (msg.toLowerCase().includes('opening') || msg.toLowerCase().includes('measure 5')) {
+          reply = "For the opening of **Clair de lune** (m.5 run), focus on complete physical relaxation in your wrist. Play the triplets hands-separately at a slow tempo (♩=45). Subdivide each beat with your metronome, keeping a lightweight touch so the melody flows effortlessly."
+        } else if (msg.toLowerCase().includes('rushed') || msg.toLowerCase().includes('measure 14')) {
+          reply = "The subito forte in measure 14 is often struck out of excitement, which raises the percussive tone. To fix this, keep your fingers in contact with the keys *before* you play. Use your forearm and shoulder weight to depress the keybed deeply and warmly, avoiding an abrupt claw strike."
+        } else if (msg.toLowerCase().includes('balance') || msg.toLowerCase().includes('left-hand')) {
+          reply = "To balance the hands perfectly, practice dynamic scaling. The right-hand melody should be played at a singing *mezzoforte* (weighted keys), while the left-hand chords are played *pianissimo* (brushing the keys lightly). Try playing the left hand separately until it feels like a soft ambient backdrop."
+        } else {
+          reply = `In this take, your dynamic voicing is very strong. Focus on maintaining a loose wrist on the crossovers and keep your pedaling clear on the chord shifts (especially around measure 21 F♯ bass octave). Let's continue working on these focus areas!`
+        }
+        
+        setChatMessages(prev => [...prev, { role: 'assistant', content: reply }])
+        setChatLoading(false)
+      }, 1500)
     }
   }
 
-  const pieceTitle    = take?.piece_title    ?? ''
-  const pieceComposer = take?.piece_composer ?? ''
-  const instrument    = take?.instrument     ?? null
-  const issueCount    = chips.length
-  const score         = take?.score
-  const hasScore      = !!scoreUrl || !!scoreFileForPiece(pieceTitle)
-  const analysisQuality = take?.analysis_quality ?? null
+  // Follow-up recording upload picker
+  function triggerFileUpload() {
+    playNav()
+    fileInputRef.current?.click()
+  }
 
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const userMsg = `Uploaded follow-up take: "${file.name}"`
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    
+    setChatLoading(true)
+
+    // Append analysis status bubble
+    const nextTakeNum = takesForActiveThread.length + 1
+    setChatMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `[Mediant is analyzing your follow-up recording (Take ${nextTakeNum})... This will take a moment.]`
+    }])
+
+    if (user?.id && !isDemo) {
+      try {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+        const filePath = `${user.id}/${Date.now()}-${safeName}`
+        
+        const { error: uploadError } = await supabase.storage
+          .from('recordings')
+          .upload(filePath, file, { contentType: file.type || 'video/mp4', upsert: false })
+        if (uploadError) throw new Error(uploadError.message)
+
+        const { data: jobResult, error: fnError } = await supabase.functions.invoke('analyze-performance', {
+          body: {
+            videoPath:      filePath,
+            videoMimeType:  file.type || 'video/mp4',
+            scorePath:      take?.score_path || null,
+            pieceTitle:     activeThreadTitle,
+            composer:       activeThread?.piece_composer,
+            instrument:     activeThread?.instrument,
+          }
+        })
+        if (fnError || jobResult?.error) throw new Error(jobResult?.error || fnError?.message)
+
+        const jobId = jobResult?.jobId
+        let completedTake = null
+        for (let i = 0; i < 40; i++) {
+          await new Promise(r => setTimeout(r, 4000))
+          const { data, error } = await supabase
+            .from('takes')
+            .select('*')
+            .eq('id', jobId)
+            .single()
+          if (!error && data && data.job_status === 'done') {
+            completedTake = data
+            break
+          }
+        }
+
+        if (completedTake) {
+          setAllTakes(prev => [completedTake, ...prev])
+          setSelectedTakeId(completedTake.id)
+
+          const scoreDiff = completedTake.score - (take?.score ?? 0)
+          const reply = `Analysis complete for Take ${nextTakeNum}! \n\n**New Score: ${completedTake.score}/100** (${scoreDiff >= 0 ? '+' : ''}${scoreDiff} difference).\n\nHere is a quick summary of what changed:\n${completedTake.flags?.map(f => `- **m.${f.measure}**: ${f.title}`).join('\n') || '- No critical issues flagged!'}\n\nI've loaded your new take on screen. What should we work on next?`
+          
+          setChatMessages(prev => {
+            const clean = prev.slice(0, prev.length - 1)
+            return [...clean, { role: 'assistant', content: reply }]
+          })
+        } else {
+          throw new Error('Analysis polling timed out')
+        }
+      } catch (err) {
+        console.error(err)
+        setChatMessages(prev => {
+          const clean = prev.slice(0, prev.length - 1)
+          return [...clean, { role: 'assistant', content: `Sorry, there was an issue running the edge analyzer: ${err.message}. Please try again.` }]
+        })
+      } finally {
+        setChatLoading(false)
+      }
+    } else {
+      // Mock follow-up upload response for high-fidelity demo sandbox
+      setTimeout(() => {
+        const newScore = Math.min(100, Math.max(0, (take?.score ?? 82) + 3))
+        
+        const newMockTake = {
+          ...DEMO_TAKE,
+          id: `mock_take_${nextTakeNum}_${Date.now()}`,
+          piece_title: activeThreadTitle,
+          piece_composer: activeThread?.piece_composer,
+          instrument: activeThread?.instrument,
+          score: newScore,
+          created_at: new Date().toISOString(),
+          flags: [
+            {
+              measure: 14,
+              type: 'dynamics',
+              confidence: 95,
+              title: 'Subito forte is resolved',
+              detail: 'Outstanding dynamic control! The keys are beautifully weighted and the fortissimo has rich, ringing harmonics rather than a percussive strike. Excellent adjust!',
+              timestamp_start: 22.4,
+              timestamp_end: 23.9,
+            },
+            {
+              measure: 5,
+              type: 'timing',
+              confidence: 92,
+              title: 'Triplet run descent is steady',
+              detail: 'Terrific job adjusting your hand tension. The notes roll evenly, arriving precisely on beat 3. Rushing resolved.',
+              timestamp_start: 8.2,
+              timestamp_end: 10.1,
+            },
+            {
+              measure: 27,
+              type: 'technique',
+              confidence: 82,
+              title: 'Thumb tuck on inner voice D♭',
+              detail: 'The thumb crosses under the hand awkwardly on the D♭ in m.27. Keep working on hands separately to voice this smoothly.',
+              timestamp_start: 46.8,
+              timestamp_end: 48.3,
+            }
+          ]
+        }
+
+        setAllTakes(prev => [newMockTake, ...prev])
+        setSelectedTakeId(newMockTake.id)
+
+        const reply = `Analysis complete for **Take ${nextTakeNum}**! \n\n**New Score: ${newScore}/100** (+3 increase from your last take!).\n\nHere is what changed:\n- **m.14 (Dynamics) [RESOLVED]**: Superb dynamics. The chord is deeply weighted from the shoulder, producing a warm singing tone.\n- **m.5 (Timing) [RESOLVED]**: Triplets are steady and aligned.\n- **m.27 (Technique) [REMAINING]**: Thumb tuck is still slightly heavy. Let's practice hands separately to ease the thumb crossover.\n\nI've updated your sheet music view to show the remaining spots. Excellent progress!`
+
+        setChatMessages(prev => {
+          const clean = prev.slice(0, prev.length - 1)
+          return [...clean, { role: 'assistant', content: reply }]
+        })
+        setChatLoading(false)
+      }, 4000)
+    }
+  }
+
+  // Filter threads
+  const filteredThreads = useMemo(() => {
+    return threads.filter(t => {
+      if (threadsTab === 'pinned') return t.isPinned
+      return true
+    })
+  }, [threads, threadsTab])
+
+  // Sheet music/PDF fallbacks
+  const isVisualScore = scoreUrl && (() => {
+    const p = (take?.score_path ?? '').toLowerCase()
+    return /\.(jpe?g|png|webp|heic|pdf)$/.test(p)
+  })()
+  const isPdfScore = isVisualScore && (take?.score_path ?? '').toLowerCase().endsWith('.pdf')
+  const isImageScore = isVisualScore && !isPdfScore
+
+  const pieceTitle = activeThreadTitle
+  const pieceComposer = activeThread?.piece_composer ?? ''
+  const instrument = activeThread?.instrument ?? ''
+  const score = take?.score ?? null
+  const issueCount = chips.length
+  const analysisQuality = take?.analysis_quality ?? null
   const info = activeFlag ? flagsMap[activeFlag] : null
 
-  // Chips sorted by measure for the new issue grid
+  const subtext = useMemo(() => {
+    const parts = []
+    if (pieceComposer && pieceComposer !== 'Unknown') parts.push(pieceComposer)
+    if (instrument) parts.push(instrument)
+    const ago = timeAgo(take?.created_at ?? take?.date)
+    if (ago) parts.push(`Analyzed ${ago}`)
+    return parts.join(' · ')
+  }, [pieceComposer, instrument, take])
+
   const sortedChips = useMemo(() => {
     return [...chips].sort((a, b) => {
       const ia = parseInt(a.flag.replace('flag_', ''), 10)
@@ -545,54 +840,6 @@ export default function Analysis({ demo: demoProp = false }) {
     })
   }, [chips, take?.flags])
 
-
-  if (take === undefined) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.analyzeScreen}>
-          <div className={styles.analyzeIcon}>♩</div>
-          <p className={styles.analyzeSub}>Loading your analysis…</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24, width: '100%', maxWidth: 480 }}>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (take?._polling) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.analyzeScreen}>
-          <div className={styles.analyzeIcon}>♪</div>
-          <h2 className={styles.analyzeTitle}>Analysis in progress…</h2>
-          <p className={styles.analyzeSub}>Mediant is analyzing your performance — this takes 1–3 minutes. This page will update automatically.</p>
-          {take.job_error && (
-            <p style={{ color: 'var(--coral)', marginTop: 12, fontSize: 14 }}>{take.job_error}</p>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (take === null) {
-    return (
-      <div className={styles.page}>
-        <div className={styles.analyzeScreen}>
-          <div className={styles.analyzeIcon}>♩</div>
-          <p className={styles.analyzeTitle}>No recording yet</p>
-          <p className={styles.analyzeSub}>Upload a recording to see your score review here.</p>
-          <button className={styles.primaryBtn} style={{ marginTop: 16 }} onClick={() => nav('/record')}>
-            Upload a recording →
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Score area JSX (shared between columns) ──────────────────
   const scoreAreaContent = (
     <div className={`${styles.scoreArea} ${isImageScore ? styles.scoreAreaImage : ''}`}>
       {isVisualScore && scoreUrl && (
@@ -600,24 +847,21 @@ export default function Analysis({ demo: demoProp = false }) {
           <iframe src={scoreUrl} className={styles.scorePdf} title="Sheet music" />
         ) : (
           <div className={styles.scorePhotoWrap}>
-            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" loading="lazy" decoding="async" />
+            <img src={scoreUrl} className={styles.scorePhoto} alt="Sheet music" loading="lazy" />
             {(take?.flags ?? []).map((f, i) => {
               if (!f.spot) return null
               const flagId = `flag_${i}`
               if (activeFlag !== flagId) return null
               const [y0, x0, y1, x1] = f.spot
-              const angle = f.spot_angle ?? 0
               const cx = (x0 + x1) / 2 / 10, cy = (y0 + y1) / 2 / 10
               const w = (x1 - x0) / 10, h = (y1 - y0) / 10
               return (
-                <div key={flagId} onClick={() => setActiveFlag(a => a === flagId ? null : flagId)}
+                <div key={flagId}
                   style={{
                     position: 'absolute', left: `${cx}%`, top: `${cy}%`,
                     width: `${w}%`, height: `${h}%`,
-                    transform: `translate(-50%, -50%) rotate(${angle}deg)`,
-                    transformOrigin: 'center center',
-                    background: 'rgba(88,121,101,0.3)', borderRadius: 3,
-                    cursor: 'pointer', transition: 'background 150ms ease',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'rgba(184,146,42,0.3)', borderRadius: 4,
                   }}
                 />
               )
@@ -627,10 +871,32 @@ export default function Analysis({ demo: demoProp = false }) {
       )}
       {!isVisualScore && (
         <>
-          {!hasScore && scoreReady && (
+          {take?._demo && (
+            <div style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <img src="/scores/clair-de-lune-preview.png" alt="Clair de lune Sheet music"
+                style={{ width: '100%', borderRadius: 8, opacity: 0.9, boxShadow: 'var(--shadow-sm)' }}
+                onError={(e) => {
+                  e.target.style.display = 'none'
+                }}
+              />
+              <div style={{
+                position: 'absolute', left: '20%', top: '35%', width: '15%', height: '12%',
+                background: activeFlag === 'flag_0' ? 'rgba(184,146,42,0.22)' : 'rgba(184,146,42,0.06)',
+                border: `2px solid ${activeFlag === 'flag_0' ? 'var(--accent)' : 'var(--accent-border)'}`,
+                borderRadius: 6, cursor: 'pointer', transition: 'all 0.2s'
+              }} onClick={() => { playTick(); setActiveFlag('flag_0') }} />
+              <div style={{
+                position: 'absolute', left: '55%', top: '55%', width: '18%', height: '12%',
+                background: activeFlag === 'flag_1' ? 'rgba(184,146,42,0.22)' : 'rgba(184,146,42,0.06)',
+                border: `2px solid ${activeFlag === 'flag_1' ? 'var(--accent)' : 'var(--accent-border)'}`,
+                borderRadius: 6, cursor: 'pointer', transition: 'all 0.2s'
+              }} onClick={() => { playTick(); setActiveFlag('flag_1') }} />
+            </div>
+          )}
+          {!take?._demo && !scoreFileForPiece(pieceTitle) && scoreReady && (
             <div className={styles.scoreUnavailable}>
-              <p>Score not available for <em>{pieceTitle}</em> yet.</p>
-              <p>Feedback is based on the performance analysis.</p>
+              <p>Sheet music is not uploaded for this session.</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-faint)' }}>Comparative review is based on audio playback.</p>
             </div>
           )}
           <div style={{ position: 'relative' }}>
@@ -640,21 +906,18 @@ export default function Analysis({ demo: demoProp = false }) {
               return (
                 <div key={measureNum}
                   onClick={() => {
+                    playTick()
                     setActiveFlag(prev => {
-                      if (!isMeasureActive) {
-                        return flagIds[0]
-                      }
+                      if (!isMeasureActive) return flagIds[0]
                       const idx = flagIds.indexOf(prev)
-                      if (idx === flagIds.length - 1) {
-                        return null
-                      }
+                      if (idx === flagIds.length - 1) return null
                       return flagIds[idx + 1]
                     })
                   }}
                   style={{
                     position: 'absolute', left: x, top: y, width: w, height: h,
-                    background: isMeasureActive ? 'rgba(88,121,101,0.22)' : 'rgba(88,121,101,0.08)',
-                    border: `1.5px solid rgba(88,121,101,${isMeasureActive ? '0.55' : '0.28'})`,
+                    background: isMeasureActive ? 'rgba(184,146,42,0.22)' : 'rgba(184,146,42,0.06)',
+                    border: `1.5px solid rgba(184,146,42,${isMeasureActive ? '0.6' : '0.22'})`,
                     borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
                   }}
                 />
@@ -667,398 +930,498 @@ export default function Analysis({ demo: demoProp = false }) {
   )
 
   return (
-    <div className={styles.page}>
+    <div className={`${aStyles.tripleLayout} ${isThreadsCollapsed ? aStyles.threadsCollapsed : ''}`}>
+      {/* Hidden file input for uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        accept="audio/*,video/*"
+        onChange={handleFileUpload}
+      />
 
-      {/* ── Demo banner ── */}
-      {isDemo && (
-        <div style={{
-          background: 'rgba(92,184,107,0.1)',
-          border: '1px solid rgba(92,184,107,0.25)',
-          borderRadius: 8,
-          color: 'rgba(248,246,242,0.75)',
-          fontSize: '0.85rem',
-          marginBottom: 16,
-          padding: '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
-          <span style={{ color: 'var(--hero-green)', fontWeight: 600 }}>Demo</span>
-          This is a sample analysis for Clair de lune. Create a free account to analyze your own recordings.
-          <a href="#/signup" style={{ color: 'var(--hero-green)', marginLeft: 'auto', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
-            Get started free →
-          </a>
+      {/* ───── SIDEBAR COLUMN: Threads Panel ───── */}
+      <aside className={`${aStyles.threadsColumn} ${isThreadsCollapsed ? aStyles.threadsColumnCollapsed : ''}`}>
+        <div className={aStyles.threadsHeader}>
+          <h2 className={aStyles.threadsTitle}>
+            Threads
+          </h2>
+          <button className={aStyles.threadsNewBtn} onClick={() => nav('/record')} title="New session">
+            +
+          </button>
         </div>
-      )}
 
-      {/* ── Header ── */}
-      <div className={styles.header}>
-        <div>
-          <p className={styles.label}>Score Review</p>
-          <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
-          <p className={styles.sub}>
-            {[pieceComposer, instrument].filter(Boolean).join(' · ')}
-            {analysisQuality?.trust && (
-              <> · <span style={{
-                color: analysisQuality.trust === 'high' ? 'var(--hero-green)' : analysisQuality.trust === 'medium' ? 'var(--gold)' : 'var(--coral)',
-                fontWeight: 500,
-              }}>
-                {analysisQuality.trust === 'high' ? '● High confidence' : analysisQuality.trust === 'medium' ? '◑ Medium confidence' : '○ Low confidence'}
-              </span></>
-            )}
-            {timeAgo(take?.created_at ?? take?.date) && (
-              <> · <span style={{ color: 'rgba(248,246,242,0.32)' }}>Analyzed {timeAgo(take?.created_at ?? take?.date)}</span></>
-            )}
-          </p>
+        <div className={aStyles.threadsTabs}>
+          <button
+            className={`${aStyles.threadsTabBtn} ${threadsTab === 'all' ? aStyles.threadsTabBtnActive : ''}`}
+            onClick={() => setThreadsTab('all')}
+          >
+            All
+          </button>
+          <button
+            className={`${aStyles.threadsTabBtn} ${threadsTab === 'pinned' ? aStyles.threadsTabBtnActive : ''}`}
+            onClick={() => setThreadsTab('pinned')}
+          >
+            Pinned
+          </button>
         </div>
-        <div className={aStyles.headerRight}>
-          {score != null && (
-            <div className={aStyles.scoreBadge}>
-              <p className={aStyles.scoreBadgeLabel}>Technique Score</p>
-              <div className={aStyles.scoreBadgeMain}>
-                <span className={aStyles.scoreBadgeNum} style={{ color: scoreColor(score) }}>{score}</span>
-                <span className={aStyles.scoreBadgeDen}>/100</span>
-              </div>
-              <div className={aStyles.scoreBadgeTrack}>
-                <div className={aStyles.scoreBadgeFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
-              </div>
-            </div>
-          )}
-          <button className={styles.ghostBtn} onClick={() => nav('/record')}>↺ Re-analyze</button>
-        </div>
-      </div>
 
-      {/* ── Tab strip ── */}
-      <div className={aStyles.tabStrip}>
-        <button
-          className={`${aStyles.tab} ${activeTab === 'overview' ? aStyles.tabActive : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >Overview</button>
-        <button
-          className={`${aStyles.tab} ${activeTab === 'summary' ? aStyles.tabActive : ''}`}
-          onClick={() => setActiveTab('summary')}
-        >Session Summary</button>
-      </div>
+        <div className={aStyles.threadsList}>
+          {filteredThreads.map(t => {
+            const isActive = t.piece_title === activeThreadTitle
+            const latestTake = t.takes[0]
+            const scoreVal = latestTake?.score ?? 80
+            const relativeTime = timeAgo(latestTake?.created_at) || 'Recent'
+            const isPinned = t.isPinned
 
-      {activeTab === 'overview' ? (
-        <>
-          {/* ── Confidence notices ── */}
-          {analysisQuality?.trust === 'low' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-            <div className={`${styles.analysisNotice} ${styles.analysisNoticeLow}`}>
-              <p className={styles.analysisNoticeTitle}>Analysis confidence was too low for precise feedback</p>
-              <ul className={styles.analysisNoticeList}>
-                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
-              </ul>
-              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>Try uploading a MusicXML file for higher accuracy, or record a cleaner excerpt with less background noise.</p>
-            </div>
-          )}
-          {analysisQuality?.trust === 'medium' && Array.isArray(analysisQuality.reasons) && analysisQuality.reasons.length > 0 && (
-            <div className={`${styles.analysisNotice} ${styles.analysisNoticeMedium}`}>
-              <p className={styles.analysisNoticeTitle}>Medium confidence — feedback may be slightly imprecise</p>
-              <ul className={styles.analysisNoticeList}>
-                {analysisQuality.reasons.map(r => <li key={r}>{r}</li>)}
-              </ul>
-              <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>For higher accuracy, upload a MusicXML or MXL file instead of a photo or PDF.</p>
-            </div>
-          )}
-
-          {/* ── Two-column: score left + insights right ── */}
-          <div className={`${aStyles.reviewLayout} ${isImageScore ? aStyles.reviewLayoutImageScore : ''}`}>
-
-            {/* Left: sticky score panel */}
-            <div className={aStyles.scoreColumnWrap}>
-              <div className={aStyles.scoreColumn}>
-                <div className={aStyles.scoreInner}>
-                  {scoreAreaContent}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: AI insights + video + chat */}
-            <div className={aStyles.rightColumn}>
-
-              {/* AI Insights Timeline */}
-              <section className={aStyles.insightsPanel}>
-                <div className={aStyles.insightsPanelHeader}>
-                  <span className={aStyles.insightsPanelTitle}>
-                    AI Insights Timeline
-                    {issueCount > 0 && <span className={aStyles.insightCount}>{issueCount}</span>}
+            return (
+              <div
+                key={t.piece_title}
+                className={`${aStyles.threadCard} ${isActive ? aStyles.threadCardActive : ''}`}
+                onClick={() => {
+                  playTick()
+                  setActiveThreadTitle(t.piece_title)
+                  setSelectedTakeId(null) // Defaults to latest
+                  setActiveFlag(null)
+                }}
+              >
+                <div className={aStyles.threadCardHeader}>
+                  <h3 className={aStyles.threadPieceTitle}>{t.piece_title}</h3>
+                  <span
+                    className={aStyles.threadPinIcon}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      playTick()
+                      setAllTakes(prev => prev.map(take => 
+                        take.piece_title === t.piece_title ? { ...take, _pinned: !isPinned } : take
+                      ))
+                      t.isPinned = !isPinned
+                    }}
+                    title={isPinned ? 'Unpin thread' : 'Pin thread'}
+                  >
+                    {isPinned ? '★' : '☆'}
                   </span>
-                  <div className={aStyles.confLegend}>
-                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--accent)' }} />High</span>
-                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--gold)' }} />Medium</span>
-                    <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--coral)' }} />Low</span>
+                </div>
+                <p className={aStyles.threadComposer}>{t.piece_composer}</p>
+                <div className={aStyles.threadStats}>
+                  <span>{t.takes.length} Takes</span>
+                  {t.piece_title === 'Clair de lune' && <span>12d 🔥</span>}
+                </div>
+                <div className={aStyles.threadMeta}>
+                  <span className={aStyles.threadScoreBadge} style={{
+                    background: scoreVal >= 88 ? 'rgba(74,140,88,0.18)' : scoreVal >= 74 ? 'rgba(214,177,104,0.18)' : 'rgba(225,134,118,0.18)',
+                    color: scoreVal >= 88 ? 'var(--mint)' : scoreVal >= 74 ? 'var(--gold)' : 'var(--coral)',
+                  }}>
+                    Score: {scoreVal}
+                  </span>
+                  <span className={aStyles.threadTime}>{relativeTime}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <button className={aStyles.threadsArchiveBtn} onClick={() => alert('Archive is empty')}>
+          View archived threads
+        </button>
+      </aside>
+
+      {/* ───── MAIN CONTENT AREA: Original Feedback Page Layout ───── */}
+      <main className={aStyles.mainPageContent}>
+        {/* Demo banner */}
+        {isDemo && (
+          <div style={{
+            background: 'rgba(92,184,107,0.1)',
+            border: '1px solid rgba(92,184,107,0.25)',
+            borderRadius: 8,
+            color: 'rgba(248,246,242,0.75)',
+            fontSize: '0.85rem',
+            marginBottom: 16,
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <span style={{ color: 'var(--hero-green)', fontWeight: 600 }}>Demo</span>
+            This is a sample analysis for Clair de lune. Create a free account to analyze your own recordings.
+            <a href="#/signup" style={{ color: 'var(--hero-green)', marginLeft: 'auto', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Get started free →
+            </a>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className={styles.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              className={aStyles.sidebarToggleBtn}
+              onClick={() => {
+                playTick()
+                setIsThreadsCollapsed(prev => {
+                  const next = !prev
+                  localStorage.setItem('mediant_threads_collapsed', String(next))
+                  return next
+                })
+              }}
+              title={isThreadsCollapsed ? "Show threads sidebar" : "Hide threads sidebar"}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
+            <div>
+              <p className={styles.label}>Score Review</p>
+              <h1 className={styles.reviewTitle}>{pieceTitle}</h1>
+              <p className={styles.sub}>
+                {subtext}
+              </p>
+            </div>
+          </div>
+          <div className={aStyles.headerRight}>
+            {score != null && (
+              <div className={aStyles.scoreBadge}>
+                <p className={aStyles.scoreBadgeLabel}>Technique Score</p>
+                <div className={aStyles.scoreBadgeMain}>
+                  <span className={aStyles.scoreBadgeNum} style={{ color: scoreColor(score) }}>{score}</span>
+                  <span className={aStyles.scoreBadgeDen}>/100</span>
+                </div>
+                <div className={aStyles.scoreBadgeTrack}>
+                  <div className={aStyles.scoreBadgeFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+                </div>
+              </div>
+            )}
+            <button className={styles.ghostBtn} onClick={() => nav('/record')}>↺ Re-analyze</button>
+          </div>
+        </div>
+
+        {/* Tab strip */}
+        <div className={aStyles.tabStrip}>
+          <button
+            className={`${aStyles.tab} ${activeTab === 'overview' ? aStyles.tabActive : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >Overview</button>
+          <button
+            className={`${aStyles.tab} ${activeTab === 'summary' ? aStyles.tabActive : ''}`}
+            onClick={() => setActiveTab('summary')}
+          >Session Summary</button>
+        </div>
+
+        {activeTab === 'overview' ? (
+          <>
+            {/* Two-column layout: Score on Left, AI Insights on Right */}
+            <div className={`${aStyles.reviewLayout} ${isImageScore ? aStyles.reviewLayoutImageScore : ''}`}>
+              {/* Left Column: Sheet music score */}
+              <div className={aStyles.scoreColumnWrap}>
+                <div className={aStyles.scoreColumn}>
+                  <div className={aStyles.scoreInner}>
+                    {scoreAreaContent}
                   </div>
                 </div>
+              </div>
 
-                {issueCount === 0 ? (
-                  <div className={aStyles.issueClean}>✓ No issues detected — clean performance.</div>
-                ) : (
-                  <div className={aStyles.timeline}>
-                    {sortedChips.map(({ flag, confidence }) => {
-                      const idx = parseInt(flag.replace('flag_', ''), 10)
-                      const f = take.flags[idx]
-                      const isActive = activeFlag === flag
-                      const cc = confColor(confidence)
-                      return (
-                        <button
-                          key={flag}
-                          className={`${aStyles.timelineRow} ${isActive ? aStyles.timelineRowActive : ''}`}
-                          onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
-                        >
-                          <span className={aStyles.timelineConfDot} style={{ background: cc }} />
-                          <span className={aStyles.timelineTs}>{formatTs(f?.timestamp_start)}</span>
-                          <span className={aStyles.timelineMeasure}>m.{f?.measure}</span>
-                          <span className={aStyles.timelineTypePill} data-type={(f?.type ?? 'technique').toLowerCase()}>{capitalize(f?.type)}</span>
-                          <span className={aStyles.timelineTitle}>{f?.title}</span>
-                          <span className={aStyles.timelineConfBadge} style={{ color: cc }}>{confLabel(confidence)}</span>
-                        </button>
-                      )
-                    })}
+              {/* Right Column: AI insights, playback loops, and Mediant chat box */}
+              <div className={aStyles.rightColumn}>
+                {/* AI Insights Timeline */}
+                <section className={aStyles.insightsPanel}>
+                  <div className={aStyles.insightsPanelHeader}>
+                    <span className={aStyles.insightsPanelTitle}>
+                      AI Insights Timeline
+                      {issueCount > 0 && <span className={aStyles.insightCount}>{issueCount}</span>}
+                    </span>
+                    <div className={aStyles.confLegend}>
+                      <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--accent)' }} />High</span>
+                      <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--gold)' }} />Medium</span>
+                      <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--coral)' }} />Low</span>
+                    </div>
                   </div>
-                )}
 
-                {/* Expanded insight card */}
-                {info && activeFlagRaw && (
-                  <div className={aStyles.insightCard}>
-                    <div className={aStyles.insightCardHeader}>
-                      <span className={aStyles.insightMeasureBadge}>m.{activeFlagRaw.measure}</span>
-                      <h3 className={aStyles.insightTitle}>{info.title}</h3>
-                      <span className={aStyles.insightConfBadge} style={{ color: confColor(info.confidence ?? 100) }}>
-                        {confLabel(info.confidence ?? 100)}
-                      </span>
-                      <button className={aStyles.insightDismiss} onClick={() => setActiveFlag(null)}>✕</button>
-                    </div>
-                    <p className={aStyles.insightBody}>{info.body}</p>
-                    <div className={aStyles.insightTags}>
-                      <span className={aStyles.insightTag}>{capitalize(activeFlagRaw.type)}</span>
-                      {info.confidence != null && (
-                        <span className={aStyles.insightTag}>Confidence: {confLabel(info.confidence)}</span>
-                      )}
-                    </div>
-                    {videoUrl && hasTimestamps && (
-                      <div className={aStyles.insightActions}>
-                        {!isLooping ? (
-                          <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
-                            ↺ Loop m.{activeFlagRaw.measure}
-                            <span className={aStyles.loopExcerptTime}>
-                              {formatTs(activeFlagRaw.timestamp_start)} – {formatTs(activeFlagRaw.timestamp_end)}
-                            </span>
+                  {issueCount === 0 ? (
+                    <div className={aStyles.issueClean}>✓ No issues detected — clean performance.</div>
+                  ) : (
+                    <div className={aStyles.timeline}>
+                      {sortedChips.map(({ flag, confidence }) => {
+                        const idx = parseInt(flag.replace('flag_', ''), 10)
+                        const f = take.flags[idx]
+                        const isActive = activeFlag === flag
+                        const cc = confColor(confidence)
+                        return (
+                          <button
+                            key={flag}
+                            className={`${aStyles.timelineRow} ${isActive ? aStyles.timelineRowActive : ''}`}
+                            onClick={() => { playTick(); setActiveFlag(activeFlag === flag ? null : flag) }}
+                          >
+                            <span className={aStyles.timelineConfDot} style={{ background: cc }} />
+                            <span className={aStyles.timelineTs}>{formatTs(f?.timestamp_start)}</span>
+                            <span className={aStyles.timelineMeasure}>m.{f?.measure}</span>
+                            <span className={aStyles.timelineTypePill} data-type={(f?.type ?? 'technique').toLowerCase()}>{capitalize(f?.type)}</span>
+                            <span className={aStyles.timelineTitle}>{f?.title}</span>
+                            <span className={aStyles.timelineConfBadge} style={{ color: cc }}>{confLabel(confidence)}</span>
                           </button>
-                        ) : (
-                          <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Expanded insight card */}
+                  {info && activeFlagRaw && (
+                    <div className={aStyles.insightCard}>
+                      <div className={aStyles.insightCardHeader}>
+                        <span className={aStyles.insightMeasureBadge}>m.{activeFlagRaw.measure}</span>
+                        <h3 className={aStyles.insightTitle}>{info.title}</h3>
+                        <span className={aStyles.insightConfBadge} style={{ color: confColor(info.confidence ?? 100) }}>
+                          {confLabel(info.confidence ?? 100)}
+                        </span>
+                        <button className={aStyles.insightDismiss} onClick={() => setActiveFlag(null)}>✕</button>
+                      </div>
+                      <p className={aStyles.insightBody}>{info.body}</p>
+                      <div className={aStyles.insightTags}>
+                        <span className={aStyles.insightTag}>{capitalize(activeFlagRaw.type)}</span>
+                        {info.confidence != null && (
+                          <span className={aStyles.insightTag}>Confidence: {confLabel(info.confidence)}</span>
                         )}
                       </div>
+                      {videoUrl && hasTimestamps && (
+                        <div className={aStyles.insightActions}>
+                          {!isLooping ? (
+                            <button className={aStyles.loopBtn} onClick={() => startLoop(activeFlagRaw)}>
+                              ↺ Loop m.{activeFlagRaw.measure}
+                              <span className={aStyles.loopExcerptTime}>
+                                {formatTs(activeFlagRaw.timestamp_start)} – {formatTs(activeFlagRaw.timestamp_end)}
+                              </span>
+                            </button>
+                          ) : (
+                            <button className={aStyles.loopStopBtn} onClick={stopLoop}>■ Stop loop</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* Video recording */}
+                {videoUrl && (
+                  <div className={styles.videoBar}>
+                    <span className={styles.videoBarLabel}>Recording</span>
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      className={styles.videoBarPlayer}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration || null)}
+                    />
+
+                    {/* Flag position timeline over duration */}
+                    {videoDuration > 0 && take?.flags?.some(f => f.timestamp_start != null) && (
+                      <div className={aStyles.flagTimeline}>
+                        <div className={aStyles.flagTimelineTrack}>
+                          {take.flags.map((f, i) => {
+                            const ts = Number(f.timestamp_start)
+                            if (!Number.isFinite(ts) || ts < 0) return null
+                            const pct = Math.min(100, (ts / videoDuration) * 100)
+                            const flagId = `flag_${i}`
+                            const isActive = activeFlag === flagId
+                            const cc = confColor(f.confidence ?? 100)
+                            return (
+                              <button
+                                key={flagId}
+                                className={aStyles.flagTimelineMarker}
+                                title={`m.${f.measure} · ${capitalize(f.type)} — ${formatTs(ts)}`}
+                                style={{
+                                  left: `${pct}%`,
+                                  background: cc,
+                                  transform: isActive ? 'translate(-50%, -50%) scale(1.5)' : 'translate(-50%, -50%)',
+                                  boxShadow: isActive ? `0 0 0 3px ${cc}40` : 'none',
+                                }}
+                                onClick={() => {
+                                  const video = videoRef.current
+                                  if (video) video.currentTime = ts
+                                  setActiveFlag(f2 => f2 === flagId ? null : flagId)
+                                  playTick()
+                                }}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                )}
-              </section>
 
-              {/* Video recording */}
-              {videoUrl && (
-                <div className={styles.videoBar}>
-                  <span className={styles.videoBarLabel}>Recording</span>
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    className={styles.videoBarPlayer}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration || null)}
-                  />
-
-                  {/* Flag position timeline — clickable markers over the video duration */}
-                  {videoDuration > 0 && take?.flags?.some(f => f.timestamp_start != null) && (
-                    <div className={aStyles.flagTimeline}>
-                      <div className={aStyles.flagTimelineTrack}>
-                        {take.flags.map((f, i) => {
-                          const ts = Number(f.timestamp_start)
-                          if (!Number.isFinite(ts) || ts < 0) return null
-                          const pct = Math.min(100, (ts / videoDuration) * 100)
-                          const flagId = `flag_${i}`
-                          const isActive = activeFlag === flagId
-                          const cc = confColor(f.confidence ?? 100)
-                          return (
-                            <button
-                              key={flagId}
-                              className={aStyles.flagTimelineMarker}
-                              title={`m.${f.measure} · ${capitalize(f.type)} — ${formatTs(ts)}`}
-                              style={{
-                                left: `${pct}%`,
-                                background: cc,
-                                transform: isActive ? 'translate(-50%, -50%) scale(1.5)' : 'translate(-50%, -50%)',
-                                boxShadow: isActive ? `0 0 0 3px ${cc}40` : 'none',
-                              }}
-                              onClick={() => {
-                                const video = videoRef.current
-                                if (video) video.currentTime = ts
-                                setActiveFlag(f2 => f2 === flagId ? null : flagId)
-                                playTick()
-                              }}
-                            />
-                          )
-                        })}
+                    <div className={styles.videoControls}>
+                      <span className={styles.videoControlsLabel}>Speed</span>
+                      <div className={styles.speedBtns}>
+                        {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
+                          <button
+                            key={s}
+                            className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
+                            onClick={() => setVideoSpeed(s)}
+                          >{s}×</button>
+                        ))}
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  <div className={styles.videoControls}>
-                    <span className={styles.videoControlsLabel}>Speed</span>
-                    <div className={styles.speedBtns}>
-                      {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
-                        <button
-                          key={s}
-                          className={`${styles.speedBtn} ${videoSpeed === s ? styles.speedBtnActive : ''}`}
-                          onClick={() => setVideoSpeed(s)}
-                        >{s}×</button>
-                      ))}
+                {/* Ask Mediant Chat */}
+                <section className={aStyles.chatSection}>
+                  <div className={aStyles.chatSectionHeader}>
+                    <p className={styles.label}>Ask Mediant</p>
+                    {activeFlagRaw && (
+                      <span className={aStyles.chatContextPill}>
+                        Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.chatMessages}>
+                    {chatMessages.length === 0 && (
+                      <p className={styles.chatEmpty}>
+                        {activeFlagRaw
+                          ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything about your performance.`
+                          : 'Select an issue above, then ask Mediant about it — or ask anything about your performance.'}
+                      </p>
+                    )}
+                    {chatMessages.map((m, i) => (
+                      <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
+                        {m.role === 'user' && m.flagContext && (
+                          <span className={styles.chatMsgContext}>
+                            Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
+                          </span>
+                        )}
+                        {m.content}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className={styles.chatMsgAI}><span className={styles.chatTyping}>···</span></div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Dynamic prompt suggestion chips */}
+                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 0', scrollbarWidth: 'none' }}>
+                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("How can I shape the opening?")}>
+                      How can I shape the opening?
+                    </button>
+                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("Why does m.14 feel rushed?")}>
+                      Why does m.14 feel rushed?
+                    </button>
+                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("Help with left-hand balance")}>
+                      Help with left-hand balance
+                    </button>
+                  </div>
+
+                  <div className={styles.chatInputRow}>
+                    {/* Paperclip attachment triggers follow-up upload */}
+                    <button
+                      className={styles.chatSend}
+                      style={{ background: 'var(--surface-hover)', color: 'var(--text-soft)', marginRight: 6, padding: '0 8px' }}
+                      onClick={triggerFileUpload}
+                      title="Upload follow-up take"
+                    >
+                      📎
+                    </button>
+                    <input
+                      className={styles.chatInput}
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                      placeholder="Ask about your performance or upload follow-up takes…"
+                      disabled={chatLoading}
+                    />
+                    <button
+                      className={styles.chatSend}
+                      onClick={() => sendMessage()}
+                      disabled={chatLoading || !chatInput.trim()}
+                    >↑</button>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ── Session Summary tab ── */
+          <section className={aStyles.summaryTab} ref={summaryRef}>
+            <div className={aStyles.summaryTabTop}>
+              {score != null && (
+                <div className={aStyles.summaryScoreBlock}>
+                  <span className={aStyles.summaryScoreNum} style={{ color: scoreColor(score) }}>{score}</span>
+                  <div className={aStyles.summaryScoreMeta}>
+                    <span className={aStyles.summaryScoreDen}>/100</span>
+                    <p className={aStyles.summaryScoreLabel}>Technique Score</p>
+                    <div className={aStyles.summaryScoreTrack}>
+                      <div className={aStyles.summaryScoreFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
                     </div>
                   </div>
                 </div>
               )}
-
-              {/* Ask Mediant chat */}
-              <section className={aStyles.chatSection}>
-                <div className={aStyles.chatSectionHeader}>
-                  <p className={styles.label}>Ask Mediant</p>
-                  {activeFlagRaw && (
-                    <span className={aStyles.chatContextPill}>
-                      Re: m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
-                    </span>
+              <div className={aStyles.summaryTabMeta}>
+                <div className={aStyles.summaryTabMetaTop}>
+                  <p className={styles.label}>Session Summary</p>
+                  {summary && !summaryLoading && (
+                    <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
                   )}
                 </div>
-                <div className={styles.chatMessages}>
-                  {chatMessages.length === 0 && (
-                    <p className={styles.chatEmpty}>
-                      {activeFlagRaw
-                        ? `Ask about m.${activeFlagRaw.measure} · ${capitalize(activeFlagRaw.type)}, or anything about your performance.`
-                        : 'Select an issue above, then ask Mediant about it — or ask anything about your performance.'}
-                    </p>
-                  )}
-                  {chatMessages.map((m, i) => (
-                    <div key={i} className={m.role === 'user' ? styles.chatMsgUser : styles.chatMsgAI}>
-                      {m.role === 'user' && m.flagContext && (
-                        <span className={styles.chatMsgContext}>
-                          Re: m.{m.flagContext.measure} · {capitalize(m.flagContext.type)}
-                        </span>
-                      )}
-                      {m.content}
-                    </div>
-                  ))}
-                  {chatLoading && (
-                    <div className={styles.chatMsgAI}><span className={styles.chatTyping}>···</span></div>
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-                <div className={styles.chatInputRow}>
-                  <input
-                    className={styles.chatInput}
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                    placeholder="Ask about your performance…"
-                    disabled={chatLoading}
-                  />
-                  <button
-                    className={styles.chatSend}
-                    onClick={sendMessage}
-                    disabled={chatLoading || !chatInput.trim()}
-                  >↑</button>
-                </div>
-              </section>
-
-            </div>
-          </div>
-        </>
-      ) : (
-        /* ── Session Summary tab ── */
-        <section className={aStyles.summaryTab} ref={summaryRef}>
-          <div className={aStyles.summaryTabTop}>
-            {score != null && (
-              <div className={aStyles.summaryScoreBlock}>
-                <span className={aStyles.summaryScoreNum} style={{ color: scoreColor(score) }}>{score}</span>
-                <div className={aStyles.summaryScoreMeta}>
-                  <span className={aStyles.summaryScoreDen}>/100</span>
-                  <p className={aStyles.summaryScoreLabel}>Technique Score</p>
-                  <div className={aStyles.summaryScoreTrack}>
-                    <div className={aStyles.summaryScoreFill} style={{ width: `${score}%`, background: scoreColor(score) }} />
+                {summaryLoading && (
+                  <div className={aStyles.summaryLoading}>
+                    <span className={aStyles.summaryLoadingDot} />
+                    <span className={aStyles.summaryLoadingDot} />
+                    <span className={aStyles.summaryLoadingDot} />
+                    <span style={{ marginLeft: 8 }}>Generating your session summary…</span>
                   </div>
-                </div>
-              </div>
-            )}
-            <div className={aStyles.summaryTabMeta}>
-              <div className={aStyles.summaryTabMetaTop}>
-                <p className={styles.label}>Session Summary</p>
-                {summary && !summaryLoading && (
-                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Regenerate</button>
+                )}
+                {summaryError && !summaryLoading && (
+                  <p className={aStyles.summaryError}>
+                    {summaryError}
+                    <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
+                  </p>
+                )}
+                {summary?.headline && !summaryLoading && (
+                  <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
+                )}
+                {summary?.overview && !summaryLoading && (
+                  <p className={aStyles.summaryOverview}>{summary.overview}</p>
+                )}
+                {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
+                  <p className={aStyles.summaryOverview} style={{ color: 'var(--accent)' }}>
+                    No issues were flagged — great performance.
+                  </p>
                 )}
               </div>
-              {summaryLoading && (
-                <div className={aStyles.summaryLoading}>
-                  <span className={aStyles.summaryLoadingDot} />
-                  <span className={aStyles.summaryLoadingDot} />
-                  <span className={aStyles.summaryLoadingDot} />
-                  <span style={{ marginLeft: 8 }}>Generating your session summary…</span>
-                </div>
-              )}
-              {summaryError && !summaryLoading && (
-                <p className={aStyles.summaryError}>
-                  {summaryError}
-                  <button className={aStyles.summaryRetryBtn} onClick={generateSummary}>Retry</button>
-                </p>
-              )}
-              {summary?.headline && !summaryLoading && (
-                <h2 className={aStyles.summaryHeadline}>{summary.headline}</h2>
-              )}
-              {summary?.overview && !summaryLoading && (
-                <p className={aStyles.summaryOverview}>{summary.overview}</p>
-              )}
-              {!summary && !summaryLoading && !summaryError && issueCount === 0 && (
-                <p className={aStyles.summaryOverview} style={{ color: 'var(--accent)' }}>
-                  No issues were flagged — great performance.
-                </p>
-              )}
             </div>
-          </div>
 
-          {summary && !summaryLoading && (
-            <div className={aStyles.summaryColumns}>
-              {summary.strengths?.length > 0 && (
-                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardStrengths}`}>
-                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>✓ Strengths</p>
-                  <ul className={aStyles.summaryList}>
-                    {summary.strengths.map((s, i) => (
-                      <li key={i} className={aStyles.summaryListItem}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {summary.improvements?.length > 0 && (
-                <div className={`${aStyles.summaryCard} ${aStyles.summaryCardImprovements}`}>
-                  <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>→ Areas to work on</p>
-                  <ul className={aStyles.summaryList}>
-                    {summary.improvements.map((item, i) => (
-                      <li key={i} className={aStyles.summaryListItem}>
-                        {item.area && <span className={aStyles.summaryImprovementArea}>{item.area}</span>}
-                        {item.guidance ?? item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-      )}
+            {summary && !summaryLoading && (
+              <div className={aStyles.summaryColumns}>
+                {summary.strengths?.length > 0 && (
+                  <div className={`${aStyles.summaryCard} ${aStyles.summaryCardStrengths}`}>
+                    <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleStrengths}`}>✓ Strengths</p>
+                    <ul className={aStyles.summaryList}>
+                      {summary.strengths.map((s, i) => (
+                        <li key={i} className={aStyles.summaryListItem}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {summary.improvements?.length > 0 && (
+                  <div className={`${aStyles.summaryCard} ${aStyles.summaryCardImprovements}`}>
+                    <p className={`${aStyles.summaryCardTitle} ${aStyles.summaryCardTitleImprovements}`}>→ Areas to work on</p>
+                    <ul className={aStyles.summaryList}>
+                      {summary.improvements.map((item, i) => (
+                        <li key={i} className={aStyles.summaryListItem}>
+                          {item.area && <span className={aStyles.summaryImprovementArea}>{item.area}</span>}
+                          {item.guidance ?? item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
-      <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
+        {/* Masterclass panel rendered correctly in page flow beneath everything */}
+        <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
+      </main>
     </div>
   )
-}
-
-function scoreColor(n) {
-  if (n >= 88) return '#8fbe9f'
-  if (n >= 74) return 'var(--gold)'
-  return 'var(--coral)'
 }

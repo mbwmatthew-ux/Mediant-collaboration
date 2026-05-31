@@ -3,16 +3,44 @@
   box-sizing: border-box;
   display: grid;
   gap: 32px;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: 1fr; /* Stack vertically by default for spaciousness */
   max-width: 100%;
   min-width: 0;
   overflow-x: clip;
-  /* default align-items: stretch so left cell fills right column's full height */
+  margin-top: 24px; /* Spacious spacing below the tab strip */
+}
+
+@media (min-width: 1350px) {
+  .reviewLayout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+.threadsCollapsed .reviewLayout {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1100px) {
+  .threadsCollapsed .reviewLayout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
 }
 
 .reviewLayoutImageScore {
   gap: 16px;
-  grid-template-columns: minmax(320px, 600px) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1350px) {
+  .reviewLayoutImageScore {
+    grid-template-columns: minmax(320px, 600px) minmax(0, 1fr);
+  }
+}
+.threadsCollapsed .reviewLayoutImageScore {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1100px) {
+  .threadsCollapsed .reviewLayoutImageScore {
+    grid-template-columns: minmax(320px, 600px) minmax(0, 1fr);
+  }
 }
 
 .scoreColumnWrap {
@@ -22,20 +50,46 @@
 }
 
 .scoreColumn {
-  height: calc(100vh - 80px);
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
-  position: sticky;
-  top: 64px;
   width: 100%;
+  overflow: visible;
+  position: static;
+  top: auto;
+}
+@media (min-width: 1350px) {
+  .scoreColumn {
+    height: calc(100vh - 80px);
+    overflow: hidden;
+    position: sticky;
+    top: 64px;
+  }
+}
+@media (min-width: 1100px) {
+  .threadsCollapsed .scoreColumn {
+    height: calc(100vh - 80px);
+    overflow: hidden;
+    position: sticky;
+    top: 64px;
+  }
 }
 
 .scoreInner {
-  height: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+}
+@media (min-width: 1350px) {
+  .scoreInner {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+@media (min-width: 1100px) {
+  .threadsCollapsed .scoreInner {
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 .rightColumn {
@@ -704,12 +758,12 @@
 
 .timelineTitle {
   color: var(--text-soft);
-  font-size: 0.84rem;
-  line-height: 1.35;
+  font-size: 0.83rem;
+  line-height: 1.45;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  padding: 4px 0;
 }
 
 .timelineConfBadge {
@@ -839,6 +893,7 @@
   flex-direction: column;
   gap: 32px;
   max-width: 860px;
+  margin-top: 24px; /* Spacious spacing below the tab strip */
 }
 
 .summaryTabTop {
@@ -943,7 +998,7 @@
   transform: translate(-50%, -50%) scale(1.4) !important;
 }
 
-/* ── Responsive ───────────────────────────────────────────── */
+/* ── Responsive & Legacy fallback ───────────────────────────── */
 @media (max-width: 1024px) {
   .reviewLayout    { grid-template-columns: 1fr; }
   .scoreColumnWrap { min-height: 0; }
@@ -962,4 +1017,260 @@
   .timelineRow        { grid-template-columns: 10px 44px 36px auto 1fr; }
   .timelineConfBadge  { display: none; }
   .confLegend         { display: none; }
+}
+
+/* ── Triple Pane Layout ────────────────────────────────────── */
+.tripleLayout {
+  display: flex;
+  gap: 0;
+  height: calc(100vh - 48px);
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Sidebar toggle button */
+.sidebarToggleBtn {
+  background: none;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sidebarToggleBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border);
+  transform: scale(1.05);
+}
+
+.sidebarToggleBtn svg {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.threadsCollapsed .sidebarToggleBtn svg {
+  transform: rotate(180deg);
+}
+
+/* Column 1: Threads Panel */
+.threadsColumn {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+  height: 100%;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, border-right-color 0.3s ease;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.threadsColumnCollapsed {
+  width: 0 !important;
+  border-right-color: transparent !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.threadsHeader {
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.threadsTitle {
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.threadsNewBtn {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  color: var(--accent);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 0;
+}
+.threadsNewBtn:hover {
+  background: var(--accent-bg-hover);
+  transform: scale(1.05);
+}
+
+.threadsTabs {
+  display: flex;
+  padding: 6px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.threadsTabBtn {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.threadsTabBtnActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.threadsList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.threadCard {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+.threadCard:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.threadCardActive {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.threadCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.threadPieceTitle {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.threadComposer {
+  font-size: 0.73rem;
+  color: var(--text-faint);
+}
+
+.threadStats {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.threadMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.7rem;
+}
+
+.threadScoreBadge {
+  background: var(--gold-soft);
+  color: var(--text);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.64rem;
+}
+
+.threadTime {
+  color: var(--text-faintest);
+}
+
+.threadPinIcon {
+  color: var(--gold);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.threadPinIcon:hover {
+  transform: scale(1.2);
+}
+
+.threadsArchiveBtn {
+  background: none;
+  border: none;
+  border-top: 1px solid var(--surface-border);
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+.threadsArchiveBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Spacious scrollable main container */
+.mainPageContent {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 32px 64px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Responsive adjustment */
+@media (max-width: 1024px) {
+  .tripleLayout {
+    flex-direction: column;
+    height: auto;
+    overflow-y: auto;
+  }
+  .threadsColumn {
+    width: 100%;
+    height: 320px;
+    border-right: none;
+    border-bottom: 1px solid var(--surface-border);
+  }
 }
