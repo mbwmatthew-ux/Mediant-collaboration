@@ -276,24 +276,49 @@ export default function ProgressFeedback() {
                 {/* Chart path stroke */}
                 <path d={linePath} className={pStyles.graphLine} />
 
-                {/* Interactive milestone circles & score labels */}
-                {points.map((p, idx) => (
-                  <g key={idx}>
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r="5.5"
-                      className={pStyles.graphNode}
-                    />
-                    <text
-                      x={p.x}
-                      y={p.y - 12}
-                      className={pStyles.nodeLabel}
+                {/* Interactive milestone circles & score/title labels */}
+                {points.map((p, idx) => {
+                  const displayTitle = p.isBaseline ? 'Baseline' : (p.piece_title.length > 15 ? p.piece_title.slice(0, 14) + '…' : p.piece_title)
+                  return (
+                    <g
+                      key={idx}
+                      onClick={() => {
+                        if (!p.isBaseline && p.id) {
+                          playTick()
+                          nav(`/analysis?takeId=${p.id}`)
+                        }
+                      }}
+                      style={{ cursor: p.isBaseline ? 'default' : 'pointer' }}
                     >
-                      {p.score}
-                    </text>
-                  </g>
-                ))}
+                      {/* Larger transparent hover target for premium feel */}
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r="14"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        className={pStyles.graphNode}
+                      />
+                      <text
+                        x={p.x}
+                        y={p.y - 25}
+                        className={pStyles.nodeTitleLabel}
+                      >
+                        {displayTitle}
+                      </text>
+                      <text
+                        x={p.x}
+                        y={p.y - 12}
+                        className={pStyles.nodeLabel}
+                      >
+                        Score: {p.score}
+                      </text>
+                    </g>
+                  )
+                })}
 
                 {/* X-axis labels (Dates) */}
                 {points.map((p, idx) => {
