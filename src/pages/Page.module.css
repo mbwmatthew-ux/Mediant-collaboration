@@ -391,10 +391,10 @@
 }
 
 .th {
-  color: var(--text-faint);
-  font-size: 0.69rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.08em;
   padding: 8px 12px 10px 0;
   text-align: left;
   text-transform: uppercase;
@@ -414,21 +414,21 @@
 
 .td {
   color: var(--text);
-  font-size: 0.87rem;
+  font-size: 0.9rem;
   padding: 11px 12px 11px 0;
   vertical-align: middle;
 }
 .td:last-child { padding-right: 0; }
 
 .tdSoft {
-  color: var(--text-faint);
-  font-size: 0.85rem;
+  color: var(--text-soft);
+  font-size: 0.88rem;
   padding: 11px 12px 11px 0;
   vertical-align: middle;
 }
 .tdSoft:last-child { padding-right: 0; }
 
-.tdMuted { color: var(--text-faintest); font-size: 0.85rem; }
+.tdMuted { color: var(--text-dim); font-size: 0.88rem; }
 
 /* ── Search toolbar ─────────────────────────────────────────── */
 .toolbar {
