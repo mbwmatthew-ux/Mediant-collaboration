@@ -72,6 +72,58 @@ export default function ProgressFeedback() {
   const { avgScore, totalFlags, pieces } = computeStats(takes)
   const periodLabel = period === 'weekly' ? 'week' : 'month'
 
+  const chartPoints = useMemo(() => {
+    const scoredTakes = [...takes]
+      .filter(t => t.score != null)
+      .sort((a, b) => new Date(a.created_at || a.date || 0) - new Date(b.created_at || b.date || 0))
+    
+    if (scoredTakes.length === 0) return []
+    
+    if (scoredTakes.length === 1) {
+      const singleTake = scoredTakes[0]
+      const baselineTime = new Date(new Date(singleTake.created_at || singleTake.date || Date.now()).getTime() - 3 * 86400000).toISOString()
+      return [
+        {
+          id: 'baseline',
+          piece_title: 'Baseline',
+          score: Math.max(50, singleTake.score - 7),
+          created_at: baselineTime,
+          isBaseline: true
+        },
+        singleTake
+      ]
+    }
+    
+    return scoredTakes
+  }, [takes])
+
+  const width = 500
+  const height = 180
+  const paddingLeft = 40
+  const paddingRight = 20
+  const paddingTop = 20
+  const paddingBottom = 30
+  const xRange = width - paddingLeft - paddingRight
+  const yRange = height - paddingTop - paddingBottom
+
+  const points = useMemo(() => {
+    if (chartPoints.length < 2) return []
+    return chartPoints.map((p, idx) => {
+      const x = paddingLeft + (idx / (chartPoints.length - 1)) * xRange
+      const y = paddingTop + (1 - (p.score ?? 70) / 100) * yRange
+      return { x, y, ...p }
+    })
+  }, [chartPoints])
+
+  const linePath = useMemo(() => {
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  }, [points])
+
+  const areaPath = useMemo(() => {
+    if (points.length === 0) return ''
+    return `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`
+  }, [points, linePath])
+
   async function generateFeedback() {
     setLoading(true)
     setError(null)
@@ -114,158 +166,293 @@ export default function ProgressFeedback() {
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className={styles.metrics}>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>{takes.length}</span>
-          <span className={styles.metricLabel}>Sessions</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue} style={avgScore != null ? { color: scoreColor(avgScore) } : {}}>
-            {avgScore != null ? avgScore : '—'}
-          </span>
-          <span className={styles.metricLabel}>Avg score</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>{pieces.length}</span>
-          <span className={styles.metricLabel}>Pieces</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>{totalFlags}</span>
-          <span className={styles.metricLabel}>Total flags</span>
-        </div>
-      </div>
-
-      {/* Sessions list */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <span className={styles.sectionHeaderTitle}>
-            Sessions this {periodLabel}
-          </span>
-          <button className={styles.sectionHeaderAction} onClick={() => { playTick(); nav('/takes') }}>
-            View all →
-          </button>
-        </div>
-
-        {takes.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p className={styles.emptyStateTitle}>No sessions this {periodLabel}</p>
-            <p className={styles.emptyStateSub}>
-              Upload a practice recording to start tracking your progress.
-            </p>
-            <button className={styles.primaryBtn} onClick={() => nav('/record')}>
-              Upload a recording →
-            </button>
+      {/* Premium Glassmorphic Stats Cards Grid */}
+      <div className={pStyles.metricGrid}>
+        {/* Sessions Card */}
+        <div className={pStyles.metricCard}>
+          <span className={pStyles.cardLabel}>Practice Sessions</span>
+          <div className={pStyles.cardValue}>
+            {takes.length} <span style={{ fontSize: '0.9rem', color: 'var(--text-faint)', fontWeight: 400, fontFamily: 'sans-serif', marginLeft: 4 }}>takes</span>
           </div>
-        ) : (
-          <div className={pStyles.sessionTable}>
-            {takes.map((t, i) => (
-              <div key={t.id || i} className={pStyles.sessionRow}>
-                <div className={pStyles.sessionInfo}>
-                  <span className={pStyles.sessionPiece}>{t.piece_title || 'Untitled'}</span>
-                  <span className={pStyles.sessionMeta}>
-                    {[t.piece_composer, t.instrument, formatDate(t.created_at || t.date)].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
-                <div className={pStyles.sessionRight}>
-                  {t.score != null && (
-                    <span className={pStyles.sessionScore} style={{ color: scoreColor(t.score) }}>
-                      {t.score}
-                    </span>
-                  )}
-                  {t.flags?.length > 0 && (
-                    <span className={pStyles.sessionFlags}>{t.flags.length} flags</span>
-                  )}
-                </div>
+          <span className={pStyles.cardSubtext}>Recorded this {periodLabel}</span>
+        </div>
+
+        {/* Avg Score Card */}
+        <div className={pStyles.metricCard}>
+          <span className={pStyles.cardLabel}>Average Score</span>
+          <div className={pStyles.cardValue} style={avgScore != null ? { color: scoreColor(avgScore) } : {}}>
+            {avgScore != null ? `${avgScore}` : '—'}<span style={{ fontSize: '0.9rem', color: 'var(--text-faint)', fontWeight: 400, fontFamily: 'sans-serif', marginLeft: 2 }}>/100</span>
+          </div>
+          {avgScore != null ? (
+            <>
+              <div className={pStyles.cardProgressTrack}>
+                <div className={pStyles.cardProgressFill} style={{ width: `${avgScore}%`, background: scoreColor(avgScore) }} />
               </div>
-            ))}
+              <span className={pStyles.cardSubtext}>Across all scored sessions</span>
+            </>
+          ) : (
+            <span className={pStyles.cardSubtext}>No scored takes yet</span>
+          )}
+        </div>
+
+        {/* Active Pieces Card */}
+        <div className={pStyles.metricCard}>
+          <span className={pStyles.cardLabel}>Active Pieces</span>
+          <div className={pStyles.cardValue}>
+            {pieces.length} <span style={{ fontSize: '0.9rem', color: 'var(--text-faint)', fontWeight: 400, fontFamily: 'sans-serif', marginLeft: 4 }}>{pieces.length === 1 ? 'piece' : 'pieces'}</span>
           </div>
-        )}
+          <span className={pStyles.cardSubtext} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+            {pieces.length > 0 ? pieces.join(', ') : 'No pieces recorded'}
+          </span>
+        </div>
+
+        {/* Total Flags Card */}
+        <div className={pStyles.metricCard}>
+          <span className={pStyles.cardLabel}>Flags Raised</span>
+          <div className={pStyles.cardValue} style={totalFlags > 0 ? { color: 'var(--coral)' } : {}}>
+            {totalFlags} <span style={{ fontSize: '0.9rem', color: 'var(--text-faint)', fontWeight: 400, fontFamily: 'sans-serif', marginLeft: 4 }}>flags</span>
+          </div>
+          <span className={pStyles.cardSubtext}>Technique spots to watch</span>
+        </div>
       </div>
 
-      {/* Generate button */}
-      {takes.length > 0 && !feedback && (
-        <div className={pStyles.generateRow}>
-          <button
-            className={styles.primaryBtn}
-            onClick={() => { playAnalyzeStart(); generateFeedback() }}
-            disabled={loading}
-          >
-            {loading ? 'Generating…' : `Generate ${periodLabel}ly feedback`}
-          </button>
-          <p className={pStyles.generateHint}>
-            Mediant will analyse your {takes.length} session{takes.length !== 1 ? 's' : ''} and give you personalised insights.
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <div className={styles.errorBanner}>
-          <span>⚠</span>
-          <span>{error}</span>
-          <button className={styles.errorRetry} onClick={generateFeedback}>Retry</button>
-        </div>
-      )}
-
-      {/* Feedback card */}
-      {feedback && (
-        <div className={pStyles.feedbackCard}>
-          <div className={pStyles.feedbackCardHeader}>
-            <p className={styles.label}>{period === 'weekly' ? 'Weekly' : 'Monthly'} review</p>
-            <button
-              className={styles.ghostBtn}
-              style={{ fontSize: '0.78rem', padding: '5px 12px' }}
-              onClick={generateFeedback}
-              disabled={loading}
-            >
-              {loading ? '…' : 'Regenerate'}
-            </button>
+      {/* Visual Technique Score Progress Graph Panel */}
+      {takes.length > 0 && (
+        <div className={pStyles.graphPanel}>
+          <div className={pStyles.graphHeader}>
+            <div>
+              <h3 className={pStyles.graphTitle}>Technique Score Progression</h3>
+              <p className={pStyles.graphSubtitle}>Visualization of your playing metrics over time</p>
+            </div>
+            {avgScore != null && (
+              <span className={pStyles.graphTitle} style={{ color: scoreColor(avgScore), fontWeight: 700 }}>
+                Avg: {avgScore}/100
+              </span>
+            )}
           </div>
+          
+          <div className={pStyles.graphWrap}>
+            {points.length >= 2 ? (
+              <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+                <defs>
+                  <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
 
-          <h2 className={pStyles.feedbackHeadline}>{feedback.headline}</h2>
+                {/* Grid lines and values */}
+                {[50, 75, 100].map(val => {
+                  const y = paddingTop + (1 - val / 100) * yRange
+                  return (
+                    <g key={val}>
+                      <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} className={pStyles.gridLine} />
+                      <text x={paddingLeft - 10} y={y + 3} textAnchor="end" className={pStyles.axisLabel}>
+                        {val}
+                      </text>
+                    </g>
+                  )
+                })}
 
-          <p className={pStyles.feedbackOverview}>{feedback.overview}</p>
+                {/* Shaded area under chart */}
+                <path d={areaPath} className={pStyles.graphArea} />
 
-          {feedback.strengths?.length > 0 && (
-            <div className={pStyles.feedbackSection}>
-              <p className={pStyles.feedbackSectionTitle}>
-                <span className={pStyles.iconGreen}>✓</span> Strengths
-              </p>
-              <ul className={pStyles.feedbackList}>
-                {feedback.strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
+                {/* Chart path stroke */}
+                <path d={linePath} className={pStyles.graphLine} />
+
+                {/* Interactive milestone circles & score labels */}
+                {points.map((p, idx) => (
+                  <g key={idx}>
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r="5.5"
+                      className={pStyles.graphNode}
+                    />
+                    <text
+                      x={p.x}
+                      y={p.y - 12}
+                      className={pStyles.nodeLabel}
+                    >
+                      {p.score}
+                    </text>
+                  </g>
                 ))}
-              </ul>
+
+                {/* X-axis labels (Dates) */}
+                {points.map((p, idx) => {
+                  const label = p.isBaseline ? 'Baseline' : formatDate(p.created_at || p.date)
+                  return (
+                    <text
+                      key={idx}
+                      x={p.x}
+                      y={height - 8}
+                      textAnchor="middle"
+                      className={pStyles.axisLabel}
+                    >
+                      {label}
+                    </text>
+                  )
+                })}
+              </svg>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-faint)', fontSize: '0.85rem' }}>
+                Not enough practice sessions to plot progress. Record more takes!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Two-column dashboard layout */}
+      <div className={pStyles.dashboardGrid}>
+        
+        {/* Left Column: Sessions List */}
+        <div className={pStyles.leftCol}>
+          <div className={styles.section} style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className={styles.sectionHeader} style={{ marginBottom: 16 }}>
+              <span className={styles.sectionHeaderTitle} style={{ fontSize: '0.92rem', letterSpacing: '0.02em' }}>
+                Practice History ({takes.length} Session{takes.length !== 1 ? 's' : ''})
+              </span>
+              <button className={styles.sectionHeaderAction} onClick={() => { playTick(); nav('/takes') }}>
+                View all →
+              </button>
+            </div>
+
+            {takes.length === 0 ? (
+              <div className={styles.emptyState} style={{ flex: 1, minHeight: 220, justifyContent: 'center' }}>
+                <p className={styles.emptyStateTitle}>No sessions this {periodLabel}</p>
+                <p className={styles.emptyStateSub}>
+                  Upload a practice recording to start tracking your progress.
+                </p>
+                <button className={styles.primaryBtn} onClick={() => nav('/record')} style={{ marginTop: 12 }}>
+                  Upload a recording →
+                </button>
+              </div>
+            ) : (
+              <div className={pStyles.sessionTable}>
+                {takes.map((t, i) => (
+                  <div key={t.id || i} className={pStyles.sessionRow}>
+                    <div className={pStyles.sessionInfo}>
+                      <span className={pStyles.sessionPiece}>{t.piece_title || 'Untitled'}</span>
+                      <span className={pStyles.sessionMeta}>
+                        {[t.piece_composer, t.instrument, formatDate(t.created_at || t.date)].filter(Boolean).join(' · ')}
+                      </span>
+                    </div>
+                    <div className={pStyles.sessionRight}>
+                      {t.score != null && (
+                        <span className={pStyles.sessionScore} style={{ color: scoreColor(t.score), fontWeight: 600 }}>
+                          {t.score}
+                        </span>
+                      )}
+                      {t.flags?.length > 0 && (
+                        <span className={pStyles.sessionFlags} style={{ background: 'rgba(225,134,118,0.12)', color: 'var(--coral)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
+                          {t.flags.length} flag{t.flags.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Personalized AI Coaching Insights */}
+        <div className={pStyles.rightCol}>
+          {error && (
+            <div className={styles.errorBanner} style={{ marginBottom: 20 }}>
+              <span>⚠</span>
+              <span>{error}</span>
+              <button className={styles.errorRetry} onClick={generateFeedback}>Retry</button>
             </div>
           )}
 
-          {feedback.patterns?.length > 0 && (
-            <div className={pStyles.feedbackSection}>
-              <p className={pStyles.feedbackSectionTitle}>
-                <span className={pStyles.iconGold}>↺</span> Patterns to watch
+          {loading && (
+            <div className={pStyles.insightsPanelLoading}>
+              <div className={pStyles.loaderPulse} />
+              <h3 className={pStyles.insightsTitle}>Generating practice report...</h3>
+              <p className={pStyles.insightsDesc}>
+                Mediant is auditing your technique markers, dynamic variations, and tempo stability across all {takes.length} takes to outline your practice strategy.
               </p>
-              <ul className={pStyles.feedbackList}>
-                {feedback.patterns.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
             </div>
           )}
 
-          {feedback.nextSteps?.length > 0 && (
-            <div className={pStyles.feedbackSection}>
-              <p className={pStyles.feedbackSectionTitle}>
-                <span className={pStyles.iconBlue}>→</span> Goals for next {periodLabel}
+          {!loading && !feedback && takes.length > 0 && (
+            <div className={pStyles.insightsPanelEmpty}>
+              <div className={pStyles.insightsIcon}>✦</div>
+              <h3 className={pStyles.insightsTitle}>{period === 'weekly' ? 'Weekly' : 'Monthly'} Practice Report</h3>
+              <p className={pStyles.insightsDesc}>
+                Unlock customized AI recommendations and detailed progress analytics. Mediant will synthesize your practice history to chart your strengths and goals.
               </p>
-              <ul className={pStyles.feedbackList}>
-                {feedback.nextSteps.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
+              <button
+                className={styles.primaryBtn}
+                onClick={() => { playAnalyzeStart(); generateFeedback() }}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                Generate report
+              </button>
+            </div>
+          )}
+
+          {!loading && feedback && (
+            <div className={pStyles.feedbackCard}>
+              <div className={pStyles.feedbackCardHeader}>
+                <p className={styles.label}>{period === 'weekly' ? 'Weekly' : 'Monthly'} Practice Report</p>
+                <button
+                  className={styles.ghostBtn}
+                  style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                  onClick={generateFeedback}
+                >
+                  Regenerate
+                </button>
+              </div>
+
+              <h2 className={pStyles.feedbackHeadline}>{feedback.headline}</h2>
+              <p className={pStyles.feedbackOverview}>{feedback.overview}</p>
+
+              {feedback.strengths?.length > 0 && (
+                <div className={pStyles.feedbackSection}>
+                  <p className={pStyles.feedbackSectionTitle}>
+                    <span className={pStyles.iconGreen}>✓</span> Strengths & Wins
+                  </p>
+                  <ul className={pStyles.feedbackList}>
+                    {feedback.strengths.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {feedback.patterns?.length > 0 && (
+                <div className={pStyles.feedbackSection}>
+                  <p className={pStyles.feedbackSectionTitle}>
+                    <span className={pStyles.iconGold}>↺</span> Technique Patterns to Watch
+                  </p>
+                  <ul className={pStyles.feedbackList}>
+                    {feedback.patterns.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {feedback.nextSteps?.length > 0 && (
+                <div className={pStyles.feedbackSection}>
+                  <p className={pStyles.feedbackSectionTitle}>
+                    <span className={pStyles.iconBlue}>→</span> Goals for Next {periodLabel === 'week' ? 'Week' : 'Month'}
+                  </p>
+                  <ul className={pStyles.feedbackList}>
+                    {feedback.nextSteps.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
