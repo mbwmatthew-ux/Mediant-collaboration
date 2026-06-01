@@ -251,8 +251,8 @@ export default function Analysis({ demo: demoProp = false }) {
       groups[title].takes.push(t)
     })
 
-    // Premium demo mock fallbacks
-    const mockData = [
+    // Premium demo mock fallbacks (only populated if the user has absolutely zero real takes)
+    const mockData = allTakes.length === 0 ? [
       {
         piece_title: 'Clair de lune',
         piece_composer: 'Claude Debussy',
@@ -299,7 +299,7 @@ export default function Analysis({ demo: demoProp = false }) {
           { id: 'mock_5', piece_title: 'Gymnopédie No. 1', piece_composer: 'Erik Satie', instrument: 'Piano', score: 92, created_at: new Date(Date.now() - 518400000).toISOString(), flags: [] },
         ],
       }
-    ]
+    ] : []
 
     mockData.forEach(mock => {
       if (!groups[mock.piece_title]) {
