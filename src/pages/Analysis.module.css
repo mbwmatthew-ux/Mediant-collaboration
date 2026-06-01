@@ -1251,6 +1251,87 @@
   color: var(--text);
 }
 
+/* Custom premium take selector */
+.takeSelect {
+  appearance: none;
+  background-color: var(--accent-bg);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23d4ae52' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-origin: content-box;
+  padding-right: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-family: inherit;
+}
+
+.takeSelect:hover {
+  background-color: var(--accent-bg-hover);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.takeSelect:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(212, 174, 82, 0.2), 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.takeSelect option {
+  background-color: var(--bg-card) !important;
+  color: var(--text) !important;
+  padding: 10px;
+}
+
+/* Custom premium delete take button */
+.deleteTakeBtn {
+  background: rgba(225, 134, 118, 0.08);
+  border: 1px solid rgba(225, 134, 118, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--coral);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-family: inherit;
+}
+
+.deleteTakeBtn svg {
+  transition: transform 0.2s ease;
+  stroke: var(--coral);
+}
+
+.deleteTakeBtn:hover {
+  background: rgba(225, 134, 118, 0.16);
+  border-color: var(--coral);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 134, 118, 0.25);
+}
+
+.deleteTakeBtn:hover svg {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.deleteTakeBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(225, 134, 118, 0.15);
+}
+
 /* Spacious scrollable main container */
 .mainPageContent {
   flex: 1;
