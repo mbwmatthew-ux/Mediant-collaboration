@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import styles from './Pricing.module.css'
+import LogoMark from '../components/LogoMark'
 
 const PLANS = [
   {
@@ -94,7 +95,10 @@ export default function Pricing() {
       {/* Nav */}
       <nav className={styles.nav}>
         <div className={styles.navLeft}>
-          <Link to="/" className={styles.brand}>Mediant</Link>
+          <Link to="/" className={styles.brand} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <LogoMark size={24} />
+              Mediant
+            </Link>
         </div>
         <div className={styles.navRight}>
           {user ? (

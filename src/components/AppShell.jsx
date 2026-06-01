@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import TunerModal from './Tuner'
 import MetronomeModal from './Metronome'
 import ErrorBoundary from './ErrorBoundary'
+import LogoMark from './LogoMark'
 import styles from './AppShell.module.css'
 import { playNav } from '../utils/sounds'
 
@@ -100,7 +101,7 @@ export default function AppShell() {
       <header className={styles.topBar}>
         <div className={styles.topBarLeft}>
           <NavLink to="/home" onClick={playNav} style={{ display: 'flex', alignItems: 'center' }}>
-            <LogoMark />
+            <LogoMark size={62} />
           </NavLink>
         </div>
 
@@ -254,19 +255,6 @@ function BackIcon() {
   )
 }
 
-function LogoMark() {
-  return (
-    <div style={{
-      width: 62, height: 62, flexShrink: 0,
-      background: 'var(--text)',
-      WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
-      WebkitMaskMode: 'luminance',
-      mask: `url('/logo-mark.png') center/contain no-repeat`,
-      maskMode: 'luminance',
-      cursor: 'pointer',
-    }} />
-  )
-}
 
 function HomeIcon() {
   return (

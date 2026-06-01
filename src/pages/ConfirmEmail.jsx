@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom'
 import styles from './Auth.module.css'
+import LogoMark from '../components/LogoMark'
 
 export default function ConfirmEmail() {
   return (
     <div className={styles.page}>
       <nav className={styles.nav}>
-        <Link to="/" className={styles.brandMark}>Mediant</Link>
+        <Link to="/" className={styles.brandMark} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <LogoMark size={24} />
+            Mediant
+          </Link>
       </nav>
 
       <div className={styles.card}>
