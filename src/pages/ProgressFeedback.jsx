@@ -97,10 +97,26 @@ export default function ProgressFeedback() {
     return scoredTakes
   }, [takes])
 
-  const width = 500
+  const [containerWidth, setContainerWidth] = useState(600)
+
+  useEffect(() => {
+    const el = document.getElementById('progress-graph-wrap')
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (entry.contentRect.width) {
+          setContainerWidth(entry.contentRect.width)
+        }
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [takes])
+
+  const width = Math.max(200, containerWidth)
   const height = 180
-  const paddingLeft = 40
-  const paddingRight = 20
+  const paddingLeft = 45
+  const paddingRight = 25
   const paddingTop = 20
   const paddingBottom = 30
   const xRange = width - paddingLeft - paddingRight
@@ -231,9 +247,9 @@ export default function ProgressFeedback() {
             )}
           </div>
           
-          <div className={pStyles.graphWrap}>
+          <div id="progress-graph-wrap" className={pStyles.graphWrap}>
             {points.length >= 2 ? (
-              <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+              <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
                 <defs>
                   <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
