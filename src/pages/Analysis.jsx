@@ -181,9 +181,7 @@ export default function Analysis({ demo: demoProp = false }) {
   const [selectedTakeId, setSelectedTakeId] = useState(null)
   const [threadsTab, setThreadsTab] = useState('all')
 
-  const [isThreadsCollapsed, setIsThreadsCollapsed] = useState(() => {
-    return localStorage.getItem('mediant_threads_collapsed') === 'true'
-  })
+  const [isThreadsCollapsed, setIsThreadsCollapsed] = useState(false)
 
   // Overview / Session Summary tabs
   const [activeTab, setActiveTab] = useState('overview')

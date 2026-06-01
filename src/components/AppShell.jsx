@@ -16,6 +16,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/home',     label: 'Dashboard', icon: HomeIcon,     live: true },
       { to: '/record',   label: 'Record',     icon: UploadIcon,   live: true },
+      { to: '/analysis', label: 'Recordings', icon: RecordingsIcon, live: true },
       { to: '/search',   label: 'Library',    icon: SearchIcon,   live: true },
       { to: '/takes',    label: 'Sessions',   icon: SavedIcon,    live: true },
       { to: '/progress', label: 'Progress',   icon: ProgressIcon, live: true },
@@ -293,6 +294,17 @@ function UploadIcon() {
       <circle cx="12" cy="12" r="9"/>
       <line x1="12" y1="8" x2="12" y2="16"/>
       <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+  )
+}
+
+function RecordingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 8h10" />
+      <path d="M7 12h10" />
+      <path d="M7 16h10" />
     </svg>
   )
 }
