@@ -61,41 +61,49 @@ function calcStreak(sessions) {
 }
 
 function buildWaveformBars(flags = [], count = 52) {
-  const maxTs = flags.reduce((m, f) => Math.max(m, f.ts || 0), 0)
-  const duration = maxTs > 0 ? maxTs * 1.2 : 0
+  const hasTimingData = flags.some(f => f.timestamp_start != null && Number(f.timestamp_start) > 0)
+
+  if (!hasTimingData) {
+    // No timing breakdown from this analysis — show a neutral decorative bar
+    const bars = Array.from({ length: count }, (_, i) => ({
+      height: 16 + Math.sin(i * 0.38) * 6 + Math.sin(i * 1.1 + 1) * 3,
+      color: 'var(--accent)',
+      opacity: 0.2,
+    }))
+    return { bars, duration: 0, hasTimingData: false }
+  }
+
+  const maxTs = flags.reduce((m, f) => Math.max(m, Number(f.timestamp_start) || 0), 0)
+  const duration = maxTs * 1.15
 
   const bars = []
   for (let i = 0; i < count; i++) {
-    // stable pseudo-random height per bar index
-    let h = (i * 2654435761) & 0x7fffffff
-    h = (h ^ (h >> 16)) & 0x7fffffff
-    const height = Math.max(8, (h % 48) + 14)
+    const tStart = (i / count) * duration
+    const tEnd   = ((i + 1) / count) * duration
+    const windowFlags = flags.filter(f => {
+      const ts = Number(f.timestamp_start) || 0
+      return ts >= tStart && ts < tEnd
+    })
 
+    let height  = 10
     let color   = 'var(--accent)'
-    let opacity = 0.55
+    let opacity = 0.3
 
-    if (duration > 0) {
-      const tStart = (i / count) * duration
-      const tEnd   = ((i + 1) / count) * duration
-      const windowFlags = flags.filter(f => (f.ts || 0) >= tStart && (f.ts || 0) < tEnd)
-
+    if (windowFlags.length > 0) {
+      height  = Math.min(58, 22 + windowFlags.length * 16)
+      opacity = 1
       if (windowFlags.some(f => f.type === 'intonation')) {
-        color   = 'var(--coral)'
-        opacity = 1
+        color = 'var(--coral)'
       } else if (windowFlags.some(f => ['rhythm', 'timing'].includes(f.type))) {
-        color   = 'var(--gold)'
-        opacity = 1
-      } else if (windowFlags.length > 0) {
-        color   = 'var(--gold)'
-        opacity = 0.85
+        color = 'var(--gold)'
       } else {
-        opacity = 0.5
+        color = 'var(--accent)'
       }
     }
 
     bars.push({ height, color, opacity })
   }
-  return { bars, duration }
+  return { bars, duration, hasTimingData: true }
 }
 
 function formatDuration(secs) {
@@ -123,7 +131,7 @@ export default function Home() {
 
   const lastTake  = recentSessions[0] ?? null
   const streak    = useMemo(() => calcStreak(recentSessions), [recentSessions])
-  const { bars, duration } = useMemo(
+  const { bars, duration, hasTimingData } = useMemo(
     () => buildWaveformBars(lastTake?.flags ?? []),
     [lastTake?.flags],
   )
@@ -190,6 +198,20 @@ export default function Home() {
 
           {lastTake ? (
             <>
+              <div className={styles.waveHeader}>
+                {hasTimingData ? (
+                  <>
+                    <span className={styles.waveDesc}>Each bar is a moment in your recording — height and color show where issues were detected.</span>
+                    <div className={styles.waveLegendRow}>
+                      <span className={styles.waveLegendChip} style={{ '--chip-color': 'var(--coral)' }}>Intonation</span>
+                      <span className={styles.waveLegendChip} style={{ '--chip-color': 'var(--gold)' }}>Rhythm</span>
+                      <span className={styles.waveLegendChip} style={{ '--chip-color': 'var(--accent)' }}>Other / clean</span>
+                    </div>
+                  </>
+                ) : (
+                  <span className={styles.waveNoData}>Timing breakdown not available for this take — view full analysis for details.</span>
+                )}
+              </div>
               <div className={styles.waveformWrap}>
                 {bars.map((bar, i) => (
                   <div
@@ -204,16 +226,13 @@ export default function Home() {
                   />
                 ))}
               </div>
-              <div className={styles.waveFooter}>
-                <span>0:00</span>
-                {lastTake.bpm
-                  ? <span>TEMPO · {lastTake.bpm} BPM</span>
-                  : duration > 0
-                    ? <span className={styles.waveLegend}><span style={{color:'var(--coral)'}}>■</span> intonation &nbsp;<span style={{color:'var(--gold)'}}>■</span> rhythm &nbsp;<span style={{color:'var(--accent)'}}>■</span> clean</span>
-                    : <span />
-                }
-                <span>{formatDuration(duration)}</span>
-              </div>
+              {hasTimingData && (
+                <div className={styles.waveFooter}>
+                  <span>0:00</span>
+                  {lastTake.bpm && <span>TEMPO · {lastTake.bpm} BPM</span>}
+                  <span>{formatDuration(duration)}</span>
+                </div>
+              )}
             </>
           ) : (
             <div className={styles.heroEmpty}>

@@ -642,7 +642,15 @@
 .confLegend {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: 8px;
+}
+
+.confLegendLabel {
+  color: var(--text-faintest);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+  text-transform: uppercase;
 }
 
 .confLegendItem {
@@ -968,9 +976,25 @@
 }
 
 /* ── Flag position timeline ───────────────────────────────── */
+.insightsDesc {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  margin: 8px 0 4px;
+}
+
 .flagTimeline {
   margin: 6px 0 2px;
   padding: 0 2px;
+}
+
+.flagTimelineLabel {
+  color: var(--text-faintest);
+  display: block;
+  font-size: 0.69rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+  text-align: center;
 }
 
 .flagTimelineTrack {

@@ -106,14 +106,62 @@
 .heroCardAction:hover { color: var(--text-soft); }
 
 
+/* Waveform explanation header */
+.waveHeader {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 20px 10px;
+}
+
+.waveDesc {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.waveNoData {
+  color: var(--text-faint);
+  font-size: 0.77rem;
+  font-style: italic;
+}
+
+.waveLegendRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.waveLegendChip {
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
+  color: var(--chip-color);
+  display: inline-flex;
+  font-size: 0.71rem;
+  font-weight: 600;
+  gap: 5px;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+}
+
+.waveLegendChip::before {
+  background: var(--chip-color);
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+}
+
 /* Waveform */
 .waveformWrap {
   align-items: flex-end;
-  border-top: 1px solid var(--line);
   display: flex;
   gap: 2px;
   height: 72px;
-  padding: 12px 20px 0;
+  padding: 0 20px;
 }
 
 .waveBar {

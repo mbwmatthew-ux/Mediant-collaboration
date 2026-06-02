@@ -1271,12 +1271,18 @@ export default function Analysis({ demo: demoProp = false }) {
                       AI Insights Timeline
                       {issueCount > 0 && <span className={aStyles.insightCount}>{issueCount}</span>}
                     </span>
-                    <div className={aStyles.confLegend}>
+                    <div className={aStyles.confLegend} title="How confident the AI is that this issue is real">
+                      <span className={aStyles.confLegendLabel}>AI confidence:</span>
                       <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--accent)' }} />High</span>
                       <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--gold)' }} />Medium</span>
                       <span className={aStyles.confLegendItem}><span className={aStyles.confDot} style={{ background: 'var(--coral)' }} />Low</span>
                     </div>
                   </div>
+                  {issueCount > 0 && (
+                    <p className={aStyles.insightsDesc}>
+                      Each row is a specific moment where the AI detected an issue. Click any row to see details — and if you have a video, jump directly to that moment.
+                    </p>
+                  )}
 
                   {issueCount === 0 ? (
                     <div className={aStyles.issueClean}>✓ No issues detected — clean performance.</div>
@@ -1358,6 +1364,7 @@ export default function Analysis({ demo: demoProp = false }) {
                     {/* Flag position timeline over duration */}
                     {videoDuration > 0 && take?.flags?.some(f => f.timestamp_start != null) && (
                       <div className={aStyles.flagTimeline}>
+                        <span className={aStyles.flagTimelineLabel}>Tap a marker to jump to that moment in your recording</span>
                         <div className={aStyles.flagTimelineTrack}>
                           {take.flags.map((f, i) => {
                             const ts = Number(f.timestamp_start)
