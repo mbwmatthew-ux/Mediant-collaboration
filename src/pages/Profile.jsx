@@ -22,7 +22,7 @@ export default function Profile() {
   const [name,          setName]          = useState(user?.name       || '')
   const [instrument,    setInstrument]    = useState(user?.instrument || '')
   const [coachingStyle, setCoachingStyle] = useState(
-    user?.user_metadata?.coaching_style || 'Constructive and direct'
+    user?.coaching_style || 'Balanced'
   )
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
@@ -179,7 +179,9 @@ export default function Profile() {
 function calcBestStreak(takes) {
   if (!takes.length) return 0
   const days = [...new Set(
-    takes.map(t => new Date(t.created_at).toDateString())
+    takes
+      .map(t => { const d = new Date(t.created_at); return isNaN(d) ? null : d.toDateString() })
+      .filter(Boolean)
   )].map(d => new Date(d)).sort((a, b) => b - a)
 
   let best = 1, cur = 1

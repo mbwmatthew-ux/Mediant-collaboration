@@ -27,6 +27,7 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
   const [scoreReady,     setScoreReady]     = useState(false)
   const [scoreSource,    setScoreSource]    = useState(null)
   const [fileURL,        setFileURL]        = useState(null)
+  const [scoreMediaType, setScoreMediaType] = useState(piece.mediaType ?? null)
   const [pastSessions,   setPastSessions]   = useState([])
   const [deletingId,     setDeletingId]     = useState(null)
   const [deletingPiece,  setDeletingPiece]  = useState(false)
@@ -90,8 +91,7 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
             .catch(() => ({ data: null }))
           if (signed?.signedUrl) {
             const mediaType = piece.mediaType || inferMediaType(piece.file_path)
-            // store inferred type so the render branches below work
-            piece.mediaType = mediaType
+            setScoreMediaType(mediaType)
             setFileURL(signed.signedUrl)
             setScoreSource('uploaded')
             setScoreReady(true)
@@ -256,7 +256,7 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
             )}
 
             {/* Uploaded image */}
-            {fileURL && piece.mediaType?.startsWith('image/') && (
+            {fileURL && scoreMediaType?.startsWith('image/') && (
               <img
                 src={fileURL}
                 alt={piece.title}
@@ -265,7 +265,7 @@ export default function PieceDetailPanel({ piece, onClose, onDeleted }) {
             )}
 
             {/* Uploaded PDF */}
-            {fileURL && piece.mediaType === 'application/pdf' && (
+            {fileURL && scoreMediaType === 'application/pdf' && (
               <embed
                 src={fileURL}
                 type="application/pdf"

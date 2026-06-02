@@ -176,7 +176,7 @@ export default function Home() {
           <div className={styles.heroCardHeader}>
             <div className={styles.heroCardTitleRow}>
               <LiveIcon />
-              <span className={styles.heroCardTitle}>Live analysis</span>
+              <span className={styles.heroCardTitle}>Last session</span>
               {pieceName && (
                 <span className={styles.piecePill}>{pieceName}</span>
               )}

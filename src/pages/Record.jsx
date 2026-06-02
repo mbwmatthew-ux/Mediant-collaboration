@@ -281,7 +281,7 @@ export default function Record() {
           keySignature:   keySignature.trim() || undefined,
           startMeasure:   startMeasure || undefined,
           endMeasure:     endMeasure || undefined,
-          tempo:          tempo ? parseInt(tempo) : undefined,
+          tempo:          (() => { const n = parseInt(tempo, 10); return Number.isFinite(n) ? n : undefined })(),
           videoFrames:    videoFrames.length > 0 ? videoFrames : undefined,
         },
       })

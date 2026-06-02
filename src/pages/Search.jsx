@@ -57,9 +57,9 @@ export default function Search() {
   const results = userPieces.filter(p => {
     if (query) {
       const q = query.toLowerCase()
-      if (!p.title?.toLowerCase().includes(q) &&
-          !p.composer?.toLowerCase().includes(q) &&
-          !p.instrument?.toLowerCase().includes(q)) return false
+      if (!p.title?.toLowerCase()?.includes(q) &&
+          !p.composer?.toLowerCase()?.includes(q) &&
+          !p.instrument?.toLowerCase()?.includes(q)) return false
     }
     if (instrument && p.instrument !== instrument) return false
     if (era        && p.era        !== era)        return false
