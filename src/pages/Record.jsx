@@ -50,22 +50,32 @@ export default function Record() {
         const raw = sessionStorage.getItem('mediant_prefill')
         if (!raw) return
         sessionStorage.removeItem('mediant_prefill')
-        const { pieceTitle: t, composer: c, instrument: ins, key: k, timeSig: ts, bpm: b, pieceId, filePath, mediaType } = JSON.parse(raw)
-        if (t)   setPieceTitle(t)
-        if (c)   setComposer(c)
-        if (ins && INSTRUMENTS.includes(ins)) setInstrument(ins)
-        if (k)   setKeySignature(k)
-        if (ts)  setTimeSig(ts)
-        if (b)   setTempo(String(b))
-        if (pieceId || filePath) {
+        const parsed = JSON.parse(raw)
+        if (typeof parsed !== 'object' || parsed === null) return
+        const { pieceTitle: t, composer: c, instrument: ins, key: k, timeSig: ts, bpm: b, pieceId, filePath, mediaType } = parsed
+
+        // Validate string fields are actually strings before using
+        if (typeof t === 'string')  setPieceTitle(t.slice(0, 200))
+        if (typeof c === 'string')  setComposer(c.slice(0, 200))
+        if (typeof ins === 'string' && INSTRUMENTS.includes(ins)) setInstrument(ins)
+        if (typeof k === 'string')  setKeySignature(k.slice(0, 50))
+        if (typeof ts === 'string') setTimeSig(ts.slice(0, 10))
+        if (typeof b === 'number' && Number.isFinite(b)) setTempo(String(Math.round(b)))
+
+        // filePath must match userId/filename — no path traversal
+        const safeFilePath = typeof filePath === 'string' && /^[0-9a-f-]{36}\/.+$/i.test(filePath)
+          ? filePath : null
+        const safePieceId  = typeof pieceId === 'string' ? pieceId : null
+
+        if (safePieceId || safeFilePath) {
           // Try IndexedDB first (fast), fall back to Supabase storage
-          let f = pieceId ? await getFile(pieceId) : null
-          if (!f && filePath) {
-            const { data: blob } = await supabase.storage.from('sheet-music').download(filePath)
+          let f = safePieceId ? await getFile(safePieceId) : null
+          if (!f && safeFilePath) {
+            const { data: blob } = await supabase.storage.from('sheet-music').download(safeFilePath)
             if (blob) {
-              const name = filePath.split('/').pop()
-              f = new File([blob], name, { type: mediaType || 'application/octet-stream' })
-              if (pieceId) saveFile(pieceId, f).catch(() => {})
+              const name = safeFilePath.split('/').pop()
+              f = new File([blob], name, { type: typeof mediaType === 'string' ? mediaType : 'application/octet-stream' })
+              if (safePieceId) saveFile(safePieceId, f).catch(() => {})
             }
           }
           if (f) setScoreFile(f)
@@ -290,9 +300,8 @@ export default function Record() {
       // Poll job-status every 4s until done or failed (max 4 min = 60 attempts)
       // If the function already completed inline it returns status:'done' — skip straight to polling
       const { data: { session } } = await supabase.auth.getSession()
-      const token   = session?.access_token
-      const fnBase  = supabase.supabaseUrl + '/functions/v1'
-      const anonKey = supabase.supabaseKey
+      const token  = session?.access_token
+      const fnBase = supabase.supabaseUrl + '/functions/v1'
 
       let finalResult = null
       const alreadyDone = jobResult?.status === 'done'
@@ -303,7 +312,7 @@ export default function Record() {
         try {
           const resp = await fetch(
             `${fnBase}/job-status?takeId=${encodeURIComponent(jobId)}`,
-            { headers: { Authorization: `Bearer ${token}`, apikey: anonKey } },
+            { headers: { Authorization: `Bearer ${token}` } },
           )
           if (!resp.ok) continue
           const status = await resp.json()

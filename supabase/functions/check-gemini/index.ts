@@ -1,9 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, requireAuth } from '../_shared/cors.ts'
 
 // Models that can process video via the Files API
 const VIDEO_MODELS = [
@@ -14,7 +10,11 @@ const VIDEO_MODELS = [
 ]
 
 serve(async (req: Request) => {
+  const CORS = corsHeaders(req)
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+
+  const auth = await requireAuth(req)
+  if (auth instanceof Response) return auth
 
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
 

@@ -23,9 +23,13 @@ export default function Summary() {
     async function load() {
       // Try Supabase first — by URL param, then most recent take
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setTake(null); return }
+
         let query = supabase
           .from('takes')
           .select('id, piece_title, piece_composer, instrument, score, flags, created_at, video_path')
+          .eq('user_id', user.id)
         if (takeId) {
           query = query.eq('id', takeId)
         } else {

@@ -1,11 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.30.0'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 // ── Gemini video analysis via Files API ───────────────────────────────────────
 // ── Tempo → seconds per measure ──────────────────────────────────────────────
@@ -442,6 +438,7 @@ Examples of good specificity: "The leap from E♭5 to B4 in m.12 often goes shar
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
+  const CORS = corsHeaders(req)
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
   try {

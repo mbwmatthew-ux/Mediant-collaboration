@@ -12,12 +12,10 @@ const PRICES: Record<string, string> = {
   yearly:  Deno.env.get('STRIPE_PRICE_YEARLY')!,
 }
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
+  const CORS = corsHeaders(req)
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
   try {

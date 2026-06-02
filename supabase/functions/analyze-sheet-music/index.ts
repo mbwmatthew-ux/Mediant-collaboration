@@ -1,10 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.30.0'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, requireAuth } from '../_shared/cors.ts'
 
 const PROMPT = `You are a music educator with expert sight-reading ability analyzing a piece of sheet music.
 Return ONLY a valid JSON object — no markdown, no explanation — with these exact fields:
@@ -20,7 +16,11 @@ Return ONLY a valid JSON object — no markdown, no explanation — with these e
 }`
 
 serve(async (req) => {
+  const CORS = corsHeaders(req)
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+
+  const auth = await requireAuth(req)
+  if (auth instanceof Response) return auth
 
   try {
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
