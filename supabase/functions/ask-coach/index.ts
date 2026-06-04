@@ -123,13 +123,24 @@ GROUNDING RULES — READ CAREFULLY:
 - If asked about something genuinely not in your data (posture, bow arm, etc.), say it wasn't captured this session.
 - Be encouraging but direct. Answer in 2–4 sentences. Never deflect with a question when you have data to work with.`
 
-    const messages = [
-      ...(history ?? []).map((m: { role: string; content: string }) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user' as const, content: message },
-    ]
+    // Build a valid alternating message list — Anthropic requires starting with 'user'
+    const rawHistory: Array<{ role: string; content: string }> = Array.isArray(history) ? history : []
+    const firstUserIdx = rawHistory.findIndex(m => m.role === 'user')
+    const trimmed = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : []
+
+    const priorMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    let expectedRole: 'user' | 'assistant' = 'user'
+    for (const m of trimmed) {
+      if (!m.content || m.role !== expectedRole) continue
+      priorMessages.push({ role: m.role as 'user' | 'assistant', content: m.content })
+      expectedRole = expectedRole === 'user' ? 'assistant' : 'user'
+    }
+    // Drop trailing user message if present — the current message is appended below
+    if (priorMessages.length > 0 && priorMessages[priorMessages.length - 1].role === 'user') {
+      priorMessages.pop()
+    }
+
+    const messages = [...priorMessages, { role: 'user' as const, content: message }]
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',

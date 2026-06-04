@@ -44,31 +44,38 @@ serve(async (req) => {
       }
     }
 
-    // ── Rate limiting (free users only) ───────────────────────────────────────
+    // ── Rate limiting (free users only, best-effort via KV) ───────────────────
     if (userId && !isPro) {
-      const kv  = await Deno.openKv()
-      const day = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-      const key = ['coach_rate', userId, day]
-      const current = await kv.get<number>(key)
-      const count = current.value ?? 0
+      try {
+        const kv  = await Deno.openKv()
+        const day = new Date().toISOString().slice(0, 10)
+        const key = ['coach_rate', userId, day]
+        const current = await kv.get<number>(key)
+        const count = current.value ?? 0
 
-      if (count >= FREE_DAILY_LIMIT) {
-        return new Response(
-          JSON.stringify({ error: 'Daily coaching limit reached. Upgrade to Pro for unlimited conversations.' }),
-          { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } },
-        )
+        if (count >= FREE_DAILY_LIMIT) {
+          return new Response(
+            JSON.stringify({ error: 'Daily coaching limit reached. Upgrade to Pro for unlimited conversations.' }),
+            { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } },
+          )
+        }
+
+        await kv.set(key, count + 1, { expireIn: 86_400_000 })
+      } catch (kvErr) {
+        // KV unavailable — skip rate limiting rather than failing the request
+        console.warn('[coach-chat] KV rate limiting skipped:', (kvErr as Error).message)
       }
-
-      await kv.set(key, count + 1, { expireIn: 86_400_000 }) // 24 h TTL
     }
 
     // ── Request body ──────────────────────────────────────────────────────────
     const { message, context, history } = await req.json()
+    if (!message) throw new Error('message is required')
+
     const { pieceTitle, pieceComposer, instrument, flags, activeFlag, coachingStyle } = context ?? {}
 
     const flagsSummary = Array.isArray(flags) && flags.length > 0
       ? flags.map((f: Record<string, unknown>) =>
-          `- m.${f.measure} (${f.type}): ${f.title ?? ''} — ${f.body ?? ''}`
+          `- m.${f.measure} (${f.type}): ${f.title ?? ''} — ${f.detail ?? f.body ?? ''}`
         ).join('\n')
       : 'No issues flagged.'
 
@@ -89,12 +96,31 @@ serve(async (req) => {
       'Focus on technique and musicality, not theory for its own sake.',
     ].join(' ')
 
-    const priorMessages = Array.isArray(history)
-      ? history.map((m: Record<string, string>) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }))
-      : []
+    // ── Build conversation history for Anthropic ──────────────────────────────
+    // Anthropic requires messages to start with 'user' and strictly alternate.
+    // The client sends the full chat history including an initial assistant
+    // greeting — strip any leading assistant turns before passing to the API.
+    const rawHistory: Array<{ role: string; content: string }> = Array.isArray(history) ? history : []
+
+    // Drop leading assistant messages
+    let startIdx = rawHistory.findIndex(m => m.role === 'user')
+    const validHistory = startIdx >= 0 ? rawHistory.slice(startIdx) : []
+
+    // Build alternating user/assistant pairs, skipping any malformed turns
+    const priorMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    let expectedRole: 'user' | 'assistant' = 'user'
+    for (const m of validHistory) {
+      if (!m.content) continue
+      if (m.role !== expectedRole) continue
+      priorMessages.push({ role: m.role as 'user' | 'assistant', content: m.content })
+      expectedRole = expectedRole === 'user' ? 'assistant' : 'user'
+    }
+
+    // The final turn must end with 'assistant' so we can append the new 'user' message.
+    // If the last prior message is 'user', drop it (the client already sent message separately).
+    if (priorMessages.length > 0 && priorMessages[priorMessages.length - 1].role === 'user') {
+      priorMessages.pop()
+    }
 
     const anthropic = new Anthropic({ apiKey: anthropicKey })
     const response = await anthropic.messages.create({
