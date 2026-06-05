@@ -267,6 +267,14 @@ export default function Record() {
         videoFrames = await extractVideoFrames(file)
       } catch { /* skip if extraction fails */ }
 
+      // Ensure the session token is fresh before calling the edge function.
+      // If the gateway receives an expired/malformed JWT it returns ACAO:* which
+      // browsers reject on credentialed requests, surfacing as FunctionsFetchError.
+      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      if (!freshSession) {
+        throw new Error('Your session has expired. Please log in again.')
+      }
+
       const { data: jobResult, error: fnError } = await supabase.functions.invoke('analyze-performance', {
         body: {
           videoPath:      filePath,
