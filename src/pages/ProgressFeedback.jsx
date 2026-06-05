@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useTakes } from '../hooks/useTakes'
@@ -50,6 +50,7 @@ export default function ProgressFeedback() {
   const [feedback, setFeedback] = useState(null)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
+  const graphWrapRef = useRef(null)
 
   const allTakes = useTakes() ?? []
 
@@ -100,18 +101,19 @@ export default function ProgressFeedback() {
   const [containerWidth, setContainerWidth] = useState(600)
 
   useEffect(() => {
-    const el = document.getElementById('progress-graph-wrap')
+    const el = graphWrapRef.current
     if (!el) return
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {
-        if (entry.contentRect.width) {
-          setContainerWidth(entry.contentRect.width)
+        const roundedWidth = Math.round(entry.contentRect.width)
+        if (roundedWidth) {
+          setContainerWidth((prev) => (prev === roundedWidth ? prev : roundedWidth))
         }
       }
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [takes])
+  }, [takes.length > 0])
 
   const width = Math.max(200, containerWidth)
   const height = 180
@@ -129,7 +131,7 @@ export default function ProgressFeedback() {
       const y = paddingTop + (1 - (p.score ?? 70) / 100) * yRange
       return { x, y, ...p }
     })
-  }, [chartPoints])
+  }, [chartPoints, xRange, yRange])
 
   const linePath = useMemo(() => {
     return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
@@ -247,7 +249,7 @@ export default function ProgressFeedback() {
             )}
           </div>
           
-          <div id="progress-graph-wrap" className={pStyles.graphWrap}>
+          <div id="progress-graph-wrap" ref={graphWrapRef} className={pStyles.graphWrap}>
             {points.length >= 2 ? (
               <svg width="100%" height="100%" style={{ overflow: 'visible' }}>
                 <defs>
@@ -278,10 +280,12 @@ export default function ProgressFeedback() {
 
                 {/* Interactive milestone circles & score/title labels */}
                 {points.map((p, idx) => {
-                  const displayTitle = p.isBaseline ? 'Baseline' : (p.piece_title.length > 15 ? p.piece_title.slice(0, 14) + '…' : p.piece_title)
+                  const titleStr = p.piece_title || 'Untitled'
+                  const displayTitle = p.isBaseline ? 'Baseline' : (titleStr.length > 15 ? titleStr.slice(0, 14) + '…' : titleStr)
                   return (
                     <g
                       key={idx}
+                      className={pStyles.graphNodeGroup}
                       onClick={() => {
                         if (!p.isBaseline && p.id) {
                           playTick()
@@ -294,8 +298,9 @@ export default function ProgressFeedback() {
                       <circle
                         cx={p.x}
                         cy={p.y}
-                        r="14"
-                        fill="transparent"
+                        r="18"
+                        fill="rgba(0,0,0,0)"
+                        style={{ pointerEvents: 'all' }}
                       />
                       <circle
                         cx={p.x}
