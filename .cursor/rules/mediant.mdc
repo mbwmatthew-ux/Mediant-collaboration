@@ -1,0 +1,60 @@
+---
+description: Mediant project rules — applied to every conversation in this repo
+alwaysApply: true
+---
+
+# Mediant — Cursor Agent Instructions
+
+## Read these files before starting any task
+
+You have filesystem access to the Obsidian vault and this repo via MCP.
+At the start of every session, read:
+
+1. `/Users/matthewwu/Documents/Claude (database)/🏠 Start Here.md`
+2. `/Users/matthewwu/Documents/Claude (database)/Project/Mediant — State of the Product.md`
+3. `agent_workspace/AGENT_TASKS.md`
+
+If you are touching the UI, also read:
+- `agent_workspace/DESIGN_RULES.md`
+
+If you are touching feature logic or adding something new:
+- `agent_workspace/PRODUCT_DECISIONS.md`
+
+If you are touching an area you haven't worked in recently:
+- `/Users/matthewwu/Documents/Claude (database)/Gotchas/Gotchas — Things That Will Bite You.md`
+
+## Write notes when you finish
+
+After making changes:
+- Update `agent_workspace/CHANGELOG.md` with what you changed
+- Add any new bugs or inconsistencies to `agent_workspace/BUGS.md`
+- If you discovered something non-obvious, add it to the vault Gotchas file
+
+## Keeping AGENT_TASKS.md updated
+
+Update `agent_workspace/AGENT_TASKS.md` as you work:
+
+- **Starting a task:** move it from `Approved Tasks` → `In Progress`
+- **Finishing a task:** move it from `In Progress` → `Completed`
+- **Needs user check:** move to `Needs Review` with a one-line note
+- **New idea discovered:** add to `Backlog`
+- **Never move anything to `Approved Tasks`** — that's the user's decision only
+
+## Only implement approved tasks
+
+Only pick up tasks listed in the `Approved Tasks` section of `agent_workspace/AGENT_TASKS.md`.
+Do not implement backlog items without approval.
+
+## Design rules (brief)
+
+- Warm off-white / cream background — never pure white or cool gray
+- Gold accent (#C09040) for active states and primary CTAs
+- Red accent (#9C2728) for error flags and critical feedback only
+- Phosphor icons (bold/fill weight) — never Lucide or Feather
+- Sheet music stays visible on desktop during analysis
+- Loop button is inline on every feedback flag card — one tap to hear the section
+- Never introduce generic SaaS gradients, purple/blue accents, or dark mesh backgrounds
+
+## Stack
+
+React 19 + Vite + CSS Modules → Supabase → Modal.com (Python worker) → Anthropic + Gemini

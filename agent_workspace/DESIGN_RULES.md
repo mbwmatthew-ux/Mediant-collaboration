@@ -1,0 +1,139 @@
+# Design Rules — Mediant
+
+Last updated: 2026-06-05
+
+This file is the source of truth for Mediant's visual system.
+Coding agents must read this before touching any UI file.
+
+---
+
+## Core Identity
+
+Mediant is a music coach, not a productivity tool and not a generic AI chatbot.
+The UI should feel like premium sheet music software crossed with a private lesson room.
+Warm, precise, human, specific to music.
+
+---
+
+## Colors
+
+| Role | Value | Notes |
+|---|---|---|
+| Background (primary) | `#F7F4EF` / `#FBFAF7` | Warm off-white / cream — not pure white |
+| Surface (cards, panels) | `#FFFFFF` or `#F9F8F5` | Slightly warmer than background |
+| Text (primary) | `#1A1410` | Warm near-black — never `#000000` |
+| Text (secondary) | `#7A6F64` | Muted warm gray |
+| Border | `rgba(0,0,0,0.07)` or `#E8E4DC` | Ultra-light, warm |
+| Accent (gold) | `#C09040` | Used sparingly — CTAs, active states, highlighted measures |
+| Accent (red) | `#9C2728` or `#B03030` | Error flags, critical feedback markers |
+| Dark surface | `#1A1410` | Nav, score overlay backgrounds |
+
+**Rules:**
+- One accent per screen. Do not mix gold and red as decoration — red is semantic (error/flag), gold is structural (active/CTA).
+- No bright blue, purple, or generic SaaS gradients anywhere.
+- The background is warm. The text is warm. They belong together. Do not introduce cool-gray tones without a reason.
+
+---
+
+## Typography
+
+**Display / headings:**
+- Font: `'Instrument Serif'`, `'Newsreader'`, or `'Playfair Display'` for editorial hero headings only
+- Font: `'SF Pro Display'`, `'Geist Sans'`, or `'Helvetica Neue'` for UI headings (section titles, card headers)
+- Tracking: `-0.02em` to `-0.04em` for large display text
+- Line height: `1.1` for headlines, `1.6` for body
+
+**Body / UI:**
+- Font: `'SF Pro Text'`, `'Geist Sans'`, `'Helvetica Neue'`, or system-ui
+- Size: `15px–16px` base, `13px` for metadata/secondary
+- Color: `#1A1410` primary, `#7A6F64` secondary
+
+**Monospace (timestamps, measure numbers, flags):**
+- Font: `'Geist Mono'`, `'SF Mono'`, or `'JetBrains Mono'`
+- Use for: audio timestamps, measure numbers, tempo markings, technical metadata
+
+**Rules:**
+- Never use Inter, Roboto, or Open Sans as the primary font.
+- Measure numbers and timestamps always use monospace — they are data, not prose.
+- Do not mix font families within a single card or UI section.
+
+---
+
+## Layout Principles
+
+- **Macro whitespace first.** Give every section room to breathe. Minimum `64px` vertical padding between major sections.
+- **Max content width:** `1200px` centered. Sheet music and waveform panels may go wider if the layout needs it.
+- **Column structure:** Prefer two-column layouts (score/analysis split) on desktop. Single column on mobile.
+- **No decorative empty space.** Every gap should feel intentional, not like something is missing.
+- **Grid over float math.** Use CSS Grid. Never `width: calc(50% - 12px)` when `grid-cols-2` works.
+
+---
+
+## Component Rules
+
+**Cards:**
+- Border: `1px solid rgba(0,0,0,0.07)`
+- Border-radius: `8px` or `12px` — pick one per context and stay consistent
+- Shadow: none, or `0 1px 4px rgba(0,0,0,0.04)` at most
+- Padding: `20px–32px`
+
+**Buttons:**
+- Primary: `background: #1A1410; color: #FFFFFF; border-radius: 6px`
+- Secondary: `background: transparent; border: 1px solid #1A1410; color: #1A1410`
+- Gold CTA: `background: #C09040; color: #FFFFFF` — use only for the single most important action on screen
+- Hover: `scale(0.98)` or subtle color shift — no glow, no box-shadow pop
+
+**Flag / feedback cards (analysis view):**
+- Left border accent: `4px solid #9C2728` for errors, `4px solid #C09040` for warnings
+- Always show: measure number (monospace), timestamp range, flag type
+- Loop button must be visible on every flag card — one click to hear the exact section
+
+**Sheet music panel:**
+- Always visible on desktop analysis view — never hidden behind a tab on desktop
+- Highlighted measures use a semi-transparent gold overlay: `rgba(192, 144, 64, 0.15)`
+
+---
+
+## What to Avoid
+
+- Generic card grids that look like a SaaS feature comparison table
+- Centered hero layouts with a gradient blob behind them
+- Dark mode as a vanity feature — only if it genuinely serves musicians practicing at night
+- Pill buttons for primary CTAs on desktop
+- Heavy drop shadows (`box-shadow: 0 8px 32px rgba(0,0,0,0.2)`)
+- Thin hairline icons (Lucide, Feather) — use Phosphor Bold or fill-weight icons
+- Empty state screens that just say "No recordings yet"
+- AI chat UI that looks like a generic ChatGPT wrapper
+
+---
+
+## Mobile Rules
+
+- Bottom navigation bar for primary sections (Dashboard, Library, Analysis, Profile)
+- Waveform and flag cards stack vertically on mobile — score image above, flags below
+- Loop button stays visible on mobile — minimum touch target `44px × 44px`
+- Font sizes: minimum `15px` body, `13px` secondary — never smaller
+- Padding: minimum `16px` horizontal on all content
+
+---
+
+## Loop Feature Visibility
+
+Loop is a core feature — not a "nice to have" buried in a menu.
+
+- Every flagged section in the analysis view has a Loop button inline
+- Loop button label: "Loop" with a loop/repeat icon (Phosphor `ArrowsClockwise` or similar)
+- Active loop state: gold accent on the button, the waveform segment highlights
+- Tapping the measure number in a flag card should seek to that section — tapping Loop should begin playback and repeat
+
+---
+
+## Thread UI Rules
+
+The song thread is a chronological feed of takes, feedback, and follow-up messages.
+
+- Each take is a distinct block: recording date, score, summary, and a "View Analysis" link
+- Follow-up coach messages appear inline between takes — not in a separate chat window
+- New take button is always visible at the top of the thread — one action, not buried
+- Thread does not paginate or hide old takes — musicians want to see their full history
+- Comparison mode: when the user uploads a second take, show a delta indicator (better / same / worse) next to the score on the new take

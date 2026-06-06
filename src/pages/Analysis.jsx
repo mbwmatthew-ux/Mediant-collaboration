@@ -1137,9 +1137,17 @@ export default function Analysis({ demo: demoProp = false }) {
           </div>
           <div className={aStyles.headerRight}>
             {take?.analysis_backend && (
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Analysis: {take.analysis_backend}
-              </p>
+              <div style={{ marginBottom: 4 }}>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                  Analysis: {take.analysis_backend}
+                </p>
+                {take?.analysis_quality?.gemini_error && (
+                  <p style={{ fontSize: '0.65rem', color: '#c0392b', marginTop: 2, maxWidth: 260, lineHeight: 1.4 }}
+                     title={take.analysis_quality.gemini_error}>
+                    Gemini error: {take.analysis_quality.gemini_error.slice(0, 80)}{take.analysis_quality.gemini_error.length > 80 ? '…' : ''}
+                  </p>
+                )}
+              </div>
             )}
             {score != null && (
               <div className={aStyles.scoreBadge}>

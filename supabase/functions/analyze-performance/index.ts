@@ -594,8 +594,8 @@ serve(async (req: Request) => {
           gemini_api_key:    Deno.env.get('GOOGLE_AI_API_KEY'),
           anthropic_api_key: Deno.env.get('ANTHROPIC_API_KEY'),
         }),
-        signal: AbortSignal.timeout(8000),
-      }).catch(() => null)
+        signal: AbortSignal.timeout(25000),
+      }).catch((e) => { console.warn('[analyze-performance] Modal dispatch error:', e?.message); return null })
 
       if (dispatchRes?.ok) {
         console.log('[analyze-performance] dispatched to Modal:', takeId)
@@ -603,7 +603,8 @@ serve(async (req: Request) => {
           headers: { 'Content-Type': 'application/json', ...CORS },
         })
       }
-      console.warn('[analyze-performance] Modal unavailable, running inline')
+      const modalStatus = dispatchRes?.status ?? 'timeout'
+      console.warn(`[analyze-performance] Modal unavailable (${modalStatus}), running inline`)
     }
 
     // ── 2. Inline analysis: vision → Gemini → coaching ───────────
@@ -621,6 +622,7 @@ serve(async (req: Request) => {
     let score: number | null = null
     let flags: unknown[]     = []
     let backend              = 'claude-coaching'
+    let backendError: string | null = null
     let quality: unknown     = { trust: 'low', reasons: ['Sheet music analysis only — no video score or timestamps available.'] }
 
     function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -645,7 +647,8 @@ serve(async (req: Request) => {
         quality = { trust: 'high', reasons: [] }
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
-        console.warn('[analyze-performance] Gemini failed:', (geminiErr as Error).message)
+        backendError = (geminiErr as Error).message
+        console.warn('[analyze-performance] Gemini failed:', backendError)
       }
     }
 
@@ -660,7 +663,11 @@ serve(async (req: Request) => {
         score   = visionResult.score
         flags   = visionResult.flags
         backend = 'claude-vision'
-        quality = { trust: 'medium', reasons: ['Analyzed from your video — visual technique scored; intonation and precise timing assessed separately.'] }
+        quality = {
+          trust: 'medium',
+          reasons: ['Analyzed from your video — visual technique scored; intonation and precise timing assessed separately.'],
+          ...(backendError ? { gemini_error: backendError } : {}),
+        }
         console.log('[analyze-performance] Claude vision done:', takeId, 'score:', score, 'flags:', flags.length)
       } catch (visionErr) {
         console.warn('[analyze-performance] Claude vision failed:', (visionErr as Error).message)

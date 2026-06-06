@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mediant-files": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/matthewwu/repos/mediant-ui-shell",
+        "/Users/matthewwu/Documents/Claude (database)"
+      ]
+    }
+  }
+}

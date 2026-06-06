@@ -1533,7 +1533,7 @@ def run_full_analysis(payload: dict) -> None:
 
 # ── Fire-and-forget dispatcher endpoint ───────────────────────────────────
 
-@app.function(image=image, timeout=30)
+@app.function(image=image, timeout=30, min_containers=1)
 @modal.fastapi_endpoint(method="POST", docs=True)
 def analyze_async(body: dict) -> dict:
     """
