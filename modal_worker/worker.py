@@ -906,7 +906,8 @@ def extract_json_object(raw: str) -> dict | None:
         return None
 
 
-def upload_video_to_gemini(video_bytes: bytes, mime_type: str, api_key: str) -> str | None:
+def upload_video_to_gemini(video_bytes: bytes, mime_type: str, api_key: str) -> str:
+    """Upload video to Gemini Files API. Raises on failure — never returns None."""
     import httpx, json, time
     boundary = f"gem_{int(time.time() * 1000)}"
     metadata = json.dumps({"file": {"displayName": "practice-recording"}})
@@ -914,30 +915,37 @@ def upload_video_to_gemini(video_bytes: bytes, mime_type: str, api_key: str) -> 
     pre  = f"--{boundary}{CRLF}Content-Type: application/json; charset=UTF-8{CRLF}{CRLF}{metadata}{CRLF}--{boundary}{CRLF}Content-Type: {mime_type}{CRLF}{CRLF}"
     post = f"{CRLF}--{boundary}--"
     body = pre.encode() + video_bytes + post.encode()
-    try:
-        with httpx.Client(timeout=120) as client:
-            resp = client.post(
-                f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}&uploadType=multipart",
-                content=body,
-                headers={"Content-Type": f"multipart/related; boundary={boundary}"},
-            )
-            resp.raise_for_status()
-            file_data = resp.json()["file"]
-            file_id   = file_data["name"].split("/")[-1]
-            state     = file_data.get("state", "PROCESSING")
-            for _ in range(15):
-                if state == "ACTIVE":
-                    break
-                time.sleep(3)
-                poll  = client.get(f"https://generativelanguage.googleapis.com/v1beta/files/{file_id}?key={api_key}")
-                state = poll.json().get("state", "UNKNOWN")
-            if state != "ACTIVE":
-                print(f"[upload_video_to_gemini] file never became ACTIVE (state={state})")
-                return None
-            return file_data["uri"]
-    except Exception as e:
-        print(f"[upload_video_to_gemini] error: {e}")
-        return None
+    with httpx.Client(timeout=120) as client:
+        resp = client.post(
+            f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}&uploadType=multipart",
+            content=body,
+            headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+        )
+        if not resp.is_success:
+            raise RuntimeError(f"Gemini upload failed {resp.status_code}: {resp.text[:300]}")
+        file_data = resp.json()["file"]
+        file_id   = file_data["name"].split("/")[-1]
+        state     = file_data.get("state", "PROCESSING")
+        for attempt in range(20):
+            if state == "ACTIVE":
+                break
+            time.sleep(3)
+            poll  = client.get(f"https://generativelanguage.googleapis.com/v1beta/files/{file_id}?key={api_key}")
+            state = poll.json().get("state", "UNKNOWN")
+            print(f"[upload_video_to_gemini] poll {attempt+1}: state={state}")
+        if state != "ACTIVE":
+            raise RuntimeError(f"Gemini file never became ACTIVE after 60s (final state: {state})")
+        print(f"[upload_video_to_gemini] file ACTIVE: {file_data['uri']}")
+        return file_data["uri"]
+
+
+# Models to try in order — flash first (faster + cheaper), pro as last resort
+GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+    "gemini-1.5-flash",
+]
 
 
 def evaluate_with_gemini(
@@ -945,63 +953,92 @@ def evaluate_with_gemini(
     instrument: str, piece_title: str, composer: str,
     start_measure: int, end_measure: int | None,
     api_key: str,
-) -> dict | None:
+) -> dict:
+    """
+    Audio analysis via Gemini. Raises if ALL models fail — never returns None.
+    Returns structured observations that Claude uses as primary audio evidence.
+    """
     import httpx
-    GEMINI_MODEL = "gemini-2.5-pro"
     end_info = f" through measure {end_measure}" if end_measure else ""
-    prompt = f"""You are an expert {instrument} teacher. Listen carefully to this student recording of "{piece_title}" by {composer}, starting at measure {start_measure}{end_info}.
+    prompt = f"""AUDIO ANALYSIS TASK. You are listening to a student's recording of "{piece_title}" by {composer} on {instrument}, starting at measure {start_measure}{end_info}.
 
-Listen to the ENTIRE recording from start to finish. Give me concrete, specific observations — NOT vague generalities.
+Your ONLY job is to LISTEN. Report exactly what you HEAR — not what you see. This is an ear-training exercise.
 
-INTONATION: List every passage where pitch sounds noticeably flat or sharp. Give a timestamp and direction. If intonation sounds generally clean, say so explicitly.
+MANDATORY — you MUST address all five categories. Do not skip any:
 
-RHYTHM: List any rushed or dragged passages, hesitations, uneven note-spacing, or beat instability with timestamps. If rhythm sounds solid, say so.
+1. INTONATION: List every passage where pitch is audibly flat or sharp. Give the timestamp, direction (flat/sharp), and approximate magnitude. If generally clean, say so explicitly.
 
-TECHNIQUE: List bow/breath noise, tone quality issues, insecure shifts, unclear articulation with timestamps. If technique sounds clean, say so.
+2. TIMING / RHYTHM: Any rushing, dragging, uneven note spacing, hesitations, or beat instability. Give timestamps. If solid, say so.
 
-OVERALL: One sentence — the single most important thing for this student to work on.
+3. WRONG NOTES / CRACKS: Any pitch that doesn't belong, squeaks, tone breaks, or unexpected sounds. Name the note heard if possible.
 
-RULES: Be direct. Vague feedback is useless. If something is genuinely clean, say so. Focus on 1-3 most important issues.
+4. DYNAMICS: Where does the student ignore or fail to execute dynamic markings? Is forte actually forte? Does piano actually recede?
 
-Return JSON only:
+5. TONE QUALITY: Breathy, unfocused, over-pressured, or inconsistent tone. When and where?
+
+Be specific. Name timestamps (e.g. "0:08"), directions (sharp/flat), and magnitudes (slightly / roughly a quarter tone / severely). Vague observations like "intonation issues present" are rejected.
+
+Return JSON only (no markdown fences):
 {{
-  "intonation_issues": ["<timestamp>: <specific observation>"],
-  "rhythm_issues": ["<timestamp>: <specific observation>"],
-  "technique_issues": ["<timestamp>: <specific observation>"],
-  "overall": "<one sentence>"
+  "intonation_issues": ["<timestamp>: <note/passage> sounds <sharp|flat> by <magnitude>"],
+  "rhythm_issues": ["<timestamp>: <specific observation with beat or measure reference>"],
+  "wrong_notes_cracks": ["<timestamp>: <what was heard vs. what was expected>"],
+  "dynamics_issues": ["<timestamp>: <marking expected vs. what was played>"],
+  "tone_issues": ["<timestamp>: <specific description>"],
+  "overall": "<one sentence: the single most important thing to fix>"
 }}"""
-    try:
-        with httpx.Client(timeout=120) as client:
-            resp = client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}",
-                json={
-                    "contents": [{"parts": [
-                        {"fileData": {"mimeType": mime_type, "fileUri": file_uri}},
-                        {"text": prompt},
-                    ]}],
-                    "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 4096},
-                },
-            )
-        if not resp.is_success:
-            print(f"[evaluate_with_gemini] HTTP {resp.status_code}")
-            return None
-        data = resp.json()
-        text = (data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text"))
-        if not text:
-            return None
-        parsed = extract_json_object(text)
-        if not parsed:
-            return None
-        print(f"[evaluate_with_gemini] overall: {str(parsed.get('overall', ''))[:100]}")
-        return {
-            "intonation_issues": parsed.get("intonation_issues", []),
-            "rhythm_issues":     parsed.get("rhythm_issues", []),
-            "technique_issues":  parsed.get("technique_issues", []),
-            "overall":           parsed.get("overall", ""),
-        }
-    except Exception as e:
-        print(f"[evaluate_with_gemini] error: {e}")
-        return None
+
+    last_error = "no models attempted"
+    for model in GEMINI_MODELS:
+        try:
+            with httpx.Client(timeout=120) as client:
+                resp = client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+                    json={
+                        "contents": [{"parts": [
+                            {"fileData": {"mimeType": mime_type, "fileUri": file_uri}},
+                            {"text": prompt},
+                        ]}],
+                        "generationConfig": {"temperature": 0, "maxOutputTokens": 4096},
+                    },
+                )
+            if not resp.is_success:
+                last_error = f"{model} → HTTP {resp.status_code}: {resp.text[:200]}"
+                print(f"[evaluate_with_gemini] {last_error}")
+                if resp.status_code in (401, 403):
+                    raise RuntimeError(f"Gemini auth error ({resp.status_code}) — check GOOGLE_AI_API_KEY")
+                continue
+            data = resp.json()
+            # Skip thinking parts (gemini-2.5 series)
+            parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+            text = next((p.get("text", "") for p in parts if not p.get("thought") and p.get("text", "").strip()), "")
+            if not text:
+                last_error = f"{model} → empty response"
+                print(f"[evaluate_with_gemini] {last_error}")
+                continue
+            parsed = extract_json_object(text)
+            if not parsed:
+                last_error = f"{model} → JSON parse failed"
+                print(f"[evaluate_with_gemini] {last_error}: {text[:200]}")
+                continue
+            print(f"[evaluate_with_gemini] success via {model} | overall: {str(parsed.get('overall', ''))[:120]}")
+            return {
+                "intonation_issues":   parsed.get("intonation_issues", []),
+                "rhythm_issues":       parsed.get("rhythm_issues", []),
+                "wrong_notes_cracks":  parsed.get("wrong_notes_cracks", []),
+                "dynamics_issues":     parsed.get("dynamics_issues", []),
+                "tone_issues":         parsed.get("tone_issues", []),
+                "technique_issues":    parsed.get("technique_issues", []),  # legacy compat
+                "overall":             parsed.get("overall", ""),
+            }
+        except RuntimeError:
+            raise
+        except Exception as e:
+            last_error = f"{model} → {e}"
+            print(f"[evaluate_with_gemini] {last_error}")
+            continue
+
+    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
 
 
 def read_score_notes_claude(
@@ -1131,16 +1168,18 @@ def anchor_and_align_py(
     return aligned, sec_per_measure, alignment_ranges
 
 
-def build_gemini_block(assessment: dict | None) -> str:
-    if not assessment:
-        return "DIRECT LISTENING CROSS-CHECK: unavailable."
+def build_gemini_block(assessment: dict) -> str:
+    def fmt(items: list) -> str:
+        return " | ".join(items) if items else "None reported."
     lines = [
-        "DIRECT LISTENING CROSS-CHECK (Gemini listening to the actual recording):",
-        f"- Intonation: {' | '.join(assessment['intonation_issues']) if assessment['intonation_issues'] else 'No clear intonation issues reported.'}",
-        f"- Rhythm: {' | '.join(assessment['rhythm_issues']) if assessment['rhythm_issues'] else 'No clear rhythm issues reported.'}",
-        f"- Technique: {' | '.join(assessment['technique_issues']) if assessment['technique_issues'] else 'No clear technique issues reported.'}",
-        f"- Overall: {assessment.get('overall') or 'No overall note provided.'}",
-        "Treat this block as corroborating evidence.",
+        "GEMINI AUDIO ANALYSIS (Gemini listened to the full recording — treat as primary evidence):",
+        f"- Intonation: {fmt(assessment.get('intonation_issues', []))}",
+        f"- Rhythm/Timing: {fmt(assessment.get('rhythm_issues', []))}",
+        f"- Wrong notes / cracks: {fmt(assessment.get('wrong_notes_cracks', []))}",
+        f"- Dynamics: {fmt(assessment.get('dynamics_issues', []))}",
+        f"- Tone quality: {fmt(assessment.get('tone_issues', []))}",
+        f"- Overall: {assessment.get('overall') or 'No overall note.'}",
+        "Your flags MUST be grounded in this audio evidence. Do not invent issues not mentioned above.",
     ]
     return "\n".join(lines)
 
@@ -1148,11 +1187,11 @@ def build_gemini_block(assessment: dict | None) -> str:
 def compare_and_coach_claude(
     score: dict, aligned: list[dict], alignment_ranges: list[dict],
     tempo: dict, piece_title: str, composer: str, instrument: str,
-    gemini_assessment: dict | None, anthropic_api_key: str,
+    gemini_assessment: dict, anthropic_api_key: str,
 ) -> list[dict]:
     import anthropic as ac, re
-    CLAUDE_MODEL = "claude-sonnet-4-6"
-    allowed_types = {"intonation", "timing", "rhythm", "articulation", "dynamics", "voicing", "phrasing"}
+    CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+    allowed_types = {"intonation", "timing", "rhythm", "articulation", "dynamics", "voicing", "phrasing", "tone", "error"}
     events_by_measure: dict[int, list] = {}
     for ev in aligned:
         events_by_measure.setdefault(ev["measure"], []).append(ev)
@@ -1322,26 +1361,19 @@ Return JSON only (no markdown):
 
 def assess_quality(
     score: dict, events: list[dict], aligned: list[dict],
-    alignment_ranges: list[dict], used_modal: bool, gemini_assessment: dict | None,
+    alignment_ranges: list[dict],
 ) -> dict:
+    # Gemini is always present (required upstream) — quality depends on CREPE + score
     reasons: list[str] = []
     if len(score.get("measures", [])) < 2:
-        reasons.append("The score could not be parsed into enough readable measures.")
-    if not gemini_assessment:
-        if len(events) < 8:
-            reasons.append("Too few audio events were extracted from the recording.")
-        if len(aligned) < 8:
-            reasons.append("Too few note events could be aligned to score measures.")
-        if len(alignment_ranges) < 2:
-            reasons.append("The recording only aligned to a very small number of measures.")
-        reasons.append("Direct listening corroboration from Gemini was unavailable.")
+        reasons.append("Score could not be parsed — measure timestamps are approximate.")
+    if len(events) < 8:
+        reasons.append("Few audio events detected — recording may be very short or quiet.")
+    if len(aligned) < 4:
+        reasons.append("Few events aligned to score measures — timestamp accuracy limited.")
     if not reasons:
         return {"trust": "high", "canProceed": True, "reasons": []}
-    if used_modal and len(score.get("measures", [])) >= 2 and len(aligned) >= 8:
-        return {"trust": "medium", "canProceed": True, "reasons": reasons}
-    if gemini_assessment:
-        return {"trust": "medium", "canProceed": True, "reasons": reasons}
-    return {"trust": "low", "canProceed": False, "reasons": reasons}
+    return {"trust": "medium", "canProceed": True, "reasons": reasons}
 
 
 def post_webhook(webhook_url: str, webhook_secret: str | None, payload: dict) -> None:
@@ -1431,16 +1463,16 @@ def run_full_analysis(payload: dict) -> None:
             elif score_kind == "visual":
                 print("[run_full_analysis] visual score but no Anthropic key")
 
-        # ── Step 3: Gemini evaluation ──────────────────────────────────────
-        gemini_assessment = None
-        if gemini_key:
-            print("[run_full_analysis] uploading video to Gemini")
-            gemini_uri = upload_video_to_gemini(video_bytes, video_mime, gemini_key)
-            if gemini_uri:
-                gemini_assessment = evaluate_with_gemini(
-                    gemini_uri, video_mime, instrument,
-                    piece_title, composer, start_measure, end_measure, gemini_key,
-                )
+        # ── Step 3: Gemini audio evaluation (required — raises if unavailable) ──
+        if not gemini_key:
+            raise RuntimeError("GOOGLE_AI_API_KEY not provided — Gemini audio analysis is required")
+        print("[run_full_analysis] uploading video to Gemini Files API")
+        gemini_uri = upload_video_to_gemini(video_bytes, video_mime, gemini_key)
+        gemini_assessment = evaluate_with_gemini(
+            gemini_uri, video_mime, instrument,
+            piece_title, composer, start_measure, end_measure, gemini_key,
+        )
+        print(f"[run_full_analysis] Gemini assessment complete: {len(gemini_assessment.get('intonation_issues', []))} intonation, {len(gemini_assessment.get('rhythm_issues', []))} rhythm, {len(gemini_assessment.get('wrong_notes_cracks', []))} wrong notes")
 
         # ── Step 4: Assign events to measures ─────────────────────────────
         # Use DTW when the score has real note data (MusicXML/MXL parsed by
@@ -1496,23 +1528,23 @@ def run_full_analysis(payload: dict) -> None:
             print(f"[run_full_analysis] synthesized {count} skeleton measures")
 
         # ── Step 6: Quality assessment ─────────────────────────────────────
-        quality = assess_quality(score, raw_events, aligned, alignment_ranges, True, gemini_assessment)
+        quality = assess_quality(score, raw_events, aligned, alignment_ranges)
         print(f"[run_full_analysis] quality trust={quality['trust']}, canProceed={quality['canProceed']}")
 
-        # ── Step 7: Claude coaching ────────────────────────────────────────
+        # ── Step 7: Claude coaching (Gemini audio data is always present) ──
         flags: list[dict] = []
-        if quality["canProceed"] and anthropic_key:
+        if anthropic_key:
             flags = compare_and_coach_claude(
                 score=score, aligned=aligned, alignment_ranges=alignment_ranges,
                 tempo={"bpm": beats["tempo_bpm"], "steadiness": "steady"},
                 piece_title=piece_title, composer=composer, instrument=instrument,
                 gemini_assessment=gemini_assessment, anthropic_api_key=anthropic_key,
             )
-        elif not quality["canProceed"]:
-            print(f"[run_full_analysis] skipping coaching (low trust): {quality['reasons']}")
+        else:
+            raise RuntimeError("ANTHROPIC_API_KEY not provided")
 
         base_score = max(50, min(98, 95 - len(flags) * 6))
-        backend    = "modal+gemini+claude" if gemini_assessment else "modal+claude"
+        backend    = "modal+gemini+claude"
         print(f"[run_full_analysis] done | score={base_score} | flags={len(flags)} | backend={backend}")
 
         post_webhook(webhook_url, webhook_secret, {
