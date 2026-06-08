@@ -1379,17 +1379,27 @@ export default function Analysis({ demo: demoProp = false }) {
                     <div ref={chatEndRef} />
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 0', scrollbarWidth: 'none' }}>
-                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("How can I shape the opening?")}>
-                      How can I shape the opening?
-                    </button>
-                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("Why does m.14 feel rushed?")}>
-                      Why does m.14 feel rushed?
-                    </button>
-                    <button className={aStyles.summaryRetryBtn} style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0 }} onClick={() => sendMessage("Help with left-hand balance")}>
-                      Help with left-hand balance
-                    </button>
-                  </div>
+                  {take?.flags?.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 0', scrollbarWidth: 'none' }}>
+                      {take.flags.slice(0, 3).map((f, i) => (
+                        <button
+                          key={i}
+                          className={aStyles.summaryRetryBtn}
+                          style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0, flexShrink: 0 }}
+                          onClick={() => sendMessage(`How do I fix the ${f.type} issue in m.${f.measure}? (${f.title})`)}
+                        >
+                          Fix m.{f.measure} · {capitalize(f.type)}
+                        </button>
+                      ))}
+                      <button
+                        className={aStyles.summaryRetryBtn}
+                        style={{ borderRadius: 16, padding: '6px 12px', whiteSpace: 'nowrap', margin: 0, flexShrink: 0 }}
+                        onClick={() => sendMessage("What should I focus on first in my next practice session?")}
+                      >
+                        What to practice first?
+                      </button>
+                    </div>
+                  )}
 
                   <div className={styles.chatInputRow}>
                     <button
