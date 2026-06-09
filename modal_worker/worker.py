@@ -948,6 +948,27 @@ GEMINI_MODELS = [
 ]
 
 
+def _instrument_guidance(instrument: str) -> str:
+    i = instrument.lower()
+    if any(x in i for x in ("clarinet", "flute", "oboe", "bassoon", "saxophone")):
+        return (f"For {instrument} (woodwind): listen specifically for squeaks, cracks, and register breaks — flag every one. "
+                "Also flag: over-blowing causing pitch to go sharp in the upper register, weak or breathy tone from insufficient air support, "
+                "smeared articulation from poor tongue placement, and octave/register key issues.")
+    if any(x in i for x in ("trumpet", "trombone", "french horn", "tuba", "horn")):
+        return (f"For {instrument} (brass): flag missed lip slurs, clipped valve attacks, notes that don't speak cleanly, "
+                "intonation in the upper register (brass plays sharp when overblown), and breath support failures causing notes to cut out.")
+    if any(x in i for x in ("violin", "viola", "cello", "double bass", "bass")):
+        return (f"For {instrument} (strings): flag bow scratches, tone cracks from arm weight, string crossings that clip adjacent strings, "
+                "shifts that arrive late or out of tune, open string intonation issues, and flying bow that breaks the line.")
+    if any(x in i for x in ("piano", "keyboard")):
+        return (f"For {instrument}: flag wrong notes (name the pitch heard vs. expected), notes that don't speak, "
+                "pedaling that creates muddiness over incompatible harmonies, and uneven voicing where the melody disappears.")
+    if any(x in i for x in ("voice", "soprano", "alto", "tenor", "bass")):
+        return (f"For {instrument} (voice): flag pitchy passages (name sharp or flat), unstable or overly wide vibrato, "
+                "vowel modifications that change pitch, and breath support failures at phrase ends.")
+    return "Flag all audible errors: wrong notes, intonation drift, tone issues, and rhythmic problems."
+
+
 def evaluate_with_gemini(
     file_uri: str, mime_type: str,
     instrument: str, piece_title: str, composer: str,
@@ -960,29 +981,32 @@ def evaluate_with_gemini(
     """
     import httpx
     end_info = f" through measure {end_measure}" if end_measure else ""
+    instrument_guidance = _instrument_guidance(instrument)
     prompt = f"""AUDIO ANALYSIS TASK. You are listening to a student's recording of "{piece_title}" by {composer} on {instrument}, starting at measure {start_measure}{end_info}.
 
-Your ONLY job is to LISTEN. Report exactly what you HEAR — not what you see. This is an ear-training exercise.
+Your ONLY job is to LISTEN. Report exactly what you HEAR — not what you see.
 
-MANDATORY — you MUST address all five categories. Do not skip any:
+{instrument_guidance}
 
-1. INTONATION: List every passage where pitch is audibly flat or sharp. Give the timestamp, direction (flat/sharp), and approximate magnitude. If generally clean, say so explicitly.
+MANDATORY — address all five categories. Do not skip any:
 
-2. TIMING / RHYTHM: Any rushing, dragging, uneven note spacing, hesitations, or beat instability. Give timestamps. If solid, say so.
+1. INTONATION: Every passage where pitch is audibly flat or sharp. Give timestamp, direction (flat/sharp), and magnitude. If clean, say so.
 
-3. WRONG NOTES / CRACKS: Any pitch that doesn't belong, squeaks, tone breaks, or unexpected sounds. Name the note heard if possible.
+2. TIMING / RHYTHM: Rushing, dragging, uneven spacing, hesitations, beat instability. Give timestamps. If solid, say so.
 
-4. DYNAMICS: Where does the student ignore or fail to execute dynamic markings? Is forte actually forte? Does piano actually recede?
+3. WRONG NOTES / CRACKS: Any pitch that doesn't belong, squeaks, tone breaks. Name the note heard if possible.
+
+4. DYNAMICS: Where the student ignores or fails dynamic markings. Is forte actually forte? Does piano recede?
 
 5. TONE QUALITY: Breathy, unfocused, over-pressured, or inconsistent tone. When and where?
 
-Be specific. Name timestamps (e.g. "0:08"), directions (sharp/flat), and magnitudes (slightly / roughly a quarter tone / severely). Vague observations like "intonation issues present" are rejected.
+Be specific — name timestamps (e.g. "0:08"), direction (sharp/flat), magnitude (slightly / roughly a quarter tone). Vague observations like "intonation issues present" are not useful.
 
 Return JSON only (no markdown fences):
 {{
   "intonation_issues": ["<timestamp>: <note/passage> sounds <sharp|flat> by <magnitude>"],
-  "rhythm_issues": ["<timestamp>: <specific observation with beat or measure reference>"],
-  "wrong_notes_cracks": ["<timestamp>: <what was heard vs. what was expected>"],
+  "rhythm_issues": ["<timestamp>: <specific observation>"],
+  "wrong_notes_cracks": ["<timestamp>: <what was heard vs. expected>"],
   "dynamics_issues": ["<timestamp>: <marking expected vs. what was played>"],
   "tone_issues": ["<timestamp>: <specific description>"],
   "overall": "<one sentence: the single most important thing to fix>"
@@ -1228,13 +1252,29 @@ def compare_and_coach_claude(
                     )
     strongest = evidence_candidates[:8]
     crepe_has_data = bool(strongest)
-    has_gemini = bool(gemini_assessment and any([
-        gemini_assessment.get("intonation_issues"), gemini_assessment.get("rhythm_issues"), gemini_assessment.get("technique_issues"),
-    ]))
-    if not strongest and not has_gemini:
-        print("[compare_and_coach_claude] no evidence; returning no flags")
+    # Gemini is always present — check if it found anything across all categories
+    has_gemini_data = bool(any(
+        gemini_assessment.get(k) for k in (
+            "intonation_issues", "rhythm_issues", "wrong_notes_cracks",
+            "dynamics_issues", "tone_issues", "technique_issues",
+        )
+    ))
+    if not strongest and not has_gemini_data:
+        print("[compare_and_coach_claude] no evidence from CREPE or Gemini; returning no flags")
         return []
-    valid_list  = sorted(r["measure"] for r in alignment_ranges)
+
+    # If alignment produced no ranges, synthesize from start/end measure so Claude
+    # has a valid measure list to work with
+    if not alignment_ranges and played_measures:
+        fallback_ranges = [
+            {"measure": m["number"], "start": 0.0, "end": 30.0}
+            for m in played_measures
+        ]
+        alignment_ranges = fallback_ranges
+
+    valid_list = sorted(r["measure"] for r in alignment_ranges)
+    if not valid_list and score.get("measures"):
+        valid_list = sorted(m["number"] for m in score["measures"])
     gemini_block = build_gemini_block(gemini_assessment)
     measure_blocks = []
     for m in played_measures:
@@ -1268,16 +1308,20 @@ def compare_and_coach_claude(
 Tempo: {tempo.get('bpm', '?')} BPM. Key: {score.get('key_signature', '?')}. Time signature: {score.get('time_signature', '?')}.
 {gemini_block}
 
-YOUR TASK: Identify 1–4 issues. Priority: direct listening observations first, then CREPE intonation candidates, then pitch mismatches, then rhythm.
+YOUR TASK: Identify 3–6 issues grounded in the Gemini audio evidence above. Priority: direct listening observations first, then CREPE intonation candidates, then pitch mismatches, then rhythm.
 
 HARD RULES:
 - Every "measure" field MUST be one of: [{', '.join(str(m) for m in valid_list)}].
 - Do NOT flag rests, silence, missing notes, or coverage gaps.
-- For intonation flags, raw_detail MUST cite cents ("+22¢") or a listening timestamp ("0:08").
-- "type" must be one of: intonation, timing, rhythm, articulation, dynamics, voicing, phrasing.
-  - Use "articulation" for staccato/tenuto/accent issues (notes too short, not detached enough, etc.)
-  - Use "phrasing" for shape, musical line, or expression issues (no direction in the phrase, abrupt endings, missing crescendo/diminuendo)
-- If the recording sounds genuinely clean, return fewer or zero flags.
+- For "intonation" flags: raw_detail MUST cite cents ("+22¢") OR a timestamp (e.g. "0:08") OR a measure reference (e.g. "m.5").
+- "type" must be exactly one of: intonation, timing, rhythm, articulation, dynamics, tone, error, voicing, phrasing.
+  - Use "error" for wrong notes, squeaks, cracks, or tone breaks.
+  - Use "tone" for breathy, unfocused, or over-pressured tone quality issues.
+  - Use "dynamics" for missed dynamic markings (too loud, too soft).
+  - Use "articulation" for staccato/tenuto/accent execution issues.
+  - Use "phrasing" for musical shape, line, or expression issues.
+- Do NOT make up issues not supported by the Gemini audio evidence.
+- If the recording sounds clean in a category, do not flag it.
 
 Return JSON only (no markdown):
 {{
@@ -1285,11 +1329,11 @@ Return JSON only (no markdown):
     {{
       "measure": <int from the allowed list>,
       "beat": <number 1-based or null>,
-      "type": "<type>",
+      "type": "<type from the list above>",
       "confidence": <70-100>,
-      "title": "<6-10 word specific title>",
-      "raw_detail": "<one sentence: the evidence>",
-      "body": "<3-sentence warm coaching paragraph: what happened, why it matters, one specific practice fix>"
+      "title": "<6-10 word specific title naming the exact issue>",
+      "raw_detail": "<one sentence: the specific evidence — cite a timestamp or measure>",
+      "body": "<3-sentence coaching paragraph: (1) what happened and when, (2) why it matters, (3) a specific practice fix>"
     }}
   ]
 }}"""
@@ -1320,7 +1364,14 @@ Return JSON only (no markdown):
             continue
         raw_detail = str(f.get("raw_detail", ""))
         if str(f.get("type")) == "intonation":
-            if not re.search(r'[+-]\d+¢', raw_detail) and not re.search(r'\d:\d{2}', raw_detail):
+            # Accept: cents offset (+22¢), timestamp (0:08 or 1:23), or measure reference (m.5 / measure 5)
+            has_evidence = (
+                re.search(r'[+-]\d+¢', raw_detail)
+                or re.search(r'\d+:\d{2}', raw_detail)
+                or re.search(r'\bm\.?\s*\d+\b', raw_detail, re.IGNORECASE)
+                or re.search(r'\bmeasure\s+\d+\b', raw_detail, re.IGNORECASE)
+            )
+            if not has_evidence:
                 continue
         if re.search(r'(rest|silence|missing note|skipped measure|dropped note|coverage gap|no events)', raw_detail, re.IGNORECASE):
             continue
@@ -1342,21 +1393,30 @@ Return JSON only (no markdown):
                 ts_end = min(r["end"], ts_start + 1.0)
         else:
             beat, ts_start, ts_end = None, r["start"], r["end"]
+        body_text = str(f.get("body", ""))
         flags.append({
-            "measure": m_num, "beat": beat, "type": str(f["type"]),
-            "title": str(f["title"]), "raw_detail": raw_detail, "body": str(f.get("body", "")),
-            "confidence": int(f.get("confidence", 100)),
-            "timestamp_start": ts_start, "timestamp_end": ts_end, "spot": None, "spot_angle": 0,
+            "measure":         m_num,
+            "beat":            beat,
+            "type":            str(f["type"]),
+            "title":           str(f["title"]),
+            "raw_detail":      raw_detail,
+            "detail":          body_text,   # frontend uses f.detail ?? f.body
+            "body":            body_text,
+            "confidence":      int(f.get("confidence", 100)),
+            "timestamp_start": ts_start,
+            "timestamp_end":   ts_end,
         })
     seen: set = set()
     deduped = []
     for flag in sorted(flags, key=lambda x: -x["confidence"]):
+        # Dedupe by (measure, type) but allow two intonation flags in different measures
         key = (flag["measure"], flag["type"])
         if key not in seen:
             seen.add(key)
             deduped.append(flag)
+    deduped.sort(key=lambda x: x["measure"])
     print(f"[compare_and_coach_claude] {len(deduped)} flags: {[(f['measure'], f['type']) for f in deduped]}")
-    return deduped[:4]
+    return deduped[:6]
 
 
 def assess_quality(
