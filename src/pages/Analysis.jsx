@@ -151,6 +151,12 @@ function scoreColor(n) {
   return 'var(--coral)'
 }
 
+function scoreBgColor(n) {
+  if (n >= 88) return 'rgba(143, 190, 159, 0.14)'
+  if (n >= 74) return 'rgba(184, 146, 42, 0.12)'
+  return 'rgba(192, 83, 74, 0.12)'
+}
+
 function scoreFileForPiece(title) {
   if (!title) return null
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -1041,6 +1047,45 @@ export default function Analysis({ demo: demoProp = false }) {
         onChange={handleFileUpload}
       />
 
+      {/* ── Thread tab strip ── */}
+      <div className={aStyles.threadStrip}>
+        <div className={aStyles.threadStripTabs}>
+          {filteredThreads.map(t => {
+            const isActive = t.piece_title === activeThreadTitle
+            const latestScore = t.takes[0]?.score ?? null
+            return (
+              <button
+                key={t.piece_title}
+                className={`${aStyles.threadStripTab} ${isActive ? aStyles.threadStripTabActive : ''}`}
+                onClick={() => { playTick(); setActiveThreadTitle(t.piece_title); setSelectedTakeId(null); setActiveFlag(null) }}
+                onContextMenu={e => { e.preventDefault(); setShowThreadMenu(t.piece_title) }}
+              >
+                <span className={aStyles.threadStripTitle}>{t.piece_title}</span>
+                {latestScore != null && (
+                  <span
+                    className={`${aStyles.threadStripScoreBadge} ${isActive ? aStyles.threadStripScoreBadgeActive : ''}`}
+                    style={isActive ? { color: scoreColor(latestScore), background: scoreBgColor(latestScore) } : {}}
+                  >
+                    {latestScore}
+                  </span>
+                )}
+                {t.isPinned && <span className={aStyles.threadStripPin}>★</span>}
+                {showThreadMenu === t.piece_title && (
+                  <div className={aStyles.threadMenu} onClick={e => e.stopPropagation()} onMouseLeave={() => setShowThreadMenu(null)}>
+                    <button className={aStyles.threadMenuItem} onClick={() => { handleDeleteThread(t); setShowThreadMenu(null) }}>
+                      Delete thread
+                    </button>
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <button className={aStyles.threadStripNew} onClick={() => { playPop(); nav('/record') }} title="New session">
+          +
+        </button>
+      </div>
+
       {/* ───── MAIN CONTENT AREA ───── */}
       <main className={aStyles.mainPageContent}>
         {/* Demo banner */}
@@ -1064,42 +1109,6 @@ export default function Analysis({ demo: demoProp = false }) {
             </a>
           </div>
         )}
-
-        {/* ── Thread tab strip ── */}
-        <div className={aStyles.threadStrip}>
-          <div className={aStyles.threadStripTabs}>
-            {filteredThreads.map(t => {
-              const isActive = t.piece_title === activeThreadTitle
-              const latestScore = t.takes[0]?.score ?? null
-              return (
-                <button
-                  key={t.piece_title}
-                  className={`${aStyles.threadStripTab} ${isActive ? aStyles.threadStripTabActive : ''}`}
-                  onClick={() => { playTick(); setActiveThreadTitle(t.piece_title); setSelectedTakeId(null); setActiveFlag(null) }}
-                  onContextMenu={e => { e.preventDefault(); setShowThreadMenu(t.piece_title) }}
-                >
-                  <span className={aStyles.threadStripTitle}>{t.piece_title}</span>
-                  {latestScore != null && (
-                    <span className={aStyles.threadStripScore} style={{ color: scoreColor(latestScore) }}>
-                      {latestScore}
-                    </span>
-                  )}
-                  {t.isPinned && <span className={aStyles.threadStripPin}>★</span>}
-                  {showThreadMenu === t.piece_title && (
-                    <div className={aStyles.threadMenu} onClick={e => e.stopPropagation()} onMouseLeave={() => setShowThreadMenu(null)}>
-                      <button className={aStyles.threadMenuItem} onClick={() => { handleDeleteThread(t); setShowThreadMenu(null) }}>
-                        Delete thread
-                      </button>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-          <button className={aStyles.threadStripNew} onClick={() => { playPop(); nav('/record') }} title="New session">
-            +
-          </button>
-        </div>
 
         {/* ── Piece header ── */}
         <div className={styles.header}>

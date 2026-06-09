@@ -1184,17 +1184,19 @@
   display: flex;
   flex-shrink: 0;
   gap: 0;
+  height: 48px;
   overflow: hidden;
-  padding: 0 6px 0 16px;
+  padding: 0 32px;
+  width: 100%;
 }
 
 .threadStripTabs {
   display: flex;
   flex: 1;
-  gap: 2px;
+  gap: 4px;
+  height: 100%;
   min-width: 0;
   overflow-x: auto;
-  padding: 6px 0;
   scrollbar-width: none;
 }
 .threadStripTabs::-webkit-scrollbar { display: none; }
@@ -1202,41 +1204,57 @@
 .threadStripTab {
   align-items: center;
   background: none;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   cursor: pointer;
   display: flex;
   flex-shrink: 0;
-  gap: 7px;
+  gap: 8px;
+  height: 100%;
   max-width: 220px;
   min-width: 0;
-  padding: 6px 12px;
+  padding: 0 16px;
   position: relative;
   text-align: left;
-  transition: background 130ms ease, border-color 130ms ease;
+  transition: color 130ms ease, border-color 130ms ease;
 }
-.threadStripTab:hover { background: var(--surface-subtle); border-color: var(--surface-border); }
+.threadStripTab:hover {
+  color: var(--text);
+}
 
 .threadStripTabActive {
-  background: var(--accent-bg) !important;
-  border-color: var(--accent-border) !important;
+  border-bottom-color: var(--accent) !important;
 }
 
 .threadStripTitle {
   color: var(--text-soft);
-  font-size: 0.81rem;
+  font-size: 0.82rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 130ms ease;
 }
-.threadStripTabActive .threadStripTitle { color: var(--text); font-weight: 600; }
+.threadStripTabActive .threadStripTitle {
+  color: var(--text);
+  font-weight: 600;
+}
 
-.threadStripScore {
+.threadStripScoreBadge {
+  background: var(--surface-border);
+  border-radius: 4px;
+  color: var(--text-muted);
   flex-shrink: 0;
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 0.88rem;
-  font-weight: 400;
+  font-family: "Geist Mono", "SF Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.threadStripScoreBadgeActive {
+  /* Dynamic style is handled inline in JSX for semantic score colors */
 }
 
 .threadStripPin {
@@ -1247,21 +1265,26 @@
 
 .threadStripNew {
   align-items: center;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 7px;
-  color: var(--accent);
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 50%;
+  color: var(--text-soft);
   cursor: pointer;
   display: flex;
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   height: 28px;
   justify-content: center;
-  margin-left: 6px;
-  transition: background 130ms ease, transform 130ms ease;
+  margin-left: auto;
+  transition: all 130ms ease;
   width: 28px;
 }
-.threadStripNew:hover { background: var(--accent-bg-hover); transform: scale(1.06); }
+.threadStripNew:hover {
+  background: var(--accent-bg-hover);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  transform: scale(1.05);
+}
 
 /* Thread context menu */
 .threadMenu {
