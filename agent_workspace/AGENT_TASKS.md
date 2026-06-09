@@ -41,6 +41,7 @@ _Nothing here yet. QA agent fills this section after implementation._
 
 ## Completed
 
+- [x] Refactored thread tab strip into a premium full-bleed top navigation bar with rounded score badges (2026-06-09)
 - [x] Landing page hero logo centering (padding-left: 50px on `.heroLogoLarge` to compensate for PNG canvas offset)
 - [x] Analysis page redesign — timeline UI, WaveformTimeline component, Session Summary tab
 - [x] AI coach chat bug fixes (alternating message ordering, history trimming)
