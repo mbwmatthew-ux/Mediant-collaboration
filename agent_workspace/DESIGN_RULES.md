@@ -137,3 +137,35 @@ The song thread is a chronological feed of takes, feedback, and follow-up messag
 - New take button is always visible at the top of the thread — one action, not buried
 - Thread does not paginate or hide old takes — musicians want to see their full history
 - Comparison mode: when the user uploads a second take, show a delta indicator (better / same / worse) next to the score on the new take
+
+---
+
+## Song-Thread Data Model (as of 2026-06-14)
+
+The `songs` table is the persistent root of each thread. One row per (user, song title).
+
+**Schema:**
+- `songs`: `id, user_id, title, composer, instrument, chat_history (JSONB), created_at, updated_at`
+- `takes`: `song_id (FK → songs.id), ...all existing take columns`
+- `chat_history` lives on `songs`, not on individual takes — it is thread-scoped, not take-scoped
+
+**Lookup flow in Analysis.jsx:**
+1. When user switches to a thread, look up `songs` by `(user_id, title)`
+2. If found: hydrate `chat_history` into local state
+3. If not found: INSERT a new songs row and hold the ID in `activeSongId`
+4. Every `coach-chat` call sends `songId: activeSongId`; the edge function persists the updated history back to `songs.chat_history`
+
+**Grouping rule:**
+- Threads are still grouped by `piece_title` in the UI (matching the `songs.title` string)
+- The `song_id` FK on `takes` is used to associate takes with a thread, but the UI continues to group by title string as a fallback for legacy takes without a `song_id`
+
+---
+
+## Loop Feature — Interaction Details
+
+- Clicking the timestamp (e.g. `0:08.2`) on a flag row seeks the video to that position and begins playback
+- Clicking "Loop" starts a repeat loop of the flag's `timestamp_start → timestamp_end` range
+- While looping, a gold progress bar appears directly below the flag row showing position within the loop
+- The Loop button turns gold (`var(--gold)`) and reads "Stop" while active
+- Looping stops automatically when the user clicks a different flag row or presses Escape
+- Loop button min touch target: `44px × 44px` on mobile

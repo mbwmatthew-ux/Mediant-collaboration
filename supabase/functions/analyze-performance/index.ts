@@ -525,6 +525,7 @@ serve(async (req: Request) => {
       startMeasure, endMeasure,
       videoFrames,
       tempo,
+      songId,
     } = body
 
     if (!videoPath || !videoMimeType) {
@@ -553,6 +554,7 @@ serve(async (req: Request) => {
         flags:           [],
         job_status:      'processing',
         job_started_at:  new Date().toISOString(),
+        ...(songId ? { song_id: songId } : {}),
       })
       .select('id')
       .single()

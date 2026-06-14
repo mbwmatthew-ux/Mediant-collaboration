@@ -28,9 +28,10 @@ serve(async (req) => {
 
     let userId: string | null = null
     let isPro = false
+    let supabase: ReturnType<typeof createClient> | null = null
 
     if (jwt && supabaseUrl && serviceKey) {
-      const supabase = createClient(supabaseUrl, serviceKey)
+      supabase = createClient(supabaseUrl, serviceKey)
       const { data: { user } } = await supabase.auth.getUser(jwt)
       userId = user?.id ?? null
 
@@ -68,7 +69,7 @@ serve(async (req) => {
     }
 
     // ── Request body ──────────────────────────────────────────────────────────
-    const { message, context, history } = await req.json()
+    const { message, context, history, songId } = await req.json()
     if (!message) throw new Error('message is required')
 
     const { pieceTitle, pieceComposer, instrument, flags, activeFlag, coachingStyle } = context ?? {}
@@ -103,7 +104,7 @@ serve(async (req) => {
     const rawHistory: Array<{ role: string; content: string }> = Array.isArray(history) ? history : []
 
     // Drop leading assistant messages
-    let startIdx = rawHistory.findIndex(m => m.role === 'user')
+    const startIdx = rawHistory.findIndex(m => m.role === 'user')
     const validHistory = startIdx >= 0 ? rawHistory.slice(startIdx) : []
 
     // Build alternating user/assistant pairs, skipping any malformed turns
@@ -131,6 +132,31 @@ serve(async (req) => {
     })
 
     const reply = (response.content[0] as { type: string; text: string })?.text ?? ''
+
+    // ── Persist chat history to songs table ───────────────────────────────────
+    // Only persist if we have a valid song_id and authenticated user.
+    if (songId && userId && supabase) {
+      try {
+        // Build the updated history: prior valid turns + new user message + new assistant reply
+        const updatedHistory = [
+          ...validHistory,
+          { role: 'user', content: message },
+          { role: 'assistant', content: reply },
+        ]
+        // Cap at 100 messages to avoid unbounded growth
+        const cappedHistory = updatedHistory.slice(-100)
+
+        await supabase
+          .from('songs')
+          .update({ chat_history: cappedHistory })
+          .eq('id', songId)
+          .eq('user_id', userId)
+      } catch (persistErr) {
+        // Non-fatal — the reply still returns to the client
+        console.warn('[coach-chat] Failed to persist chat history:', (persistErr as Error).message)
+      }
+    }
+
     return new Response(JSON.stringify({ reply }), {
       headers: { 'Content-Type': 'application/json', ...CORS },
     })
