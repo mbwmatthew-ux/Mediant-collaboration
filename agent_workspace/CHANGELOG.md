@@ -6,6 +6,15 @@ Most recent first.
 
 ---
 
+## 2026-06-14
+
+- `[Data Model]` Created `songs` table with RLS and `updated_at` trigger; `song_id` FK added to `takes`. Migration applied to production.
+- `[AI Coach]` `coach-chat`: accepts `songId`, persists full chat history to `songs.chat_history` after each turn (capped at 100 messages).
+- `[Analysis]` On thread switch: finds or creates a `songs` row, hydrates `chat_history` from DB into local state.
+- `[Analysis]` `analyze-performance`: accepts and stores `songId` on the new take row.
+- `[Analysis]` Loop: timestamp is now a seek button; gold progress bar under active flag row; Loop button styled gold when active.
+- `[DESIGN_RULES]` Documented song-thread data model, DB lookup flow, and Loop interaction spec.
+
 ## 2026-06-05
 
 - `[Landing]` Hero logo centering: added `padding-left: 50px; box-sizing: border-box` to `.heroLogoLarge` to compensate for `logo-mark.png` internal canvas offset (+25px visual correction)

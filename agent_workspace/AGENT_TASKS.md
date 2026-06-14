@@ -2,7 +2,7 @@
 
 AFTER EVERY CHANGE, WHEN APPROPRIATE, MAKE SURE TO UPDATE THIS FILE
 
-Last updated: 2026-06-05
+Last updated: 2026-06-14
 
 ---
 
@@ -18,10 +18,7 @@ Each song should have one persistent thread. The user uploads a recording, sees 
 
 Tasks here are ready to be implemented. Coding agent picks these up in order.
 
-- [ ] `[DESIGN]` Define and document the song-thread layout in `DESIGN_RULES.md`
-- [ ] `[CODING]` Scaffold the persistent song-thread data model (one thread per song, multiple takes per thread)
-- [ ] `[CODING]` Make Loop visible and scrubable directly from the analysis flag cards
-- [ ] `[CODING]` Wire AI coach chat history to persist per song thread (not per session)
+_No approved tasks at this time._
 
 ---
 
@@ -41,6 +38,8 @@ _Nothing here yet. QA agent fills this section after implementation._
 
 ## Completed
 
+- [x] Song-thread data model: `songs` table, `song_id` FK on takes, persistent `chat_history` per song (2026-06-14)
+- [x] Loop scrubbing: timestamp is a seek button, gold progress bar while looping, active Loop button styled gold (2026-06-14)
 - [x] Refactored thread tab strip into a premium full-bleed top navigation bar with rounded score badges (2026-06-09)
 - [x] Landing page hero logo centering (padding-left: 50px on `.heroLogoLarge` to compensate for PNG canvas offset)
 - [x] Analysis page redesign — timeline UI, WaveformTimeline component, Session Summary tab
