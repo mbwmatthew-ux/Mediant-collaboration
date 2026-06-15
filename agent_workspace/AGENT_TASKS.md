@@ -24,9 +24,7 @@ _No approved tasks at this time._
 
 ## In Progress
 
-- [ ] `[DESIGN]` Review and audit current analysis view against `DESIGN_RULES.md`
-                UI design changes
-                Finalizing Webapp
+_Nothing active._
 
 ---
 
@@ -38,6 +36,7 @@ _Nothing here yet. QA agent fills this section after implementation._
 
 ## Completed
 
+- [x] Full webapp UI redesign: AppShell, Home, Library, Record, Analysis, Progress, Settings, Auth pages + Landing page (2026-06-14)
 - [x] Song-thread data model: `songs` table, `song_id` FK on takes, persistent `chat_history` per song (2026-06-14)
 - [x] Loop scrubbing: timestamp is a seek button, gold progress bar while looping, active Loop button styled gold (2026-06-14)
 - [x] Refactored thread tab strip into a premium full-bleed top navigation bar with rounded score badges (2026-06-09)

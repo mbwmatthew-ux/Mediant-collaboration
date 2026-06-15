@@ -7,7 +7,8 @@
 .page {
   align-items: center;
   animation: publicPageIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-  background: var(--bg);
+  background: #f8f6f2;
+  color: #211d19;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -19,54 +20,56 @@
   align-items: center;
   display: flex;
   gap: 12px;
-  left: 0;
-  padding: 28px 40px;
-  position: fixed;
-  right: 0;
-  top: 0;
+  justify-content: center;
+  margin-bottom: 20px;
+  padding: 0;
 }
 
 .brandMark {
-  color: var(--text);
+  color: #211d19;
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.3rem;
   letter-spacing: -0.02em;
   text-decoration: none;
 }
 
+.brandMark svg {
+  background: #211d19;
+  border-radius: 2px;
+  box-sizing: content-box;
+  color: #fff;
+  padding: 5px;
+}
+
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 44px 40px;
+  background: #fffefa;
+  border: 1px solid #e4dfd7;
+  border-radius: 8px;
+  padding: 24px;
   width: 100%;
-  max-width: 420px;
+  max-width: 448px;
 }
 
 .eyebrow {
-  color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  margin: 0 0 10px;
-  text-transform: uppercase;
+  display: none;
 }
 
 .heading {
-  color: var(--text);
+  color: #211d19;
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 2rem;
   font-weight: 400;
   letter-spacing: -0.03em;
   margin: 0 0 6px;
+  text-align: center;
 }
 
 .sub {
-  color: var(--text-soft);
+  color: #777068;
   font-size: 0.92rem;
   line-height: 1.6;
-  margin: 0 0 32px;
+  margin: 0 0 30px;
+  text-align: center;
 }
 
 .form {
@@ -82,28 +85,28 @@
 }
 
 .label {
-  color: var(--text-soft);
+  color: #211d19;
   font-size: 0.82rem;
   font-weight: 500;
 }
 
 .input,
 .select {
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
+  background: #f3f1ed;
+  border: 1px solid #e5e0d8;
+  border-radius: 5px;
+  color: #211d19;
   font: inherit;
   font-size: 0.95rem;
   outline: none;
-  padding: 13px 16px;
+  padding: 11px 13px;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .input::placeholder { color: var(--text-muted); }
 .input:focus,
 .select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  border-color: #bc9463;
+  box-shadow: 0 0 0 3px rgba(188, 148, 99, 0.12);
   outline: none;
 }
 
@@ -117,27 +120,27 @@
 }
 
 .submitBtn {
-  background: var(--accent);
+  background: #bc9463;
   border: 0;
-  border-radius: 999px;
-  color: #1a0f05;
-  font-size: 1rem;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.92rem;
   font-weight: 600;
   margin-top: 6px;
-  padding: 15px;
+  padding: 11px;
   transition: filter 160ms ease, transform 160ms ease;
 }
 .submitBtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
 .footer {
-  color: var(--text-soft);
+  color: #777068;
   font-size: 0.88rem;
   margin-top: 22px;
   text-align: center;
 }
 
 .footerLink {
-  color: var(--accent);
+  color: #9d7749;
   font-weight: 600;
   text-decoration: none;
 }

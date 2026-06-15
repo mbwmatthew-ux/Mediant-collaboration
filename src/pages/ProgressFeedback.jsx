@@ -12,6 +12,31 @@ function scoreColor(n) {
   return 'var(--coral)'
 }
 
+const TECHNIQUE_DIMS = [
+  { key: 'timing',       label: 'Timing',       keys: ['timing', 'rhythm'] },
+  { key: 'intonation',   label: 'Intonation',   keys: ['intonation'] },
+  { key: 'dynamics',     label: 'Dynamics',      keys: ['dynamics'] },
+  { key: 'articulation', label: 'Articulation',  keys: ['articulation'] },
+  { key: 'technique',    label: 'Technique',     keys: ['technique', 'posture'] },
+  { key: 'tone',         label: 'Tone',          keys: ['tone', 'phrasing', 'expression'] },
+]
+
+function computeTechniqueScores(takes) {
+  const scoredTakes = takes.filter(t => t.score != null && t.flags?.length > 0)
+  if (scoredTakes.length === 0) return null
+  const avgScore = Math.round(scoredTakes.reduce((s, t) => s + t.score, 0) / scoredTakes.length)
+  return TECHNIQUE_DIMS.map(dim => {
+    const allFlags = scoredTakes.flatMap(t =>
+      (t.flags ?? []).filter(f => dim.keys.includes((f.type ?? '').toLowerCase()))
+    )
+    const flagWeight = allFlags.reduce((s, f) => s + (f.confidence ?? 80) / 100, 0)
+    const deduction = Math.round(flagWeight * 8)
+    const bonus = allFlags.length === 0 ? 5 : 0
+    const score = Math.max(20, Math.min(100, avgScore - deduction + bonus))
+    return { ...dim, score, flagCount: allFlags.length }
+  })
+}
+
 function formatDate(iso) {
   if (!iso) return ''
   try {
@@ -72,6 +97,7 @@ export default function ProgressFeedback() {
   const takes = filterTakesByPeriod(allTakes, period)
   const { avgScore, totalFlags, pieces } = computeStats(takes)
   const periodLabel = period === 'weekly' ? 'week' : 'month'
+  const techniqueScores = useMemo(() => computeTechniqueScores(takes), [takes])
 
   const chartPoints = useMemo(() => {
     const scoredTakes = [...takes]
@@ -161,12 +187,12 @@ export default function ProgressFeedback() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${pStyles.page}`}>
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <p className={styles.label}>Progress Report</p>
-          <h1 className={styles.title}>Practice feedback</h1>
+          <h1 className={pStyles.pageTitle}>Progress</h1>
+          <p className={pStyles.pageSubtitle}>Track your technique across sessions</p>
         </div>
         <div className={pStyles.periodToggle}>
           <button
@@ -404,8 +430,32 @@ export default function ProgressFeedback() {
           </div>
         </div>
 
-        {/* Right Column: Personalized AI Coaching Insights */}
+        {/* Right Column: Technique progress bars + AI insights */}
         <div className={pStyles.rightCol}>
+
+          {/* Technique Progress Bars */}
+          {techniqueScores && (
+            <div className={pStyles.techCard}>
+              <p className={pStyles.techCardTitle}>Technique Breakdown</p>
+              <div className={pStyles.techBars}>
+                {techniqueScores.map(dim => (
+                  <div key={dim.key} className={pStyles.techBarRow}>
+                    <span className={pStyles.techBarLabel}>{dim.label}</span>
+                    <div className={pStyles.techBarTrack}>
+                      <div
+                        className={pStyles.techBarFill}
+                        style={{ width: `${dim.score}%`, background: scoreColor(dim.score) }}
+                      />
+                    </div>
+                    <span className={pStyles.techBarScore} style={{ color: scoreColor(dim.score) }}>
+                      {dim.score}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className={styles.errorBanner} style={{ marginBottom: 20 }}>
               <span>⚠</span>

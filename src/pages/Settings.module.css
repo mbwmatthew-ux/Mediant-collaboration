@@ -1,8 +1,8 @@
 /* ── Layout ─────────────────────────────────────────────────── */
 .page {
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: 42px 40px 80px;
 }
 
 .pageHeader {
@@ -12,43 +12,42 @@
 .pageTitle {
   color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 1.65rem;
+  font-size: clamp(2rem, 3vw, 2.5rem);
   font-weight: 400;
   letter-spacing: -0.03em;
   margin: 0 0 4px;
 }
 
 .pageSub {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   color: var(--text-faint);
   margin: 0;
 }
 
 /* ── Section ─────────────────────────────────────────────────── */
 .section {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .sectionTitle {
-  font-size: 0.65rem;
+  color: var(--text);
+  font-size: 0.95rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin: 0 0 8px 4px;
+  letter-spacing: -0.01em;
+  margin: 0 0 10px;
 }
 
 /* ── Card ────────────────────────────────────────────────────── */
 .card {
   background: var(--bg-card);
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--surface-border);
 }
 
 /* ── Profile card ────────────────────────────────────────────── */
 .profileCard {
-  padding: 20px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -97,9 +96,13 @@
 }
 
 .profileFields {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  gap: 14px 18px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.profileFields .field:last-child {
+  grid-column: 1 / -1;
 }
 
 .field {
@@ -120,7 +123,7 @@
 .fieldSelect {
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text);
   font-size: 0.875rem;
   padding: 8px 12px;
@@ -134,6 +137,11 @@
 .fieldInput:focus,
 .fieldSelect:focus {
   border-color: var(--accent);
+}
+
+.fieldInput[readonly] {
+  color: var(--text-faint);
+  cursor: default;
 }
 
 .fieldSelect {
@@ -360,6 +368,13 @@
   cursor: pointer;
   transition: background 150ms ease;
   margin-top: 8px;
+}
+
+@media (max-width: 700px) {
+  .page { padding: 28px 18px 64px; }
+  .profileFields { grid-template-columns: 1fr; }
+  .profileFields .field:last-child { grid-column: auto; }
+  .profileTop { align-items: flex-start; }
 }
 
 .signOutBtn:hover {

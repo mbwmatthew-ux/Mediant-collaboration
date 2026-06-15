@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import TunerModal from './Tuner'
 import MetronomeModal from './Metronome'
 import ErrorBoundary from './ErrorBoundary'
@@ -8,76 +8,32 @@ import LogoMark from './LogoMark'
 import styles from './AppShell.module.css'
 import { playNav } from '../utils/sounds'
 
-const NOTIFICATIONS = []
+const NAV_ITEMS = [
+  { to: '/home',     label: 'Home',       icon: HomeIcon     },
+  { to: '/takes',    label: 'Library',    icon: LibraryIcon  },
+  { to: '/record',   label: 'New Take',   icon: RecordIcon   },
+  { to: '/progress', label: 'Progress',   icon: ProgressIcon },
+  { to: '/settings', label: 'Settings',   icon: SettingsIcon },
+]
 
-const NAV_SECTIONS = [
-  {
-    key: 'workspace',
-    label: 'WORKSPACE',
-    items: [
-      { to: '/home',     label: 'Dashboard', icon: HomeIcon,     live: true },
-      { to: '/record',   label: 'Record',     icon: UploadIcon,   live: true },
-      { to: '/analysis', label: 'Recordings', icon: RecordingsIcon, live: true },
-      { to: '/search',   label: 'Library',    icon: SearchIcon,   live: true },
-      { to: '/takes',    label: 'Sessions',   icon: SavedIcon,    live: true },
-      { to: '/progress', label: 'Progress',   icon: ProgressIcon, live: true },
-    ],
-  },
-  {
-    key: 'tools',
-    label: 'TOOLS',
-    items: [
-      { action: 'tuner',      label: 'Tuner',      icon: TunerNavIcon,      live: true },
-      { action: 'metronome', label: 'Metronome', icon: MetronomeNavIcon, live: true },
-      { to: '/coach',    label: 'Discussion', icon: DiscussIcon,  live: true },
-    ],
-  },
-  {
-    key: 'system',
-    label: 'SYSTEM',
-    items: [
-      { to: '/pricing',  label: 'Plans',    icon: PlansIcon,    live: true },
-      { to: '/settings', label: 'Settings', icon: SettingsIcon, live: true },
-    ],
-  },
+const TOOL_ITEMS = [
+  { to: '/coach',        label: 'AI Coach',   icon: CoachIcon    },
+  { to: '/analysis',     label: 'Analysis',   icon: AnalysisIcon },
+  { action: 'tuner',     label: 'Tuner',     icon: TunerIcon     },
+  { action: 'metronome', label: 'Metronome', icon: MetronomeIcon },
 ]
 
 export default function AppShell() {
-  const { user, subscription } = useAuth()
+  const { user } = useAuth()
   const nav = useNavigate()
   const location = useLocation()
-  const [panel, setPanel]                 = useState(null)
-  const [notifications, setNotifications] = useState(NOTIFICATIONS)
-  const [showTuner,      setShowTuner]    = useState(false)
-  const [showMetronome,  setShowMetronome]= useState(false)
-  const notifRef = useRef(null)
-
-  function markAllRead() {
-    setNotifications(ns => ns.map(n => ({ ...n, unread: false })))
-  }
-
-  function handleNavAction(action) {
-    playNav()
-    if (action === 'tuner')    setShowTuner(true)
-    if (action === 'metronome') setShowMetronome(true)
-  }
-
-  useEffect(() => {
-    function onClickOutside(e) {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        if (panel === 'notifications') setPanel(null)
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [panel])
+  const [showTuner,     setShowTuner]    = useState(false)
+  const [showMetronome, setShowMetronome]= useState(false)
 
   useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
-      if (e.key === 'Escape') setPanel(null)
       if (e.key === 'r' || e.key === 'R') nav('/record')
-      if (e.key === 's' || e.key === 'S') nav('/takes')
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -87,131 +43,86 @@ export default function AppShell() {
     ? user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?'
 
-  const unreadCount = notifications.filter(n => n.unread).length
+  function handleToolAction(action) {
+    playNav()
+    if (action === 'tuner')     setShowTuner(true)
+    if (action === 'metronome') setShowMetronome(true)
+  }
 
   return (
     <div className={styles.shell}>
-
-      {/* Tuner modal */}
-      {showTuner && <TunerModal onClose={() => setShowTuner(false)} />}
-
-      {/* Metronome modal */}
+      {showTuner     && <TunerModal     onClose={() => setShowTuner(false)}     />}
       {showMetronome && <MetronomeModal onClose={() => setShowMetronome(false)} />}
 
-      {/* Top bar */}
-      <header className={styles.topBar}>
-        <div className={styles.topBarLeft}>
-          <NavLink to="/home" onClick={playNav} style={{ display: 'flex', alignItems: 'center' }}>
-            <LogoMark size={62} />
-          </NavLink>
-        </div>
+      <a className={styles.skipLink} href="#main-content">Skip to content</a>
 
-        <div className={styles.topBarRight} ref={notifRef}>
-          <div className={styles.panelAnchor}>
-            <button
-              className={`${styles.topBarIconBtn} ${panel === 'notifications' ? styles.topBarIconBtnActive : ''}`}
-              onClick={() => setPanel(p => p === 'notifications' ? null : 'notifications')}
-              title="Notifications"
-            >
-              <BellIcon />
-              {unreadCount > 0 && <span className={styles.unreadDot} />}
-            </button>
-            {panel === 'notifications' && (
-              <div className={styles.dropdown}>
-                <div className={styles.dropdownHeader}>
-                  <div>
-                    <span className={styles.dropdownTitle}>Notifications</span>
-                    {unreadCount > 0 && <span className={styles.dropdownSub}>{unreadCount} unread</span>}
-                  </div>
-                  {unreadCount > 0 && (
-                    <button className={styles.dropdownAction} onClick={markAllRead}>Mark all read</button>
-                  )}
-                </div>
-                <div className={styles.dropdownList}>
-                  {notifications.length === 0 ? (
-                    <div className={styles.dropdownFooter} style={{ padding: '20px 16px', textAlign: 'center' }}>
-                      No notifications yet
-                    </div>
-                  ) : (
-                    notifications.map(n => (
-                      <div key={n.id} className={`${styles.notifRow} ${n.unread ? styles.notifUnread : ''}`}>
-                        <span className={styles.notifIcon}>{n.icon}</span>
-                        <div className={styles.notifBody}>
-                          <strong className={styles.notifTitle}>{n.title}</strong>
-                          <p className={styles.notifText}>{n.body}</p>
-                          <span className={styles.notifTime}>{n.time}</span>
-                        </div>
-                        {n.unread && <span className={styles.unreadPip} />}
-                      </div>
-                    ))
-                  )}
-                </div>
-                {notifications.length > 0 && (
-                  <div className={styles.dropdownFooter}>Only showing the last 30 days</div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Sidebar + content */}
       <div className={styles.body}>
+        {/* Sidebar */}
         <aside className={styles.sidebar}>
-          {/* User profile */}
-          <button
-            className={styles.sidebarUser}
-            onClick={() => { playNav(); nav('/settings') }}
-          >
-            <div className={styles.sidebarAvatar}>{initials}</div>
-            <div className={styles.sidebarUserInfo}>
-              <span className={styles.sidebarUserName}>{user?.name?.split(' ')[0] ?? 'Guest'}</span>
-              <span className={styles.sidebarUserLevel}>
-                {user?.instrument ? user.instrument.toUpperCase() : subscription?.plan ? subscription.plan.toUpperCase() : 'FREE'}
-              </span>
-            </div>
-          </button>
+          {/* Logo */}
+          <NavLink to="/home" className={styles.sidebarLogo} onClick={playNav} title="Mediant">
+            <LogoMark size={30} color="rgba(255,255,255,0.9)" />
+          </NavLink>
 
-          {/* Nav sections */}
-          <nav className={styles.nav}>
-            {NAV_SECTIONS.map(section => (
-              <div key={section.key} className={styles.navSection}>
-                <span className={styles.navSectionLabel}>{section.label}</span>
-                {section.items.map(item => {
-                  if (item.action) {
-                    return (
-                      <button
-                        key={item.label}
-                        className={styles.navLinkBtn}
-                        onClick={() => handleNavAction(item.action)}
-                        data-onboarding-label={item.label}
-                      >
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </button>
-                    )
-                  }
-                  return (
-                    <NavLink
-                      key={item.label}
-                      to={item.to}
-                      onClick={playNav}
-                      className={({ isActive }) =>
-                        `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
-                      }
-                      data-onboarding-label={item.label}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </NavLink>
-                  )
-                })}
-              </div>
+          <nav className={styles.nav} aria-label="Primary navigation">
+            {NAV_ITEMS.map(item => (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                onClick={playNav}
+                className={({ isActive }) =>
+                  `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+                }
+                title={item.label}
+              >
+                <span className={styles.navIcon}><item.icon /></span>
+                <span className={styles.navLabel}>{item.label}</span>
+              </NavLink>
+            ))}
+
+            <div className={styles.navDivider} />
+
+            {TOOL_ITEMS.map(item => item.to ? (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                onClick={playNav}
+                className={({ isActive }) =>
+                  `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+                }
+                title={item.label}
+              >
+                <span className={styles.navIcon}><item.icon /></span>
+                <span className={styles.navLabel}>{item.label}</span>
+              </NavLink>
+            ) : (
+              <button
+                key={item.label}
+                className={styles.navItem}
+                onClick={() => handleToolAction(item.action)}
+                title={item.label}
+              >
+                <span className={styles.navIcon}><item.icon /></span>
+                <span className={styles.navLabel}>{item.label}</span>
+              </button>
             ))}
           </nav>
+
+          {/* Account */}
+          <div className={styles.sidebarBottom}>
+            <button
+              className={`${styles.navItem} ${styles.avatarItem}`}
+              onClick={() => { playNav(); nav('/settings') }}
+              title={user?.name ?? 'Account'}
+            >
+              <span className={styles.avatarChip}>{initials}</span>
+              <span className={styles.navLabel}>{user?.name?.split(' ')[0] ?? 'Account'}</span>
+            </button>
+          </div>
         </aside>
 
-        <main className={styles.main}>
+        {/* Main content */}
+        <main className={styles.main} id="main-content">
           <ErrorBoundary key={location.pathname}>
             <div key={location.pathname} className={styles.pageIn}>
               <Outlet />
@@ -224,8 +135,8 @@ export default function AppShell() {
       <nav className={styles.mobileNav}>
         {[
           { to: '/home',     label: 'Home',     icon: HomeIcon     },
-          { to: '/search',   label: 'Library',  icon: SearchIcon   },
-          { to: '/record',   label: 'Record',   icon: UploadIcon   },
+          { to: '/takes',    label: 'Library',  icon: LibraryIcon  },
+          { to: '/record',   label: 'Record',   icon: RecordIcon   },
           { to: '/progress', label: 'Progress', icon: ProgressIcon },
           { to: '/coach',    label: 'Coach',    icon: CoachIcon    },
         ].map(({ to, label, icon: Icon }) => (
@@ -248,36 +159,27 @@ export default function AppShell() {
 
 /* ── Icons ─────────────────────────────────────────────────── */
 
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 5l-7 7 7 7"/>
-    </svg>
-  )
-}
-
-
 function HomeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
       <path d="M9 21V12h6v9"/>
     </svg>
   )
 }
 
-function SearchIcon() {
+function LibraryIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7"/>
-      <path d="M21 21l-4.35-4.35"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
     </svg>
   )
 }
 
-function UploadIcon() {
+function RecordIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <line x1="12" y1="8" x2="12" y2="16"/>
       <line x1="8" y1="12" x2="16" y2="12"/>
@@ -285,39 +187,18 @@ function UploadIcon() {
   )
 }
 
-function RecordingsIcon() {
+function AnalysisIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M7 8h10" />
-      <path d="M7 12h10" />
-      <path d="M7 16h10" />
-    </svg>
-  )
-}
-
-function OtherIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13"/>
-      <circle cx="6" cy="18" r="3"/>
-      <circle cx="18" cy="16" r="3"/>
-    </svg>
-  )
-}
-
-function LessonsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2"/>
+      <path d="M7 9h10M7 13h6M7 17h4"/>
     </svg>
   )
 }
 
 function ProgressIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="20" x2="18" y2="10"/>
       <line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6"  y1="20" x2="6"  y2="14"/>
@@ -325,19 +206,26 @@ function ProgressIcon() {
   )
 }
 
-
-function TunerNavIcon() {
+function CoachIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
+}
+
+function TunerIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <path d="M12 8v4l3 3"/>
     </svg>
   )
 }
 
-function MetronomeNavIcon() {
+function MetronomeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 20 22 4 22"/>
       <line x1="12" y1="2" x2="12" y2="22"/>
       <line x1="8" y1="13" x2="16" y2="13"/>
@@ -345,64 +233,11 @@ function MetronomeNavIcon() {
   )
 }
 
-
-function DiscussIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  )
-}
-
-function SavedIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-    </svg>
-  )
-}
-
-
-function PlansIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-      <line x1="1" y1="10" x2="23" y2="10"/>
-    </svg>
-  )
-}
-
 function SettingsIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  )
-}
-
-function BellIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-  )
-}
-
-function CoachIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  )
-}
-
-function PracticeLogIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9"/>
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
   )
 }

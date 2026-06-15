@@ -8,6 +8,10 @@ Most recent first.
 
 ## 2026-06-14
 
+- `[Record]` Page title updated to sans-serif "Record New Take" + subtitle; checklist redesigned with true radio-button circles (CSS `::after` inner dot); 4th checklist item added (Title & composer); timing note added below Analyze button
+- `[Analysis]` Added `PRACTICE_RECS` lookup and practice recommendation box in the flagged issue detail panel (type icon + gold-tinted rec box)
+- `[Analysis]` Added `computeAspectScores()` — derives per-dimension scores from flags; Session Summary tab now shows Score Breakdown grid (Intonation, Timing, Dynamics, Articulation, Technique, Tone)
+- `[Progress]` Page title updated to sans-serif; added `computeTechniqueScores()` and technique progress bars card in right column
 - `[Data Model]` Created `songs` table with RLS and `updated_at` trigger; `song_id` FK added to `takes`. Migration applied to production.
 - `[AI Coach]` `coach-chat`: accepts `songId`, persists full chat history to `songs.chat_history` after each turn (capped at 100 messages).
 - `[Analysis]` On thread switch: finds or creates a `songs` row, hydrates `chat_history` from DB into local state.

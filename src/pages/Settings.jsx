@@ -104,7 +104,7 @@ export default function Settings() {
 
       {/* ── Profile ── */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Profile</h2>
+        <h2 className={styles.sectionTitle}>Account Information</h2>
         <div className={styles.card}>
           <div className={styles.profileCard}>
 
@@ -129,6 +129,15 @@ export default function Settings() {
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Your name"
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Email</label>
+                <input
+                  className={styles.fieldInput}
+                  value={user?.email ?? ''}
+                  readOnly
+                  aria-readonly="true"
                 />
               </div>
               <div className={styles.field}>

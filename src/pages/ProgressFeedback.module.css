@@ -1,3 +1,26 @@
+/* ── Page override ─────────────────────────────────────── */
+.page {
+  margin: 0 auto;
+  max-width: 1312px;
+  padding: 42px 40px 72px;
+}
+
+/* ── Page header ───────────────────────────────────────── */
+.pageTitle {
+  color: var(--text);
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(2rem, 3vw, 2.5rem);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  margin: 0 0 4px;
+}
+
+.pageSubtitle {
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
 /* ── Period toggle ─────────────────────────────────────── */
 .periodToggle {
   align-items: center;
@@ -29,47 +52,25 @@
 /* ── Premium Glassmorphic Stats Cards Grid ──────────────── */
 .metricGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
   margin-top: 16px;
 }
 
 .metricCard {
   background: var(--bg-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
+  border-radius: 10px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.2s ease;
 }
 
 .metricCard:hover {
-  transform: translateY(-2px);
   border-color: var(--accent-border);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16), 0 0 16px var(--accent-dim);
-}
-
-/* Subtly animated gradient radial overlay */
-.metricCard::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(212, 174, 82, 0.04) 0%, transparent 65%);
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  opacity: 0.6;
-}
-
-.metricCard:hover::before {
-  opacity: 1;
 }
 
 .cardLabel {
@@ -101,7 +102,7 @@
 }
 
 .cardProgressTrack {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-hover);
   height: 5px;
   border-radius: 2px;
   margin-top: 10px;
@@ -120,10 +121,9 @@
 .graphPanel {
   background: var(--bg-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   padding: 24px;
   margin-bottom: 32px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -160,7 +160,7 @@
 }
 
 .gridLine {
-  stroke: rgba(255, 255, 255, 0.05);
+  stroke: var(--surface-border);
   stroke-width: 1;
   stroke-dasharray: 4, 4;
 }
@@ -174,11 +174,10 @@
 
 .graphLine {
   stroke: var(--accent);
-  stroke-width: 3.5;
+  stroke-width: 2.5;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 4px 8px rgba(212, 174, 82, 0.28));
   animation: strokeDraw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -262,7 +261,7 @@
 .sessionTable {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--bg-card);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
   padding: 8px 16px;
@@ -322,12 +321,11 @@
 .feedbackCard {
   background: var(--bg-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: 24px 28px 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .feedbackCardHeader {
@@ -406,19 +404,17 @@
 .insightsPanelEmpty, .insightsPanelLoading {
   background: var(--bg-card);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   padding: 32px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .insightsIcon {
   font-size: 2.2rem;
   color: var(--accent);
-  filter: drop-shadow(0 2px 8px var(--accent-dim));
   margin-bottom: 12px;
   line-height: 1;
 }
@@ -467,7 +463,72 @@
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .page { padding: 28px 18px 48px; }
+  .metricGrid { grid-template-columns: 1fr 1fr; }
   .periodToggle { align-self: flex-start; }
   .feedbackCard, .insightsPanelEmpty, .insightsPanelLoading { padding: 20px 18px; }
   .feedbackHeadline { font-size: 1.15rem; }
+}
+
+@media (max-width: 480px) {
+  .metricGrid { grid-template-columns: 1fr; }
+}
+
+/* ── Technique progress bars ────────────────────────────── */
+.techCard {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+}
+
+.techCardTitle {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 16px;
+}
+
+.techBars {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.techBarRow {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.techBarLabel {
+  color: var(--text-soft);
+  font-size: 0.79rem;
+  font-weight: 500;
+  flex-shrink: 0;
+  width: 88px;
+}
+
+.techBarTrack {
+  background: var(--surface-hover);
+  border-radius: 99px;
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+}
+
+.techBarFill {
+  border-radius: 99px;
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.techBarScore {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: right;
+  width: 28px;
 }

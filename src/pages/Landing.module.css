@@ -685,6 +685,15 @@
   text-transform: uppercase;
 }
 
+.label {
+  color: rgba(184,146,42,0.75);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
 /* ── Proof / feedback ─────────────────────────────────────────── */
 .proofSection {
   max-width: 860px;
@@ -1267,6 +1276,7 @@
   gap: 60px;
   padding: 120px 80px;
   position: relative;
+  overflow: visible;
 }
 
 .analysisHead {
@@ -1275,12 +1285,30 @@
   margin-bottom: 20px;
 }
 
+.analysisTitle {
+  color: #1a0f05;
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin: 0 0 16px;
+}
+
+.analysisSub {
+  color: rgba(26,15,5,0.44);
+  font-size: 1rem;
+  line-height: 1.8;
+  margin: 0;
+  max-width: 480px;
+}
+
 .analysisColumns {
   display: grid;
   grid-template-columns: 1fr;
   gap: 48px;
   width: 100%;
-  max-width: 780px;
+  max-width: 880px;
   margin: 0 auto;
   align-items: flex-start;
   position: relative;

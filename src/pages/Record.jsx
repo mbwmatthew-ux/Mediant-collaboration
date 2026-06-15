@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { getFile } from '../lib/fileStore'
+import { getFile, saveFile } from '../lib/fileStore'
 import { INSTRUMENTS } from '../lib/instruments'
-import styles from './Page.module.css'
+import styles from './Record.module.css'
 import { playDrop, playAnalyzeStart, playAnalyzeComplete, playThud } from '../utils/sounds'
 
 const OCR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
@@ -132,7 +132,7 @@ export default function Record() {
       setVideoError(`File is ${Math.round(f.size / 1024 / 1024)} MB — please trim or compress to under 500 MB.`)
       return
     }
-    const duration = await new Promise(resolve => {
+    await new Promise(resolve => {
       const v = document.createElement('video')
       v.preload = 'metadata'
       const url = URL.createObjectURL(f)
@@ -401,18 +401,9 @@ export default function Record() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div>
-          <p className={styles.label}>Upload Recording</p>
-          <h1 className={styles.title}>Submit your take</h1>
-        </div>
-        <button
-          className={styles.primaryBtn}
-          onClick={handleSubmit}
-          disabled={!readyToAnalyze || phase === 'error'}
-        >
-          Analyze recording →
-        </button>
+      <div className={styles.pageHead}>
+        <h1 className={styles.pageTitle}>Record New Take</h1>
+        <p className={styles.pageSubtitle}>Upload your sheet music and performance recording for AI analysis</p>
       </div>
 
       {phase === 'error' && (
@@ -436,14 +427,15 @@ export default function Record() {
       )}
 
       <div className={styles.recordLayout}>
-        {/* Left column */}
+        {/* ── Left column ── */}
         <div className={styles.recordLeft}>
 
-          {/* ── Sheet music (required) ── */}
-          <div className={styles.pieceForm}>
-            <p className={styles.label}>
-              Sheet music <span className={styles.requiredDot}>required</span>
-            </p>
+          {/* Sheet music */}
+          <div className={styles.section}>
+            <div className={styles.sectionHead}>
+              <p className={styles.sectionTitle}>Sheet music</p>
+              <span className={styles.requiredDot}>required</span>
+            </div>
 
             <div
               className={`${styles.dropzone} ${scoreDrag ? styles.dropzoneActive : ''} ${scoreFile ? styles.dropzoneDone : ''}`}
@@ -477,8 +469,7 @@ export default function Record() {
               )}
             </div>
 
-            {/* Auto-filled piece info */}
-            <div className={styles.formRow}>
+            <div className={styles.formGrid}>
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>
                   Title
@@ -505,107 +496,14 @@ export default function Record() {
                 />
               </div>
             </div>
-
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Instrument</label>
-                <select
-                  className={styles.formSelect}
-                  value={instrument}
-                  onChange={e => setInstrument(e.target.value)}
-                >
-                  <option value="" disabled>Select instrument…</option>
-                  {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Movement / part <span className={styles.formOptional}>(optional)</span>
-                </label>
-                <input
-                  className={styles.formInput}
-                  value={part}
-                  onChange={e => setPart(e.target.value)}
-                  placeholder="e.g. III. Passepied"
-                />
-              </div>
-            </div>
-
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Time signature</label>
-                <input
-                  className={styles.formInput}
-                  value={timeSig}
-                  onChange={e => setTimeSig(e.target.value)}
-                  placeholder="4/4"
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Tempo (BPM)
-                  {tempo && <span className={styles.ocrBadge}>Auto-detected</span>}
-                </label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  max="400"
-                  value={tempo}
-                  onChange={e => setTempo(e.target.value)}
-                  placeholder="e.g. 56"
-                />
-                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  Used for precise measure mapping.
-                </span>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Key</label>
-                <input
-                  className={styles.formInput}
-                  value={keySignature}
-                  onChange={e => setKeySignature(e.target.value)}
-                  placeholder="e.g. D minor, B♭ major"
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Starting measure</label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  value={startMeasure}
-                  onChange={e => setStartMeasure(e.target.value)}
-                  placeholder="1"
-                />
-                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  What measure does the recording begin on?
-                </span>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Ending measure <span className={styles.formOptional}>(optional)</span>
-                </label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  value={endMeasure}
-                  onChange={e => setEndMeasure(e.target.value)}
-                  placeholder="auto"
-                />
-                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  Last measure played. Prevents false flags beyond your excerpt.
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* ── Video recording (required) ── */}
-          <div className={styles.pieceForm}>
-            <p className={styles.label}>
-              Recording <span className={styles.requiredDot}>required</span>
-            </p>
+          {/* Performance recording */}
+          <div className={styles.section}>
+            <div className={styles.sectionHead}>
+              <p className={styles.sectionTitle}>Performance recording</p>
+              <span className={styles.requiredDot}>required</span>
+            </div>
             <div
               className={`${styles.dropzone} ${videoDrag ? styles.dropzoneActive : ''} ${file ? styles.dropzoneDone : ''}`}
               onDragOver={e => { e.preventDefault(); setVideoDrag(true) }}
@@ -639,44 +537,163 @@ export default function Record() {
             </div>
           </div>
 
-          {!scoreFile && (
-            <p className={styles.formHint}>Upload a photo of your sheet music to get started.</p>
-          )}
+          {/* Performance details */}
+          <div className={styles.section}>
+            <p className={styles.sectionTitle} style={{ marginBottom: 16 }}>Performance details</p>
+
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Instrument <span className={styles.requiredDot}>required</span></label>
+                <select
+                  className={styles.formSelect}
+                  value={instrument}
+                  onChange={e => setInstrument(e.target.value)}
+                >
+                  <option value="" disabled>Select instrument…</option>
+                  {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Movement / part <span className={styles.formOptional}>(optional)</span>
+                </label>
+                <input
+                  className={styles.formInput}
+                  value={part}
+                  onChange={e => setPart(e.target.value)}
+                  placeholder="e.g. III. Passepied"
+                />
+              </div>
+            </div>
+
+            <div className={styles.formGridWide} style={{ marginTop: 14 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Time signature</label>
+                <input
+                  className={styles.formInput}
+                  value={timeSig}
+                  onChange={e => setTimeSig(e.target.value)}
+                  placeholder="4/4"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Tempo (BPM)
+                  {tempo && <span className={styles.ocrBadge}>Auto-detected</span>}
+                </label>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  max="400"
+                  value={tempo}
+                  onChange={e => setTempo(e.target.value)}
+                  placeholder="e.g. 56"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Key</label>
+                <input
+                  className={styles.formInput}
+                  value={keySignature}
+                  onChange={e => setKeySignature(e.target.value)}
+                  placeholder="e.g. D minor, B♭ major"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Starting measure</label>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  value={startMeasure}
+                  onChange={e => setStartMeasure(e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
+            <div className={styles.formGrid} style={{ marginTop: 14 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Ending measure <span className={styles.formOptional}>(optional)</span>
+                </label>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  value={endMeasure}
+                  onChange={e => setEndMeasure(e.target.value)}
+                  placeholder="auto"
+                />
+                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
+                  Last measure played. Prevents false flags beyond your excerpt.
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Right column — status cards */}
-        <div>
-          <div className={styles.waveformCard}>
-            <div className={styles.waveform}>
-              {[22, 46, 62, 34, 78, 48, 70, 31, 64, 52, 38, 68].map((h, i) => (
-                <span key={i} style={{ height: `${h}%`, opacity: file ? 1 : 0.35 }} />
-              ))}
+        {/* ── Right column — checklist + CTA ── */}
+        <div className={styles.recordRight}>
+          <div className={styles.checklistCard}>
+            <div className={styles.checklistHead}>
+              <p className={styles.checklistTitle}>Ready to analyze?</p>
+              <p className={styles.checklistSub}>Complete the required fields to analyze.</p>
             </div>
-            <p className={styles.resultSub}>
-              {file ? `${file.name} · ready for review` : 'No recording loaded yet'}
-            </p>
+
+            <div className={styles.checklist}>
+              <div className={`${styles.checkItem} ${scoreFile ? styles.checkItemDone : ''}`}>
+                <span className={styles.checkDot} />
+                <div>
+                  <p className={styles.checkItemLabel}>Sheet music uploaded</p>
+                  <p className={styles.checkItemSub}>{scoreFile ? scoreFile.name : 'No file uploaded'}</p>
+                </div>
+              </div>
+              <div className={`${styles.checkItem} ${file ? styles.checkItemDone : ''}`}>
+                <span className={styles.checkDot} />
+                <div>
+                  <p className={styles.checkItemLabel}>Recording uploaded</p>
+                  <p className={styles.checkItemSub}>{file ? file.name : 'No recording uploaded'}</p>
+                </div>
+              </div>
+              <div className={`${styles.checkItem} ${pieceTitle ? styles.checkItemDone : ''}`}>
+                <span className={styles.checkDot} />
+                <div>
+                  <p className={styles.checkItemLabel}>Title & composer</p>
+                  <p className={styles.checkItemSub}>{pieceTitle || 'Not filled in'}</p>
+                </div>
+              </div>
+              <div className={`${styles.checkItem} ${instrument ? styles.checkItemDone : ''}`}>
+                <span className={styles.checkDot} />
+                <div>
+                  <p className={styles.checkItemLabel}>Instrument selected</p>
+                  <p className={styles.checkItemSub}>{instrument || 'Not selected'}</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className={styles.analyzeBtn}
+              onClick={handleSubmit}
+              disabled={!readyToAnalyze || phase === 'error'}
+            >
+              Analyze performance →
+            </button>
+            <p className={styles.analyzeNote}>Analysis typically takes 1–3 minutes depending on the length of your recording.</p>
           </div>
 
-          <div className={styles.captureGrid}>
-            <div className={styles.captureCard}>
-              <p className={styles.label}>What Mediant sees</p>
-              <strong>Sheet music · Measure structure · Notation</strong>
-            </div>
-            <div className={styles.captureCard}>
-              <p className={styles.label}>What Mediant listens for</p>
-              <strong>Timing · Dynamics · Articulation · Intonation</strong>
-            </div>
+          <div className={styles.captureCard}>
+            <p className={styles.captureCardLabel}>What Mediant sees</p>
+            <p className={styles.captureCardText}>Sheet music · Measure structure · Notation</p>
+          </div>
+
+          <div className={styles.captureCard}>
+            <p className={styles.captureCardLabel}>What Mediant listens for</p>
+            <p className={styles.captureCardText}>Timing · Dynamics · Articulation · Intonation</p>
           </div>
         </div>
       </div>
-
-      <button
-        className={`${styles.primaryBtn} ${styles.submitBtn}`}
-        onClick={handleSubmit}
-        disabled={!readyToAnalyze || phase === 'error'}
-      >
-        Analyze recording →
-      </button>
     </div>
   )
 }

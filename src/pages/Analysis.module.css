@@ -1171,7 +1171,7 @@
 .pageShell {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 48px);
+  height: 100vh;
   overflow: hidden;
   width: 100%;
 }
@@ -1319,7 +1319,7 @@
 .tripleLayout {
   display: flex;
   gap: 0;
-  height: calc(100vh - 48px);
+  height: 100vh;
   width: 100%;
   overflow: hidden;
   background: var(--bg);
@@ -1675,17 +1675,16 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 20px 32px 0;
+  padding: 24px 32px 0;
   background: var(--bg);
 }
 
 /* ── Unified Premium Header Card ────────────────────────────── */
 .analysisHeaderCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
-  padding: 24px 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 22px 26px;
   display: flex;
   align-items: center;
   gap: 24px;
@@ -1709,7 +1708,7 @@
 }
 
 .headerTitle {
-  color: #1A1410;
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.75rem;
   font-weight: 500;
@@ -1721,9 +1720,9 @@
 }
 
 .headerInstrumentBadge {
-  background: #FBFAF7;
-  border: 1px solid rgba(192, 144, 64, 0.25);
-  color: #C09040;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -1733,7 +1732,7 @@
 }
 
 .headerSubtitle {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.86rem;
   margin: 0 0 4px;
 }
@@ -1748,7 +1747,7 @@
 .headerDivider {
   width: 1px;
   height: 64px;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--surface-border);
   align-self: center;
   flex-shrink: 0;
 }
@@ -1860,7 +1859,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
   gap: 24px;
   overflow: hidden;
   margin-top: 8px;
@@ -1883,9 +1882,9 @@
 }
 
 .laneCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -1896,12 +1895,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--surface-border);
   padding-bottom: 12px;
 }
 
 .laneCardTitle {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -1911,7 +1910,7 @@
 .laneExpandBtn {
   background: none;
   border: none;
-  color: #7A6F64;
+  color: var(--text-faint);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -1921,8 +1920,8 @@
   transition: all 0.15s ease;
 }
 .laneExpandBtn:hover {
-  background: #FBFAF7;
-  color: #1A1410;
+  background: var(--surface-subtle);
+  color: var(--text);
 }
 
 .laneCardBody {
@@ -2171,6 +2170,125 @@
   font-size: 0.86rem;
   line-height: 1.6;
   margin: 0;
+}
+
+.detailTypeIcon {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.88rem;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.practiceRecBox {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 10px 14px;
+}
+
+.practiceRecLabel {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.practiceRecText {
+  color: var(--text-soft);
+  font-size: 0.83rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Aspect Score Breakdown ─────────────────────────────────── */
+.aspectScoresSection {
+  margin-bottom: 20px;
+}
+
+.aspectScoresSectionLabel {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.aspectScoresGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 900px) {
+  .aspectScoresGrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .aspectScoresGrid { grid-template-columns: 1fr 1fr; }
+}
+
+.aspectScoreCard {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.aspectScoreIcon {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 0.82rem;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.aspectScoreInfo {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+
+.aspectScoreLabel {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.aspectScoreVal {
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.aspectScoreBar {
+  background: var(--surface-hover);
+  border-radius: 99px;
+  height: 3px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.aspectScoreBarFill {
+  border-radius: 99px;
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ── Video Player ───────────────────────────────────────────── */
@@ -2858,7 +2976,7 @@
 }
 
 .pastTakeMenuBtn:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--surface-subtle);
 }
 
 /* Responsive adjustment for dashboard grid */

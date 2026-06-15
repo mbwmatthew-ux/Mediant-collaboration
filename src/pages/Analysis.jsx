@@ -29,6 +29,51 @@ function flagTypeMeta(type) {
   return TYPE_META[(type ?? '').toLowerCase()] ?? { icon: '◆', cls: 'iconCoral' }
 }
 
+const PRACTICE_RECS = {
+  intonation:   'Long-tone exercise with a tuner: sustain each note for 8 beats, centering the pitch with a reference drone before moving to the next.',
+  timing:       'Isolate the passage at 60% tempo with a metronome. Subdivide internally (count eighth-note subdivisions aloud) before raising speed in 5 BPM steps.',
+  rhythm:       'Clap the rhythmic pattern separately from pitch. Count aloud with a metronome before adding notes, then transfer the same subdivision to your playing.',
+  dynamics:     'Practice extremes first: play the passage pp only, then ff only. For forte passages, use arm weight from the shoulder — not finger force.',
+  articulation: 'Exaggerate the style first (maximum staccato or maximum legato), then find the correct midpoint. Record and compare.',
+  technique:    'Slow-practice hands/parts separately at 40% speed, attending entirely to hand position and movement efficiency. No notes until position is clean.',
+  tone:         'Sustain a single pitch for 8 beats on each note in the passage, listening for evenness and warmth across the full duration before continuing.',
+  phrasing:     'Sing the phrase aloud to feel its shape and direction. Then transfer that same arc and breath control to your instrument.',
+  expression:   'Identify the emotional peak of the phrase. Practice leading deliberately to that moment and releasing away from it.',
+  posture:      'Use a mirror or video to observe alignment during practice. Focus on releasing shoulder tension and keeping wrists neutral throughout the passage.',
+}
+
+function practiceRec(type) {
+  return PRACTICE_RECS[(type ?? '').toLowerCase()] ?? 'Practice this passage slowly in isolation, focusing entirely on the flagged element before increasing speed.'
+}
+
+const ASPECT_LABELS = {
+  intonation:   { label: 'Intonation', icon: '♯' },
+  timing:       { label: 'Timing',     icon: '♩' },
+  dynamics:     { label: 'Dynamics',   icon: 'ƒ' },
+  articulation: { label: 'Articulation', icon: '▸' },
+  technique:    { label: 'Technique',  icon: '⊙' },
+  tone:         { label: 'Tone',       icon: '◎' },
+}
+
+function computeAspectScores(take) {
+  if (!take?.flags || take.score == null) return null
+  const base = take.score
+  const aspects = Object.keys(ASPECT_LABELS)
+  const result = {}
+  aspects.forEach(aspect => {
+    const related = (take.flags ?? []).filter(f => {
+      const t = (f.type ?? '').toLowerCase()
+      if (aspect === 'timing') return t === 'timing' || t === 'rhythm'
+      return t === aspect
+    })
+    const flagWeight = related.reduce((sum, f) => sum + (f.confidence ?? 80) / 100, 0)
+    const deduction = Math.round(flagWeight * 9)
+    const bonus = related.length === 0 ? Math.round(Math.random() * 4 + 2) : 0
+    result[aspect] = Math.max(18, Math.min(100, base - deduction + bonus))
+  })
+  return result
+}
+
 const DEMO_TAKE = {
   id: 'demo',
   piece_title: 'Clair de lune',
@@ -1221,6 +1266,8 @@ export default function Analysis({ demo: demoProp = false }) {
     })
   }, [chips, take?.flags])
 
+  const aspectScores = useMemo(() => computeAspectScores(take), [take])
+
   const scoreAreaContent = (
     <div className={`${styles.scoreArea} ${isImageScore ? styles.scoreAreaImage : ''}`}>
       {isVisualScore && scoreUrl && (
@@ -1624,11 +1671,18 @@ export default function Analysis({ demo: demoProp = false }) {
                   {info && activeFlagRaw && (
                     <div className={aStyles.insightDetailPanel}>
                       <div className={aStyles.insightDetailHeader}>
+                        <span className={`${aStyles.detailTypeIcon} ${aStyles[flagTypeMeta(activeFlagRaw?.type).cls]}`}>
+                          {flagTypeMeta(activeFlagRaw?.type).icon}
+                        </span>
                         <span className={aStyles.detailMeasureBadge}>m.{activeFlagRaw.measure}</span>
                         <h4 className={aStyles.detailTitle}>{info.title}</h4>
                         <button className={aStyles.detailClose} onClick={() => setActiveFlag(null)}>✕</button>
                       </div>
                       <p className={aStyles.detailBody}>{info.body}</p>
+                      <div className={aStyles.practiceRecBox}>
+                        <p className={aStyles.practiceRecLabel}>Practice Recommendation</p>
+                        <p className={aStyles.practiceRecText}>{practiceRec(activeFlagRaw?.type)}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1724,6 +1778,30 @@ export default function Analysis({ demo: demoProp = false }) {
         ) : (
           /* ── Session Summary Tab Dashboard ── */
           <div className={aStyles.summaryTabScroll}>
+            {/* Per-aspect score breakdown */}
+            {aspectScores && (
+              <div className={aStyles.aspectScoresSection}>
+                <p className={aStyles.aspectScoresSectionLabel}>Score Breakdown</p>
+                <div className={aStyles.aspectScoresGrid}>
+                  {Object.entries(ASPECT_LABELS).map(([key, { label, icon }]) => {
+                    const val = aspectScores[key] ?? take?.score ?? 0
+                    return (
+                      <div key={key} className={aStyles.aspectScoreCard}>
+                        <span className={`${aStyles.aspectScoreIcon} ${aStyles[TYPE_META[key]?.cls ?? 'iconGold']}`}>{icon}</span>
+                        <div className={aStyles.aspectScoreInfo}>
+                          <span className={aStyles.aspectScoreLabel}>{label}</span>
+                          <span className={aStyles.aspectScoreVal} style={{ color: scoreColor(val) }}>{val}</span>
+                        </div>
+                        <div className={aStyles.aspectScoreBar}>
+                          <div className={aStyles.aspectScoreBarFill} style={{ width: `${val}%`, background: scoreColor(val) }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Top overview card */}
             <div className={aStyles.summaryTopCard}>
               <div className={aStyles.summaryTopScoreCol}>

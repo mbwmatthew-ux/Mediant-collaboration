@@ -1,0 +1,491 @@
+/* ── Page ─────────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  margin: 0 auto;
+  max-width: 1040px;
+  padding: 42px 40px 72px;
+}
+
+.pageHead {
+  margin-bottom: 28px;
+}
+
+.pageLabel {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.pageTitle {
+  color: var(--text);
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(2rem, 3vw, 2.5rem);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  margin: 0 0 4px;
+}
+
+.pageSubtitle {
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.recordLayout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 292px;
+}
+
+.recordLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.recordRight {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Section cards ────────────────────────────────────────────── */
+.section {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 24px;
+}
+
+.sectionHead {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  color: var(--text);
+  font-size: 0.93rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* ── Labels ───────────────────────────────────────────────────── */
+.label {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.requiredDot {
+  background: var(--accent-bg);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+
+/* ── Dropzones ────────────────────────────────────────────────── */
+.dropzone {
+  align-items: center;
+  border: 1.5px dashed var(--surface-border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 28px 20px;
+  text-align: center;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.dropzone:hover {
+  background: var(--surface-subtle);
+  border-color: var(--accent);
+}
+
+.dropzoneActive {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.dropzoneDone {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.dropzoneIcon {
+  color: var(--text-faint);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dropzoneCheck {
+  color: var(--accent);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dropzone strong {
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dropzoneSub {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  max-width: 340px;
+}
+
+/* ── Form fields ──────────────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  gap: 14px 16px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 16px;
+}
+
+.formGridWide {
+  display: grid;
+  gap: 14px 16px;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formLabel {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.formInput {
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.86rem;
+  height: 38px;
+  outline: none;
+  padding: 0 12px;
+  transition: border-color 140ms ease;
+  width: 100%;
+}
+.formInput:focus { border-color: var(--accent); }
+.formInput::placeholder { color: var(--text-faint); }
+
+.formSelect {
+  appearance: none;
+  background: var(--surface-subtle) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 12px center;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.86rem;
+  height: 38px;
+  outline: none;
+  padding: 0 32px 0 12px;
+  transition: border-color 140ms ease;
+  width: 100%;
+}
+.formSelect:focus { border-color: var(--accent); }
+
+.ocrBadge {
+  background: var(--accent-bg);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-left: 6px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.formOptional {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+}
+
+.formHint {
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* ── Error banner ─────────────────────────────────────────────── */
+.errorBanner {
+  background: rgba(192, 83, 74, 0.06);
+  border: 1px solid rgba(192, 83, 74, 0.25);
+  border-radius: 12px;
+  color: var(--coral);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+}
+
+.errorUpgradeLink {
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: 10px;
+  text-decoration: none;
+}
+
+.analysisNoticeList {
+  margin: 8px 0 0 16px;
+  padding: 0;
+}
+
+.errorRetry {
+  background: rgba(192, 83, 74, 0.1);
+  border: 1px solid rgba(192, 83, 74, 0.3);
+  border-radius: 6px;
+  color: var(--coral);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 10px;
+  padding: 5px 12px;
+}
+
+/* ── Right sidebar ────────────────────────────────────────────── */
+.checklistCard {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  overflow: hidden;
+  position: sticky;
+  top: 24px;
+}
+
+.checklistHead {
+  border-bottom: 1px solid var(--surface-border);
+  padding: 16px 18px 14px;
+}
+
+.checklistTitle {
+  color: var(--text);
+  font-size: 0.93rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.checklistSub {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  margin: 3px 0 0;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.checkItem {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  padding: 12px 18px;
+}
+.checkItem:last-child { border-bottom: none; }
+
+.checkDot {
+  align-items: center;
+  background: transparent;
+  border: 1.5px solid var(--surface-border);
+  border-radius: 50%;
+  display: flex;
+  flex-shrink: 0;
+  height: 18px;
+  justify-content: center;
+  margin-top: 2px;
+  transition: border-color 200ms ease;
+  width: 18px;
+}
+
+.checkDot::after {
+  background: transparent;
+  border-radius: 50%;
+  content: '';
+  height: 8px;
+  transition: background 200ms ease;
+  width: 8px;
+}
+
+.checkItemDone .checkDot {
+  border-color: var(--accent);
+}
+
+.checkItemDone .checkDot::after {
+  background: var(--accent);
+}
+
+.checkItemLabel {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0;
+  transition: color 200ms ease;
+}
+
+.checkItemDone .checkItemLabel {
+  color: var(--text);
+}
+
+.checkItemSub {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyzeBtn {
+  background: var(--accent);
+  border: none;
+  border-radius: 0;
+  color: #fff;
+  cursor: pointer;
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 15px 20px;
+  transition: filter 140ms ease;
+  width: 100%;
+}
+.analyzeBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.analyzeBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.analyzeNote {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  padding: 12px 18px;
+  text-align: center;
+}
+
+/* Capture info cards */
+.captureCard {
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.captureCardLabel {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
+.captureCardText {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Loading/analysis screen ──────────────────────────────────── */
+.analyzeScreen {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 480px;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.analyzeIcon {
+  color: var(--accent);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.analyzeTitle {
+  color: var(--text);
+  font-family: "Iowan Old Style", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.analyzeSub {
+  color: var(--text-faint);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.progressBar {
+  background: var(--surface-hover);
+  border-radius: 99px;
+  height: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progressFill {
+  background: var(--accent);
+  border-radius: 99px;
+  height: 100%;
+  width: 0%;
+}
+
+.progressLabel {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .recordLayout { grid-template-columns: 1fr; }
+  .checklistCard { position: static; }
+  .formGridWide { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 700px) {
+  .page { padding: 28px 18px 48px; }
+  .formGrid { grid-template-columns: 1fr; }
+  .formGridWide { grid-template-columns: 1fr 1fr; }
+}
