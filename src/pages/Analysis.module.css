@@ -3450,3 +3450,26 @@
     white-space: normal;
   }
 }
+
+/* Final scroll safety override.
+   Older analysis rules used a fixed-height app canvas. The content now
+   needs normal document scrolling while still preventing horizontal bleed. */
+.pageShell {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.mainPageContent {
+  flex: initial;
+  height: auto;
+  min-height: 100vh;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.reviewLayoutColumns {
+  min-height: 0;
+  overflow: visible;
+}
