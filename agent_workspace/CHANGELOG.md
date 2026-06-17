@@ -6,7 +6,13 @@ Most recent first.
 
 ---
 
-## 2026-06-14
+## 2026-06-16
+
+- `[Settings]` Rebuilt page into a four-tab layout (Account / Security / Privacy / Billing) with a gold-underline tab strip and a fade-in `.tabPanel`. Account tab retains all prior controls (profile, appearance, sound, help, about, sign out).
+- `[Settings]` Security tab: functional change-password (`auth.updateUser({password})`, min-8 + match validation) and change-email (`auth.updateUser({email})`, confirmation-link flow); two-factor card is a frame ("Coming soon", disabled).
+- `[Settings]` Privacy tab: rewrote data-handling copy to be accurate (recordings go to Supabase storage + analysis service, not sold/shared) replacing the old "stored locally, never shared" claim; real Clear-cached-recordings (`indexedDB.deleteDatabase('mediant_files')`, two-step confirm); data-export and delete-account are frames (delete routes to a mailto to the team).
+- `[Settings]` Billing tab (frame): current-plan card driven by `useAuth()` subscription, Stripe-managed payment-method display (monochrome theme-aware card chip, never blue — no raw card entry), sample invoice history table with paid/refunded status pills. Labeled as sample data pending live Stripe.
+- `[Settings.module.css]` Added tab strip, card body, button variants (primary/secondary/ghost/danger), status notes, tags, danger card, payment-card chip, billing table, and status pills; theme-aware via existing CSS variables, with a `max-width:700px` responsive pass.
 
 - `[Record]` Page title updated to sans-serif "Record New Take" + subtitle; checklist redesigned with true radio-button circles (CSS `::after` inner dot); 4th checklist item added (Title & composer); timing note added below Analyze button
 - `[Analysis]` Added `PRACTICE_RECS` lookup and practice recommendation box in the flagged issue detail panel (type icon + gold-tinted rec box)

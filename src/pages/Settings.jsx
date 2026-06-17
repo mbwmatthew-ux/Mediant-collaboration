@@ -7,6 +7,15 @@ import { playToggle, playSave, playThud, playTick } from '../utils/sounds'
 import { INSTRUMENTS } from '../lib/instruments'
 import styles from './Settings.module.css'
 
+const TABS = [
+  { id: 'account',  label: 'Account'  },
+  { id: 'security', label: 'Security' },
+  { id: 'privacy',  label: 'Privacy'  },
+  { id: 'billing',  label: 'Billing'  },
+]
+
+/* ── Shared bits ─────────────────────────────────────────────── */
+
 function Toggle({ checked, onChange }) {
   return (
     <button
@@ -38,15 +47,26 @@ function Row({ icon, label, sub, onClick, danger, children, value }) {
   )
 }
 
-export default function Settings() {
+function StatusNote({ kind, children }) {
+  if (!children) return null
+  return (
+    <p className={`${styles.statusNote} ${kind === 'ok' ? styles.statusOk : kind === 'err' ? styles.statusErr : ''}`}>
+      {children}
+    </p>
+  )
+}
+
+/* ── Account tab ─────────────────────────────────────────────── */
+
+function AccountTab() {
   const { user, subscription, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const nav = useNavigate()
 
-  const [name,           setName]          = useState(user?.name ?? '')
-  const [instrument,     setInstrument]    = useState(user?.instrument ?? 'Piano')
-  const [coachingStyle,  setCoachingStyle] = useState(user?.coaching_style ?? 'Balanced')
-  const [saveStatus, setSaveStatus] = useState('idle') // idle | saving | saved
+  const [name,          setName]          = useState(user?.name ?? '')
+  const [instrument,    setInstrument]    = useState(user?.instrument ?? 'Piano')
+  const [coachingStyle, setCoachingStyle] = useState(user?.coaching_style ?? 'Balanced')
+  const [saveStatus,    setSaveStatus]    = useState('idle') // idle | saving | saved
 
   const [soundOn, setSoundOn] = useState(
     () => localStorage.getItem('mediant_sound') !== 'false'
@@ -54,6 +74,8 @@ export default function Settings() {
 
   const initials = (user?.name ?? '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+  const isPaid = subscription?.plan && subscription.plan !== 'free'
 
   async function saveProfile() {
     if (saveStatus === 'saving') return
@@ -86,25 +108,11 @@ export default function Settings() {
     nav('/')
   }
 
-  function handleClearData() {
-    playThud()
-    localStorage.clear()
-  }
-
-  const isPaid = subscription?.plan && subscription.plan !== 'free'
-
   return (
-    <div className={styles.page}>
-
-      {/* ── Header ── */}
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Settings</h1>
-        <p className={styles.pageSub}>Manage your profile, preferences, and account.</p>
-      </div>
-
-      {/* ── Profile ── */}
+    <>
+      {/* Profile */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Account Information</h2>
+        <h2 className={styles.sectionTitle}>Account information</h2>
         <div className={styles.card}>
           <div className={styles.profileCard}>
 
@@ -179,7 +187,7 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ── Appearance ── */}
+      {/* Appearance */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Appearance</h2>
         <div className={styles.card}>
@@ -193,7 +201,7 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ── Sound ── */}
+      {/* Sound */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Sound</h2>
         <div className={styles.card}>
@@ -207,40 +215,21 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ── Plan ── */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Plan & Billing</h2>
-        <div className={styles.card}>
-          <Row
-            icon="◈"
-            label="Current plan"
-            value={isPaid ? `${subscription.plan}` : 'Free'}
-          />
-          <Row
-            icon="↑"
-            label={isPaid ? 'Manage billing' : 'Upgrade to Pro'}
-            sub={isPaid ? 'View invoices and manage your subscription' : 'Unlimited analyses, priority processing'}
-            onClick={() => { playTick(); nav('/pricing') }}
-          />
-        </div>
-      </section>
-
-      {/* ── Help ── */}
+      {/* Help */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Help</h2>
         <div className={styles.card}>
-
           <Row icon="⌨" label="Keyboard shortcuts">
-            <div /> {/* spacer — shortcuts are inlined below */}
+            <div />
           </Row>
           <div className={styles.shortcutsGrid}>
             {[
-              ['Space',  'Play / pause'],
-              ['← →',   'Previous / next measure'],
-              ['L',      'Toggle loop on current section'],
-              ['Esc',    'Close any panel'],
-              ['R',      'Go to upload recording'],
-              ['S',      'Go to score review'],
+              ['Space', 'Play / pause'],
+              ['← →',  'Previous / next measure'],
+              ['L',     'Toggle loop on current section'],
+              ['Esc',   'Close any panel'],
+              ['R',     'Go to upload recording'],
+              ['S',     'Go to score review'],
             ].map(([key, desc]) => (
               <div key={key} className={styles.shortcutRow}>
                 <kbd className={styles.shortcutKey}>{key}</kbd>
@@ -248,7 +237,6 @@ export default function Settings() {
               </div>
             ))}
           </div>
-
           <Row
             icon="✉"
             label="Contact support"
@@ -258,27 +246,7 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ── Privacy ── */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Privacy & Data</h2>
-        <div className={styles.card}>
-          <div className={styles.dangerArea}>
-            <p className={styles.dangerBody}>
-              Your recordings and analysis results are stored locally in your browser and are never shared with third parties. Analysis is processed securely and subject to our privacy policy.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button className={styles.dangerBtn} onClick={handleClearData}>
-                Clear all local data
-              </button>
-              <Link to="/privacy" className={styles.dangerBtn} style={{ textDecoration: 'none' }}>
-                Privacy policy ↗
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── About ── */}
+      {/* About */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>About</h2>
         <div className={styles.card}>
@@ -293,11 +261,467 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ── Sign out ── */}
       <button className={styles.signOutBtn} onClick={handleSignOut}>
         Sign out
       </button>
+    </>
+  )
+}
 
+/* ── Security tab ────────────────────────────────────────────── */
+
+function SecurityTab() {
+  const { user } = useAuth()
+
+  const [pw,  setPw]  = useState('')
+  const [pw2, setPw2] = useState('')
+  const [pwState, setPwState] = useState('idle') // idle | saving | saved | error
+  const [pwMsg,   setPwMsg]   = useState('')
+
+  const [email, setEmail] = useState('')
+  const [emailState, setEmailState] = useState('idle')
+  const [emailMsg,   setEmailMsg]   = useState('')
+
+  async function updatePassword(e) {
+    e.preventDefault()
+    if (pwState === 'saving') return
+    if (pw.length < 8)  { setPwState('error'); setPwMsg('Use at least 8 characters.'); return }
+    if (pw !== pw2)     { setPwState('error'); setPwMsg('The two passwords don’t match.'); return }
+    setPwState('saving'); setPwMsg('')
+    const { error } = await supabase.auth.updateUser({ password: pw })
+    if (error) { setPwState('error'); setPwMsg(error.message); return }
+    playSave()
+    setPwState('saved'); setPwMsg('Password updated.')
+    setPw(''); setPw2('')
+    setTimeout(() => { setPwState('idle'); setPwMsg('') }, 3200)
+  }
+
+  async function updateEmail(e) {
+    e.preventDefault()
+    if (emailState === 'saving') return
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setEmailState('error'); setEmailMsg('Enter a valid email address.'); return
+    }
+    setEmailState('saving'); setEmailMsg('')
+    const { error } = await supabase.auth.updateUser({ email })
+    if (error) { setEmailState('error'); setEmailMsg(error.message); return }
+    playSave()
+    setEmailState('saved'); setEmailMsg('Confirmation link sent — check your inbox to finish the change.')
+    setEmail('')
+    setTimeout(() => { setEmailState('idle'); setEmailMsg('') }, 5000)
+  }
+
+  return (
+    <>
+      {/* Password */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Password</h2>
+        <div className={styles.card}>
+          <form className={styles.cardBody} onSubmit={updatePassword}>
+            <p className={styles.cardDesc}>Choose a new password for your account. You’ll stay signed in on this device.</p>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>New password</label>
+              <input
+                className={styles.fieldInput}
+                type="password"
+                autoComplete="new-password"
+                value={pw}
+                onChange={e => setPw(e.target.value)}
+                placeholder="At least 8 characters"
+              />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>Confirm new password</label>
+              <input
+                className={styles.fieldInput}
+                type="password"
+                autoComplete="new-password"
+                value={pw2}
+                onChange={e => setPw2(e.target.value)}
+                placeholder="Re-enter new password"
+              />
+            </div>
+            <div className={styles.formActions}>
+              <button
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                type="submit"
+                disabled={pwState === 'saving' || !pw || !pw2}
+              >
+                {pwState === 'saving' ? 'Updating…' : 'Update password'}
+              </button>
+              <StatusNote kind={pwState === 'saved' ? 'ok' : pwState === 'error' ? 'err' : ''}>{pwMsg}</StatusNote>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      {/* Two-factor */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Two-factor authentication</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <div className={styles.cardHeadRow}>
+              <div>
+                <p className={styles.cardTitle}>Authenticator app</p>
+                <p className={styles.cardDesc}>Add a second step at sign-in using a one-time code from an authenticator app.</p>
+              </div>
+              <span className={styles.tag}>Coming soon</span>
+            </div>
+            <div className={styles.formActions}>
+              <button className={`${styles.btn} ${styles.btnSecondary}`} disabled>
+                Set up two-factor
+              </button>
+              <span className={styles.cardDesc}>Available in an upcoming release.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Email */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Email address</h2>
+        <div className={styles.card}>
+          <form className={styles.cardBody} onSubmit={updateEmail}>
+            <p className={styles.cardDesc}>
+              Your account email is <strong className={styles.inlineStrong}>{user?.email ?? '—'}</strong>. Changing it sends a confirmation link to the new address.
+            </p>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>New email</label>
+              <input
+                className={styles.fieldInput}
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className={styles.formActions}>
+              <button
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                type="submit"
+                disabled={emailState === 'saving' || !email}
+              >
+                {emailState === 'saving' ? 'Sending…' : 'Send confirmation'}
+              </button>
+              <StatusNote kind={emailState === 'saved' ? 'ok' : emailState === 'error' ? 'err' : ''}>{emailMsg}</StatusNote>
+            </div>
+          </form>
+        </div>
+      </section>
+    </>
+  )
+}
+
+/* ── Privacy tab ─────────────────────────────────────────────── */
+
+function PrivacyTab() {
+  const [exportState, setExportState] = useState('idle') // idle | requested
+  const [clearState,  setClearState]  = useState('idle') // idle | confirm | done
+  const [delState,    setDelState]    = useState('idle') // idle | confirm
+
+  function requestExport() {
+    playTick()
+    setExportState('requested')
+    setTimeout(() => setExportState('idle'), 5000)
+  }
+
+  function clearCache() {
+    if (clearState !== 'confirm') { playTick(); setClearState('confirm'); return }
+    playThud()
+    try { indexedDB.deleteDatabase('mediant_files') } catch { /* ignore */ }
+    setClearState('done')
+    setTimeout(() => setClearState('idle'), 2600)
+  }
+
+  function deleteAccount() {
+    if (delState !== 'confirm') { playTick(); setDelState('confirm'); return }
+    playThud()
+    window.location.href = 'mailto:mediantteam@gmail.com?subject=Delete%20my%20Mediant%20account'
+  }
+
+  return (
+    <>
+      {/* How your data is handled */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Your data</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <p className={styles.cardDesc}>
+              When you upload a recording, the audio and any sheet music are sent to Mediant’s
+              secure storage and processed by our analysis service to generate your feedback.
+              Your recordings are tied to your account and are not sold or shared with advertisers.
+              Use of your data is covered by our privacy policy.
+            </p>
+            <div className={styles.formActions}>
+              <Link to="/privacy" className={`${styles.btn} ${styles.btnGhost}`}>
+                Read privacy policy ↗
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Export */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Export your data</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <p className={styles.cardDesc}>
+              Request a copy of your recordings, takes, and feedback history. We’ll prepare an
+              archive and email you a download link when it’s ready.
+            </p>
+            <div className={styles.formActions}>
+              <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={requestExport}>
+                Request data export
+              </button>
+              <StatusNote kind={exportState === 'requested' ? 'ok' : ''}>
+                {exportState === 'requested' ? 'Export isn’t live yet — this is where your download will appear soon.' : ''}
+              </StatusNote>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Cached recordings */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Cached recordings</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <p className={styles.cardDesc}>
+              Mediant keeps recent recordings in this browser for faster playback. Clearing them
+              frees up space on this device and doesn’t delete anything from your account.
+            </p>
+            <div className={styles.formActions}>
+              <button
+                className={`${styles.btn} ${clearState === 'confirm' ? styles.btnDanger : styles.btnSecondary}`}
+                onClick={clearCache}
+              >
+                {clearState === 'confirm' ? 'Click again to confirm' : clearState === 'done' ? '✓ Cleared' : 'Clear cached recordings'}
+              </button>
+              {clearState === 'confirm' && (
+                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setClearState('idle')}>Cancel</button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Danger zone */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Delete account</h2>
+        <div className={`${styles.card} ${styles.dangerCard}`}>
+          <div className={styles.cardBody}>
+            <p className={styles.cardDesc}>
+              Permanently delete your account and all associated recordings, takes, and feedback.
+              This can’t be undone. Account deletion isn’t self-serve yet — confirming opens an
+              email to our team, who will remove your account.
+            </p>
+            <div className={styles.formActions}>
+              <button
+                className={`${styles.btn} ${styles.btnDanger}`}
+                onClick={deleteAccount}
+              >
+                {delState === 'confirm' ? 'Confirm — email the team' : 'Delete account'}
+              </button>
+              {delState === 'confirm' && (
+                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setDelState('idle')}>Cancel</button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
+
+/* ── Billing tab ─────────────────────────────────────────────── */
+
+function StatusPill({ status }) {
+  const map = {
+    paid:     ['Paid',     styles.pillPaid],
+    pending:  ['Pending',  styles.pillPending],
+    refunded: ['Refunded', styles.pillRefunded],
+  }
+  const [label, cls] = map[status] ?? ['—', '']
+  return (
+    <span className={`${styles.statusPill} ${cls}`}>
+      <span className={styles.pillDot} />{label}
+    </span>
+  )
+}
+
+function BillingTab() {
+  const { subscription } = useAuth()
+  const nav = useNavigate()
+
+  const isPaid    = subscription?.plan && subscription.plan !== 'free'
+  const planName  = isPaid ? subscription.plan : 'Free'
+  const renewal   = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
+  const invoices = [
+    { id: 'INV-2026-0007', date: 'Jun 1, 2026', amount: '$14.99', status: 'paid' },
+    { id: 'INV-2026-0006', date: 'May 1, 2026', amount: '$14.99', status: 'paid' },
+    { id: 'INV-2026-0005', date: 'Apr 1, 2026', amount: '$14.99', status: 'refunded' },
+  ]
+
+  return (
+    <>
+      {/* Current plan */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Current plan</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <div className={styles.cardHeadRow}>
+              <div>
+                <p className={styles.cardTitle}>{planName} plan</p>
+                <p className={styles.cardDesc}>
+                  {isPaid
+                    ? renewal ? `Renews on ${renewal}.` : 'Active subscription.'
+                    : 'You’re on the free plan — 5 uploads per month.'}
+                </p>
+              </div>
+              <span className={`${styles.planBadge} ${isPaid ? '' : styles.planBadgeFree}`}>{planName}</span>
+            </div>
+            <div className={styles.formActions}>
+              <button
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                onClick={() => { playTick(); nav('/pricing') }}
+              >
+                {isPaid ? 'Change plan' : 'Upgrade to Pro'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Payment method */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Payment method</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody}>
+            <p className={styles.cardDesc}>
+              Billing is handled securely by Stripe — your card details never touch Mediant’s servers.
+            </p>
+            <div className={styles.cardOnFile}>
+              <span className={styles.cardBrand}>VISA</span>
+              <div className={styles.cardMeta}>
+                <span className={styles.cardDigits}>•••• •••• •••• 4242</span>
+                <span className={styles.cardExp}>Expires 04 / 2028</span>
+              </div>
+              <span className={styles.tag} style={{ marginLeft: 'auto' }}>Sample</span>
+            </div>
+            <div className={styles.formActions}>
+              <button className={`${styles.btn} ${styles.btnSecondary}`} disabled>
+                Manage via Stripe
+              </button>
+              <span className={styles.cardDesc}>Available once Stripe billing is connected.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Billing history */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Billing history</h2>
+        <div className={styles.card}>
+          <div className={styles.cardBody} style={{ paddingBottom: 0 }}>
+            <div className={styles.cardHeadRow}>
+              <div>
+                <p className={styles.cardTitle}>Invoices</p>
+                <p className={styles.cardDesc}>Receipts for past payments.</p>
+              </div>
+            </div>
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.billingTable}>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th><span className={styles.srOnly}>Receipt</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className={styles.mono}>{inv.id}</td>
+                    <td>{inv.date}</td>
+                    <td>{inv.amount}</td>
+                    <td><StatusPill status={inv.status} /></td>
+                    <td className={styles.tableActionCell}>
+                      <button className={styles.dlBtn} disabled aria-label="Download receipt">
+                        <DownloadIcon />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className={styles.tableCaption}>
+            Sample data — your real invoices will appear here once Stripe billing is live.
+          </p>
+        </div>
+      </section>
+    </>
+  )
+}
+
+/* ── Page ────────────────────────────────────────────────────── */
+
+export default function Settings() {
+  const [tab, setTab] = useState('account')
+
+  function selectTab(id) {
+    if (id === tab) return
+    playTick()
+    setTab(id)
+  }
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.pageHeader}>
+        <h1 className={styles.pageTitle}>Settings</h1>
+        <p className={styles.pageSub}>Manage your profile, security, privacy, and billing.</p>
+      </div>
+
+      <nav className={styles.tabStrip} role="tablist" aria-label="Settings sections">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
+            onClick={() => selectTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className={styles.tabPanel} role="tabpanel" key={tab}>
+        {tab === 'account'  && <AccountTab />}
+        {tab === 'security' && <SecurityTab />}
+        {tab === 'privacy'  && <PrivacyTab />}
+        {tab === 'billing'  && <BillingTab />}
+      </div>
     </div>
+  )
+}
+
+/* ── Icons ───────────────────────────────────────────────────── */
+
+function DownloadIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
   )
 }

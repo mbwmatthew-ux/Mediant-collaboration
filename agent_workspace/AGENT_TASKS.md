@@ -2,7 +2,7 @@
 
 AFTER EVERY CHANGE, WHEN APPROPRIATE, MAKE SURE TO UPDATE THIS FILE
 
-Last updated: 2026-06-14
+Last updated: 2026-06-16
 
 ---
 
@@ -30,12 +30,13 @@ _Nothing active._
 
 ## Needs Review
 
-_Nothing here yet. QA agent fills this section after implementation._
+- [ ] **Settings — live backend check.** Visual + lint verified, but the functional controls (profile save, password change, email change) call `supabase.auth.updateUser` and could only be confirmed in-browser with placeholder Supabase keys. Re-test password/email/profile saves once real project credentials are in `.env` and a user is logged in.
 
 ---
 
 ## Completed
 
+- [x] Settings rebuilt as tabbed layout (Account / Security / Privacy / Billing). Security: change password, change email (both functional), 2FA frame. Privacy: accurate data-handling copy, real cache-clear, export + delete-account frames. Billing: plan card, Stripe-managed payment display, sample invoice history. Warm theme preserved in light + dark. (2026-06-16)
 - [x] Full webapp UI redesign: AppShell, Home, Library, Record, Analysis, Progress, Settings, Auth pages + Landing page (2026-06-14)
 - [x] Song-thread data model: `songs` table, `song_id` FK on takes, persistent `chat_history` per song (2026-06-14)
 - [x] Loop scrubbing: timestamp is a seek button, gold progress bar while looping, active Loop button styled gold (2026-06-14)
