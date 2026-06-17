@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import MasterclassPanel from '../components/MasterclassPanel'
 import { SkeletonCard } from '../components/Skeleton'
 import WaveformTimeline, { WAVEFORM_GROUPS } from '../components/WaveformTimeline'
 import styles from './Page.module.css'
@@ -1475,7 +1474,7 @@ export default function Analysis({ demo: demoProp = false }) {
               {/* Right Column: AI insights, video, chat */}
               <div className={aStyles.rightLane}>
                 {/* AI Insights Card */}
-                <div className={aStyles.laneCard}>
+                <div className={`${aStyles.laneCard} ${aStyles.insightsCard}`}>
                   <div className={aStyles.laneCardHeader}>
                     <span className={aStyles.laneCardTitle} style={{ display: 'flex', alignItems: 'center' }}>
                       AI INSIGHTS
@@ -1587,38 +1586,45 @@ export default function Analysis({ demo: demoProp = false }) {
                 </div>
 
                 {/* Video recording */}
-                {videoUrl && (
-                  <div className={aStyles.laneCard}>
-                    <div className={aStyles.laneCardHeader}>
-                      <span className={aStyles.laneCardTitle}>RECORDING</span>
-                    </div>
-                    <div className={aStyles.videoCardBody}>
-                      <video
-                        ref={videoRef}
-                        src={videoUrl}
-                        className={aStyles.videoPlayer}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration || null)}
-                      />
-                      <div className={aStyles.videoControls}>
-                        <span className={aStyles.videoSpeedLabel}>Speed</span>
-                        <div className={aStyles.speedBtnsRow}>
-                          {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
-                            <button
-                              key={s}
-                              className={`${aStyles.speedBtn} ${videoSpeed === s ? aStyles.speedBtnActive : ''}`}
-                              onClick={() => setVideoSpeed(s)}
-                            >
-                              {s}×
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                <div className={`${aStyles.laneCard} ${aStyles.recordingCard}`}>
+                  <div className={aStyles.laneCardHeader}>
+                    <span className={aStyles.laneCardTitle}>RECORDING</span>
                   </div>
-                )}
+                  <div className={aStyles.videoCardBody}>
+                    {videoUrl ? (
+                      <>
+                        <video
+                          ref={videoRef}
+                          src={videoUrl}
+                          className={aStyles.videoPlayer}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration || null)}
+                        />
+                        <div className={aStyles.videoControls}>
+                          <span className={aStyles.videoSpeedLabel}>Speed</span>
+                          <div className={aStyles.speedBtnsRow}>
+                            {[0.5, 0.75, 1, 1.25, 1.5].map(s => (
+                              <button
+                                key={s}
+                                className={`${aStyles.speedBtn} ${videoSpeed === s ? aStyles.speedBtnActive : ''}`}
+                                onClick={() => setVideoSpeed(s)}
+                              >
+                                {s}×
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className={aStyles.videoMissingState}>
+                        <span>No recording video is attached to this analysis.</span>
+                        <button onClick={() => nav('/record')}>Upload a new take</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Ask Mediant Chat history panel */}
                 <div className={aStyles.laneCard}>
@@ -1637,9 +1643,6 @@ export default function Analysis({ demo: demoProp = false }) {
                     <div ref={chatEndRef} />
                   </div>
                 </div>
-
-                {/* Masterclass Panel inside scroll lane */}
-                <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
               </div>
             </div>
 
@@ -1943,9 +1946,6 @@ export default function Analysis({ demo: demoProp = false }) {
                 </div>
               </div>
             </div>
-
-            {/* Masterclass Panel at bottom of summary tab */}
-            <MasterclassPanel pieceTitle={pieceTitle} composer={pieceComposer} instrument={instrument} />
           </div>
         )}
       </main>
