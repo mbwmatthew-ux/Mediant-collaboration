@@ -13,10 +13,272 @@ function secsPerMeasure(timeSig: string, bpm: number): number | null {
   return (num / den) * 240 / bpm
 }
 
+const FLAG_TYPES = new Set([
+  'timing',
+  'rhythm',
+  'intonation',
+  'dynamics',
+  'articulation',
+  'technique',
+  'tone',
+  'phrasing',
+  'posture',
+  'error',
+])
+
+type EvidenceKind = 'audio-video' | 'visual-only' | 'score-only'
+
+type NormalizedFlag = {
+  measure: number
+  measure_end: number | null
+  type: string
+  confidence: number
+  title: string
+  detail: string
+  timestamp_start: number
+  timestamp_end: number
+  evidence: EvidenceKind
+  confidence_reason: string
+  review_priority: 'high' | 'medium' | 'low'
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n))
+}
+
+function cleanText(value: unknown, fallback: string, max = 900): string {
+  const text = String(value ?? fallback).replace(/\s+/g, ' ').trim()
+  return (text || fallback).slice(0, max)
+}
+
+function normalizeType(type: unknown, fallback = 'technique'): string {
+  const raw = String(type ?? fallback).toLowerCase().trim()
+  if (raw === 'rhythmic') return 'timing'
+  if (raw === 'pitch') return 'intonation'
+  if (raw === 'body' || raw === 'position') return 'technique'
+  return FLAG_TYPES.has(raw) ? raw : fallback
+}
+
+function inferMeasureFromTimestamp(
+  timestamp: number,
+  safeStart: number,
+  maxMeasure: number,
+  timeSig: string,
+  tempo: number,
+): number | null {
+  const spm = secsPerMeasure(timeSig, tempo)
+  if (!spm || spm <= 0 || timestamp <= 0) return null
+  return clamp(safeStart + Math.floor(timestamp / spm), safeStart, maxMeasure)
+}
+
+function normalizeFlag(f: any, opts: {
+  safeStart: number
+  safeEnd: number | null
+  timeSig: string
+  tempo: number
+  evidence: EvidenceKind
+  defaultType: string
+  defaultTitle: string
+  confidenceCap: number
+  confidenceDefault: number
+  timestampWindow: number
+}): NormalizedFlag | null {
+  if (!f || typeof f !== 'object') return null
+
+  const maxMeasure = opts.safeEnd ?? opts.safeStart + 200
+  const rawStart = Number(f.timestamp_start)
+  const timestampStart = opts.evidence === 'score-only'
+    ? 0
+    : Math.max(0, Number.isFinite(rawStart) ? rawStart : 0)
+
+  const declaredMeasure = Math.round(Number(f.measure_start ?? f.measure) || 0)
+  const inferredMeasure = inferMeasureFromTimestamp(timestampStart, opts.safeStart, maxMeasure, opts.timeSig, opts.tempo)
+  const measure = declaredMeasure >= opts.safeStart && declaredMeasure <= maxMeasure
+    ? declaredMeasure
+    : inferredMeasure ?? opts.safeStart
+
+  const declaredEnd = f.measure_end != null ? Math.round(Number(f.measure_end)) : null
+  const measureEnd = declaredEnd != null && declaredEnd > measure && declaredEnd <= maxMeasure
+    ? declaredEnd
+    : null
+
+  const rawEnd = Number(f.timestamp_end)
+  const timestampEnd = opts.evidence === 'score-only'
+    ? 0
+    : rawEnd > timestampStart
+      ? rawEnd
+      : timestampStart + opts.timestampWindow
+
+  const type = normalizeType(f.type, opts.defaultType)
+  const rawConfidence = Math.round(Number(f.confidence) || opts.confidenceDefault)
+  const confidence = clamp(rawConfidence, 45, opts.confidenceCap)
+  const reviewPriority = confidence >= 84 ? 'high' : confidence >= 68 ? 'medium' : 'low'
+  const sourceText = opts.evidence === 'audio-video'
+    ? 'Full recording was analyzed; confidence reflects audible evidence plus score context when available.'
+    : opts.evidence === 'visual-only'
+      ? 'Based on sampled video frames only; timing, pitch, and dynamics are not directly verified.'
+      : 'Score-based coaching note only; not verified against the recording.'
+
+  return {
+    measure,
+    measure_end: measureEnd,
+    type,
+    confidence,
+    title: cleanText(f.title, opts.defaultTitle, 110),
+    detail: cleanText(f.detail, 'Review this passage slowly and compare it against the score and recording.', 1200),
+    timestamp_start: Number(timestampStart.toFixed(2)),
+    timestamp_end: Number(timestampEnd.toFixed(2)),
+    evidence: opts.evidence,
+    confidence_reason: cleanText(f.confidence_reason ?? sourceText, sourceText, 280),
+    review_priority: reviewPriority,
+  }
+}
+
+function dedupeFlags(flags: NormalizedFlag[]): NormalizedFlag[] {
+  const merged: NormalizedFlag[] = []
+  for (const flag of flags) {
+    const same = merged.find(existing => {
+      const sameType = existing.type === flag.type
+      const closeMeasure = Math.abs(existing.measure - flag.measure) <= 1
+      const closeTime = flag.timestamp_start > 0 && existing.timestamp_start > 0
+        ? Math.abs(existing.timestamp_start - flag.timestamp_start) < 1.5
+        : false
+      const titleOverlap = existing.title.toLowerCase().slice(0, 18) === flag.title.toLowerCase().slice(0, 18)
+      return sameType && (closeTime || (closeMeasure && titleOverlap))
+    })
+
+    if (!same) {
+      merged.push(flag)
+      continue
+    }
+
+    same.confidence = Math.max(same.confidence, flag.confidence)
+    same.review_priority = same.confidence >= 84 ? 'high' : same.confidence >= 68 ? 'medium' : 'low'
+    same.timestamp_start = Math.min(same.timestamp_start || flag.timestamp_start, flag.timestamp_start || same.timestamp_start)
+    same.timestamp_end = Math.max(same.timestamp_end, flag.timestamp_end)
+    same.measure = Math.min(same.measure, flag.measure)
+    same.measure_end = Math.max(same.measure_end ?? same.measure, flag.measure_end ?? flag.measure) > same.measure
+      ? Math.max(same.measure_end ?? same.measure, flag.measure_end ?? flag.measure)
+      : null
+    if (flag.detail.length > same.detail.length) same.detail = flag.detail
+  }
+
+  return merged
+    .sort((a, b) => (a.timestamp_start || a.measure) - (b.timestamp_start || b.measure))
+    .slice(0, 8)
+}
+
+function calibrateScore(rawScore: number, flags: NormalizedFlag[], evidence: EvidenceKind): number {
+  let score = clamp(Math.round(rawScore), 0, 100)
+  const high = flags.filter(f => f.review_priority === 'high').length
+  const medium = flags.filter(f => f.review_priority === 'medium').length
+
+  if (flags.length === 0) score = Math.max(score, 90)
+  if (flags.length >= 6 || high >= 3) score = Math.min(score, 78)
+  else if (flags.length >= 4 || high >= 2) score = Math.min(score, 84)
+  else if (flags.length >= 2 || medium >= 2) score = Math.min(score, 92)
+  if (evidence === 'visual-only') score = Math.min(score, 88)
+  if (evidence === 'score-only') score = Math.min(score, 72)
+
+  return score
+}
+
+function buildQuality(opts: {
+  trust: 'high' | 'medium' | 'low'
+  backend: string
+  evidence: EvidenceKind
+  flags: NormalizedFlag[]
+  reasons?: string[]
+  backendError?: string | null
+  scoreContext?: string
+}) {
+  const averageConfidence = opts.flags.length
+    ? Math.round(opts.flags.reduce((sum, f) => sum + f.confidence, 0) / opts.flags.length)
+    : opts.trust === 'high' ? 90 : opts.trust === 'medium' ? 74 : 58
+
+  return {
+    trust: opts.trust,
+    evidence: opts.evidence,
+    backend: opts.backend,
+    overall_confidence: averageConfidence,
+    reasons: opts.reasons ?? [],
+    limitations: opts.evidence === 'audio-video'
+      ? ['Measure placement depends on the provided start/end measure and tempo metadata.']
+      : opts.evidence === 'visual-only'
+        ? ['Only sampled frames were available; audio details like pitch, timing, and dynamics are not directly verified.']
+        : ['This is score-aware coaching, not verified performance analysis. Upload/processable video analysis is required for timestamps.'],
+    score_context: opts.scoreContext ?? null,
+    ...(opts.backendError ? { fallback_reason: opts.backendError } : {}),
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+async function loadScoreContext(scoreUrl: string | null, scoreMimeType: string | null): Promise<{
+  parts: any[]
+  promptNote: string
+  qualityNote: string
+}> {
+  if (!scoreUrl || !scoreMimeType) {
+    return { parts: [], promptNote: 'No score file was provided to the model; do not overclaim exact note comparisons.', qualityNote: 'metadata-only' }
+  }
+
+  const mime = scoreMimeType.toLowerCase()
+  try {
+    if (/image\/(jpeg|jpg|png|webp)/i.test(mime)) {
+      const res = await fetch(scoreUrl)
+      if (!res.ok) throw new Error(`score fetch ${res.status}`)
+      const length = Number(res.headers.get('content-length') || 0)
+      if (length > 8 * 1024 * 1024) {
+        return {
+          parts: [],
+          promptNote: 'The score image was too large to attach; use piece metadata and audio only.',
+          qualityNote: 'score-image-too-large',
+        }
+      }
+      const b64 = arrayBufferToBase64(await res.arrayBuffer())
+      return {
+        parts: [{ inlineData: { mimeType: scoreMimeType, data: b64 } }],
+        promptNote: 'A score image is attached after the video. Use it to align measure numbers and visible notation, but do not invent unreadable notes.',
+        qualityNote: 'score-image-attached',
+      }
+    }
+
+    if (mime.includes('xml') || mime.includes('text')) {
+      const res = await fetch(scoreUrl)
+      if (!res.ok) throw new Error(`score fetch ${res.status}`)
+      const text = (await res.text()).slice(0, 65000)
+      return {
+        parts: [{ text: `SCORE CONTEXT (MusicXML/text excerpt, truncated if long):\n${text}` }],
+        promptNote: 'MusicXML/text score context is attached. Prefer it over visual guessing for measures, rests, and notation.',
+        qualityNote: 'score-text-attached',
+      }
+    }
+  } catch (err) {
+    console.warn('[score-context] unavailable:', (err as Error).message)
+  }
+
+  return {
+    parts: [],
+    promptNote: 'The score file could not be attached in a model-readable form; keep note/measure claims conservative.',
+    qualityNote: 'score-context-unavailable',
+  }
+}
+
 async function runGeminiVideo(opts: {
   takeId:       string
   videoUrl:     string
   videoMimeType: string
+  scoreUrl:     string | null
+  scoreMimeType: string | null
   pieceTitle:   string
   composer:     string
   instrument:   string
@@ -25,7 +287,7 @@ async function runGeminiVideo(opts: {
   safeStart:    number
   safeEnd:      number | null
   tempo:        number
-}): Promise<{ score: number; flags: unknown[] }> {
+}): Promise<{ score: number; flags: NormalizedFlag[]; scoreContext: string }> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
   if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured')
 
@@ -89,6 +351,7 @@ async function runGeminiVideo(opts: {
   const measureRange = opts.safeEnd
     ? `measures ${opts.safeStart}–${opts.safeEnd}`
     : `from measure ${opts.safeStart}`
+  const scoreContext = await loadScoreContext(opts.scoreUrl, opts.scoreMimeType)
 
   const instrumentFamily = (() => {
     const i = opts.instrument.toLowerCase()
@@ -101,43 +364,44 @@ async function runGeminiVideo(opts: {
   })()
 
   const instrumentSpecific = {
-    woodwind: `For woodwind (${opts.instrument}): you MUST listen for squeaks, cracks, and tone breaks — these are automatic flags. Also flag: over-blowing causing pitch to go sharp, weak or breathy tone from insufficient air support, tongue placement causing smeared articulation, and octave key or register issues causing the wrong harmonic.`,
-    brass: `For brass (${opts.instrument}): flag missed lip slurs, clipped or smeared valve attacks, notes that don't speak cleanly, intonation issues in the upper register (brass plays sharp when overblown), and poor breath support causing notes to fall flat or cut out.`,
-    strings: `For strings (${opts.instrument}): flag bow scratches, arm-weight bow strokes that cause tone to crack, string crossings that clip adjacent strings, shifts that arrive late or out of tune, open string intonation issues, and flying or bouncing bow that breaks the line.`,
-    piano: `For piano: flag wrong notes (name the pitch heard vs. expected), notes that don't speak (missed key), pedaling that creates muddiness by overlapping harmonically incompatible notes, and uneven voicing where the melody line disappears into the accompaniment.`,
-    voice: `For voice: flag pitchy passages (name the direction — sharp or flat), vibrato that is too wide or unstable, vowel modifications that change the pitch, and breath support failures that cause the tone to spread or go flat at phrase ends.`,
-    other: `Flag any audible error: wrong notes, tone issues, intonation drift, and rhythmic problems.`,
+    woodwind: `For woodwind (${opts.instrument}): listen for squeaks, cracks, tone breaks, over-blowing that drives pitch sharp, breathy tone from weak air support, smeared tonguing, and register-key/harmonic issues. Only flag them when clearly present.`,
+    brass: `For brass (${opts.instrument}): listen for missed lip slurs, clipped or smeared valve attacks, notes that do not speak cleanly, upper-register intonation drift, and breath support failures that make notes sag or cut out.`,
+    strings: `For strings (${opts.instrument}): listen for bow scratches, tone cracks, clipped string crossings, late or out-of-tune shifts, open string intonation issues, and bow instability that breaks the line.`,
+    piano: `For piano: listen for clearly wrong notes, notes that do not speak, pedal blur, uneven voicing, and rushing/dragging between melody and accompaniment.`,
+    voice: `For voice: listen for sharp/flat pitch centers, unstable vibrato, vowel changes that affect pitch, and breath support failures at phrase ends.`,
+    other: `Listen for clearly supported wrong notes, tone issues, intonation drift, rhythmic instability, and technique problems.`,
   }[instrumentFamily]
 
-  const prompt = `AUDIO ANALYSIS TASK. You are analyzing the AUDIO TRACK of a student's performance video. Your primary job is to LISTEN and report what you HEAR — not what you see. Treat this as an ear-training exercise. Ignore the visual content unless it explains an audible problem.
+  const prompt = `AUDIO-FIRST PERFORMANCE ANALYSIS TASK. You are analyzing a student's performance video. Your primary job is to LISTEN and report issues that are clearly supported by the recording. Use visual information only when it explains an audible or technical problem.
 
-You are a brutally honest but constructive music performance coach with conservatory-level ear training. Your job is to identify EVERY audible problem — do not be polite by omitting things you hear.
+You are a constructive conservatory-level music performance coach. Be specific and honest, but do not force issues. If evidence is uncertain, lower confidence or omit the flag.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${opts.keySignature ? `Key: ${opts.keySignature}. ` : ''}Time signature: ${opts.timeSig}
 Recording covers: ${measureRange}
 ${opts.tempo > 0 ? `Reference tempo: ${opts.tempo} BPM` : ''}
+Score context: ${scoreContext.promptNote}
 
 ${instrumentSpecific}
 
-MANDATORY DETECTION — you MUST flag these if you detect them, no exceptions:
-1. WRONG NOTES: Any pitch that clearly does not belong to the passage. Name the note heard and what was expected.
-2. SQUEAKS / TONE BREAKS: Any unintended squeak, crack, pop, or tone failure. These are always flagged.
-3. RUSHING: If the performer plays ahead of the beat consistently over 3+ measures, flag as a timing issue covering that range.
-4. DRAGGING: If the performer falls behind the beat consistently, flag as a timing issue covering that range.
-5. INTONATION: Any passage (even 1 note) where pitch is audibly sharp or flat. Name whether it is sharp or flat and approximately by how much.
-6. MISSED DYNAMICS: If a forte sounds like a mezzo-forte, or a piano sounds too loud, flag it.
+HIGH-VALUE DETECTION TARGETS:
+1. WRONG NOTES: Only flag when the pitch is clearly wrong against the attached/known score. If the exact expected note is unreadable, say the audible problem without pretending to know the score.
+2. SQUEAKS / TONE BREAKS: Flag unintended squeaks, cracks, pops, or tone failures when clearly audible.
+3. RUSHING / DRAGGING: Flag only when the pulse visibly/audibly shifts over a phrase or repeated figure, not for tiny expressive rubato.
+4. INTONATION: Flag sharp/flat tendencies only when they are clearly audible. Avoid fake cent estimates unless the evidence is strong.
+5. DYNAMICS / ARTICULATION: Flag when the performance clearly misses a visible/known marking or the articulation damages clarity.
+6. TECHNIQUE / TONE: Flag when the sound suggests a concrete technique issue or the video clearly supports it.
 
 WHAT "ISSUE SPANS MULTIPLE MEASURES" MEANS: If the same problem continues across several measures (e.g., rushing from m.5 to m.12, or consistently flat intonation in a phrase), report it as ONE flag with a measure range. Do not repeat the same issue as separate flags.
 
-SCORING (be strict — most student recordings score 50–80):
+SCORING (calibrated for serious students):
 - 90–100: Near-professional. Genuinely rare. No wrong notes, no squeaks, near-perfect intonation and rhythm.
-- 75–89: Strong but with clear, audible issues. Minimum 3 flags.
-- 60–74: Noticeable problems throughout. Minimum 4–5 flags.
-- 45–59: Multiple significant errors. Minimum 6 flags.
-- Below 45: Serious technical or accuracy problems. Minimum 7+ flags.
-Each point deducted from 100 MUST correspond to a flag you are reporting.
+- 80–89: Strong performance with a few clear, actionable issues.
+- 65–79: Useful musical foundation, but several audible/visible issues need focused work.
+- 45–64: Major recurring timing, pitch, tone, or technique problems.
+- Below 45: Serious accuracy or tone production breakdowns.
+The score must be consistent with the number and seriousness of the flags. Do not create filler flags just to justify a score.
 
 Return ONLY valid JSON (no markdown fences, no explanation text):
 {
@@ -147,16 +411,17 @@ Return ONLY valid JSON (no markdown fences, no explanation text):
       "measure_start": <integer — ABSOLUTE score measure where the issue BEGINS. Recording starts at measure ${opts.safeStart}${opts.safeEnd ? ` and ends at measure ${opts.safeEnd}` : ''}. Never reset to 1.>,
       "measure_end": <integer | null — ABSOLUTE score measure where the issue ENDS. Use null if the issue is confined to a single measure. Use a number if the issue spans multiple measures (e.g. rushing from m.5 to m.12 → measure_end: 12).>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"tone"|"error",
-      "confidence": <integer 70-100>,
+      "confidence": <integer 45-95>,
       "title": "<8 words max — be specific: name the note, direction, or technique failure>",
       "detail": "<3-5 sentences: (1) exactly what you heard and when, (2) name the specific note/beat/measure if relevant, (3) why it matters musically, (4) a concrete practice fix>",
       "timestamp_start": <seconds from start of video when this issue first occurs>,
-      "timestamp_end": <seconds from start of video when this issue ends>
+      "timestamp_end": <seconds from start of video when this issue ends>,
+      "confidence_reason": "<one short sentence explaining what evidence supports this confidence>"
     }
   ]
 }
 
-Name exact pitches (e.g. "B♭4 arrived sharp by roughly a quarter tone"), exact beats ("rushed the dotted eighth–sixteenth on beat 3"), and exact technique ("bow left the string at the frog on the down-bow in m.7"). Never write vague feedback.`
+Use exact pitches, beats, and technique only when the evidence actually supports them. Never write vague feedback, and never hallucinate rests, notes, or markings that are not visible/audible.`
 
   // Use confirmed-available models (v1beta only — v1 doesn't have these models)
   const candidates = [
@@ -174,7 +439,13 @@ Name exact pitches (e.g. "B♭4 arrived sharp by roughly a quarter tone"), exact
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ fileData: { mimeType: opts.videoMimeType, fileUri } }, { text: prompt }] }],
+          contents: [{
+            parts: [
+              { fileData: { mimeType: opts.videoMimeType, fileUri } },
+              ...scoreContext.parts,
+              { text: prompt },
+            ],
+          }],
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.1,
@@ -205,41 +476,22 @@ Name exact pitches (e.g. "B♭4 arrived sharp by roughly a quarter tone"), exact
     if (m) try { parsed = JSON.parse(m[0]) } catch { /* empty */ }
   }
 
-  const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 70)))
-
-  // Gemini sometimes returns a score with no flags — treat as parse failure
   const rawFlags = Array.isArray(parsed.flags) ? parsed.flags : []
-  const spm = secsPerMeasure(opts.timeSig, opts.tempo)
-  const maxMeasure = opts.safeEnd ?? opts.safeStart + 200
-  const flags = rawFlags.map((f: any) => {
-    const ts = Number(f.timestamp_start) || 0
-    // Support both old (measure) and new (measure_start) field names
-    const declaredRaw = Math.round(Number(f.measure_start ?? f.measure) || 0)
-    let measure: number
-    if (declaredRaw >= opts.safeStart && declaredRaw <= maxMeasure) {
-      measure = declaredRaw
-    } else if (spm && spm > 0 && ts > 0) {
-      measure = opts.safeStart + Math.floor(ts / spm)
-    } else {
-      measure = opts.safeStart
-    }
-    measure = Math.max(opts.safeStart, Math.min(maxMeasure, measure))
-
-    const declaredEnd = f.measure_end != null ? Math.round(Number(f.measure_end)) : null
-    const measureEnd = declaredEnd != null && declaredEnd > measure && declaredEnd <= maxMeasure
-      ? declaredEnd : null
-
-    return {
-      measure,
-      measure_end:     measureEnd,
-      type:            String(f.type  || 'technique'),
-      confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 85))),
-      title:           String(f.title || 'Issue detected'),
-      detail:          String(f.detail || ''),
-      timestamp_start: ts,
-      timestamp_end:   Number(f.timestamp_end) || 0,
-    }
-  })
+  const flags = dedupeFlags(rawFlags
+    .map((f: any) => normalizeFlag(f, {
+      safeStart: opts.safeStart,
+      safeEnd: opts.safeEnd,
+      timeSig: opts.timeSig,
+      tempo: opts.tempo,
+      evidence: 'audio-video',
+      defaultType: 'technique',
+      defaultTitle: 'Issue detected',
+      confidenceCap: 95,
+      confidenceDefault: 82,
+      timestampWindow: 3,
+    }))
+    .filter(Boolean) as NormalizedFlag[])
+  const score = calibrateScore(Number(parsed.score) || 75, flags, 'audio-video')
 
   // If score < 90 and no flags, the video was probably too short/unclear for Gemini
   // but we still got a score — throw so the caller falls back to Claude coaching
@@ -247,7 +499,7 @@ Name exact pitches (e.g. "B♭4 arrived sharp by roughly a quarter tone"), exact
     throw new Error(`Gemini returned score ${score} with no flags — falling back to coaching`)
   }
 
-  return { score, flags }
+  return { score, flags, scoreContext: scoreContext.qualityNote }
 }
 
 // ── Claude vision analysis (from browser-extracted video frames) ─────────────
@@ -261,7 +513,7 @@ async function runClaudeVision(opts: {
   safeStart:    number
   safeEnd:      number | null
   tempo:        number
-}): Promise<{ score: number; flags: unknown[] }> {
+}): Promise<{ score: number; flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
@@ -282,7 +534,7 @@ async function runClaudeVision(opts: {
 
   content.push({
     type: 'text',
-    text: `You are a conservatory-level music performance coach analyzing ${opts.frames.length} video frames from a student's recording. These frames are your only audio-visual evidence — analyze them with a critical eye.
+    text: `You are a conservatory-level music performance coach analyzing ${opts.frames.length} still frames from a student's recording. These frames are your only evidence. You cannot hear pitch, timing, rhythm, tone color, or dynamics, so do not claim those directly.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
@@ -290,15 +542,15 @@ ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
 ${opts.tempo > 0 ? `Reference tempo: ${opts.tempo} BPM` : ''}
 
-For each frame, assess ALL of the following — not just one or two:
+For each frame, assess visible technique only:
 - Embouchure / bow hold / hand position: visible tension, collapse, or misalignment
 - Body posture: hunching, raised shoulders, jaw tension, tilted head
 - Instrument angle or hold: deviations from ideal position
 - Visible preparation: is the student bracing for difficult passages, or caught off guard?
-- Facial expression: signs of uncertainty, tension, or loss of focus that predict upcoming errors
+- Facial expression: only visible tension or bracing, not emotional guesses
 - For winds: lip and jaw position at the mouthpiece; for strings: bow angle, contact point, arm weight
 
-Be strict. Most students have visible technique issues even in good performances.
+Be precise and conservative. It is better to return fewer accurate flags than many generic flags.
 
 Return ONLY valid JSON (no markdown fences):
 {
@@ -307,17 +559,18 @@ Return ONLY valid JSON (no markdown fences):
     {
       "measure_start": <integer — ABSOLUTE score measure where the issue begins. Recording starts at measure ${opts.safeStart}. Never reset to 1.>,
       "measure_end": <integer | null — last measure if the issue spans multiple measures, null if single measure>,
-      "type": "technique"|"timing"|"dynamics"|"intonation"|"tone"|"error",
-      "confidence": <integer 70-100 — how clearly visible is this issue in the frames?>,
+      "type": "technique"|"posture"|"tone"|"error",
+      "confidence": <integer 45-88 — how clearly visible is this issue in the frames?>,
       "title": "<8 words max — name the body part and the specific failure>",
       "detail": "<3 sentences: (1) what is visible in which frame, (2) why this causes problems for sound or accuracy, (3) a specific physical exercise to fix it>",
       "timestamp_start": <seconds of the frame where the issue is most clearly visible>,
-      "timestamp_end": <timestamp_start + 2.5>
+      "timestamp_end": <timestamp_start + 2.5>,
+      "confidence_reason": "<short visible evidence statement>"
     }
   ]
 }
 
-Give 4–6 flags. Always cite the frame timestamp and the specific body part or action. Never give advice that could apply to any student — be specific to what you see.`,
+Give 2–5 flags. Always cite the frame timestamp and the specific body part or action. Never give advice that could apply to any student — be specific to what you see.`,
   })
 
   const message = await anthropic.messages.create({
@@ -333,35 +586,21 @@ Give 4–6 flags. Always cite the frame timestamp and the specific body part or 
     parsed = JSON.parse(jsonStr)
   } catch { /* empty */ }
 
-  const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 72)))
-  const spm2 = secsPerMeasure(opts.timeSig, opts.tempo)
-  const maxMeasure2 = opts.safeEnd ?? opts.safeStart + 200
-  const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => {
-    const ts = Number(f.timestamp_start) || 0
-    const declaredRaw = Math.round(Number(f.measure_start ?? f.measure) || 0)
-    let measure: number
-    if (declaredRaw >= opts.safeStart && declaredRaw <= maxMeasure2) {
-      measure = declaredRaw
-    } else if (spm2 && spm2 > 0 && ts > 0) {
-      measure = opts.safeStart + Math.floor(ts / spm2)
-    } else {
-      measure = opts.safeStart
-    }
-    measure = Math.max(opts.safeStart, Math.min(maxMeasure2, measure))
-    const declaredEnd2 = f.measure_end != null ? Math.round(Number(f.measure_end)) : null
-    const measureEnd2 = declaredEnd2 != null && declaredEnd2 > measure && declaredEnd2 <= maxMeasure2
-      ? declaredEnd2 : null
-    return {
-      measure,
-      measure_end:     measureEnd2,
-      type:            String(f.type  || 'technique'),
-      confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 78))),
-      title:           String(f.title || 'Technique issue'),
-      detail:          String(f.detail || ''),
-      timestamp_start: ts,
-      timestamp_end:   Number(f.timestamp_end) || 0,
-    }
-  })
+  const flags = dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
+    .map((f: any) => normalizeFlag(f, {
+      safeStart: opts.safeStart,
+      safeEnd: opts.safeEnd,
+      timeSig: opts.timeSig,
+      tempo: opts.tempo,
+      evidence: 'visual-only',
+      defaultType: 'technique',
+      defaultTitle: 'Visible technique issue',
+      confidenceCap: 88,
+      confidenceDefault: 72,
+      timestampWindow: 2.5,
+    }))
+    .filter(Boolean) as NormalizedFlag[])
+  const score = calibrateScore(Number(parsed.score) || 72, flags, 'visual-only')
 
   return { score, flags }
 }
@@ -377,7 +616,7 @@ async function runClaudeCoaching(opts: {
   keySignature:  string
   safeStart:     number
   safeEnd:       number | null
-}): Promise<{ flags: unknown[] }> {
+}): Promise<{ flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
@@ -387,17 +626,20 @@ async function runClaudeCoaching(opts: {
 
   const userContent: Anthropic.MessageParam['content'] = []
 
-  // Include score image if we have one
-  if (opts.scoreUrl && opts.scoreMimeType?.startsWith('image/')) {
+  // Include score image if we have one. Keep this bounded so fallback coaching
+  // cannot fail from an oversized phone photo.
+  if (opts.scoreUrl && /image\/(jpeg|jpg|png|webp)/i.test(opts.scoreMimeType ?? '')) {
     try {
       const r = await fetch(opts.scoreUrl)
       if (r.ok) {
-        const bytes = new Uint8Array(await r.arrayBuffer())
-        const b64 = btoa(String.fromCharCode(...bytes))
-        userContent.push({
-          type: 'image',
-          source: { type: 'base64', media_type: opts.scoreMimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: b64 },
-        })
+        const length = Number(r.headers.get('content-length') || 0)
+        if (length <= 8 * 1024 * 1024) {
+          const b64 = arrayBufferToBase64(await r.arrayBuffer())
+          userContent.push({
+            type: 'image',
+            source: { type: 'base64', media_type: opts.scoreMimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: b64 },
+          })
+        }
       }
     } catch { /* skip */ }
   }
@@ -405,7 +647,7 @@ async function runClaudeCoaching(opts: {
   const hasImage = userContent.length > 0
   userContent.push({
     type: 'text',
-    text: `You are a conservatory-level music performance coach. A student recorded themselves playing the passage below. You do not have the audio, but you have deep knowledge of this repertoire and instrument.
+    text: `You are a conservatory-level music teacher preparing practice priorities from the score. You do not have reliable audio/video evidence here, so these are NOT performance errors. They are likely risk areas to check in practice.
 
 Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
@@ -413,7 +655,7 @@ ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
 ${hasImage ? '\nThe sheet music is shown above — study it carefully.' : ''}
 
-Based on this specific passage and instrument, identify the 5–7 issues that students most commonly make here. Your flags must be grounded in the actual notes and rhythms of this passage — not generic advice.
+Based on this specific passage and instrument, identify 3–5 likely practice risks. Ground them in visible notation, instrument tendencies, and common pedagogy. Do not write as if the student definitely made the mistake.
 
 Cover ALL of these dimensions — do not skip any:
 - INTONATION: which specific intervals or notes are hardest to play in tune on this instrument in this key? Name the note and the tendency (sharp or flat).
@@ -430,11 +672,12 @@ Return ONLY valid JSON (no markdown):
       "measure_start": <integer — ABSOLUTE score measure where the issue begins, between ${opts.safeStart} and ${opts.safeEnd ?? opts.safeStart + 50}>,
       "measure_end": <integer | null — last measure of the issue if it spans multiple measures, null if single measure>,
       "type": "timing"|"intonation"|"dynamics"|"technique"|"tone"|"error",
-      "confidence": 72,
+      "confidence": <integer 45-68>,
       "title": "<8 words max — name the exact pitch, rhythm, or technique failure>",
-      "detail": "<4 sentences: (1) the specific technical demand in this measure, (2) why students struggle with it on ${opts.instrument}, (3) what goes wrong (name the pitch, the beat, or the body movement), (4) a precise practice fix>",
+      "detail": "<4 sentences: (1) the specific technical demand in this measure, (2) why students often struggle with it on ${opts.instrument}, (3) what to listen/check for, (4) a precise practice fix>",
       "timestamp_start": 0,
-      "timestamp_end": 0
+      "timestamp_end": 0,
+      "confidence_reason": "Score-only practice risk; not verified against this recording."
     }
   ]
 }`,
@@ -453,26 +696,20 @@ Return ONLY valid JSON (no markdown):
     parsed = JSON.parse(jsonStr)
   } catch { /* empty */ }
 
-  const maxMeasure3 = opts.safeEnd ?? opts.safeStart + 200
-  const flags = (Array.isArray(parsed.flags) ? parsed.flags : []).map((f: any) => {
-    const declaredRaw3 = Math.round(Number(f.measure_start ?? f.measure) || 0)
-    const measure = Math.max(opts.safeStart, Math.min(maxMeasure3,
-      declaredRaw3 >= opts.safeStart ? declaredRaw3 : opts.safeStart
-    ))
-    const declaredEnd3 = f.measure_end != null ? Math.round(Number(f.measure_end)) : null
-    const measureEnd3 = declaredEnd3 != null && declaredEnd3 > measure && declaredEnd3 <= maxMeasure3
-      ? declaredEnd3 : null
-    return {
-      measure,
-      measure_end:     measureEnd3,
-      type:            String(f.type  || 'technique'),
-      confidence:      Math.max(50, Math.min(100, Math.round(Number(f.confidence) || 72))),
-      title:           String(f.title || 'Coaching note'),
-      detail:          String(f.detail || ''),
-      timestamp_start: 0,
-      timestamp_end:   0,
-    }
-  })
+  const flags = dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
+    .map((f: any) => normalizeFlag(f, {
+      safeStart: opts.safeStart,
+      safeEnd: opts.safeEnd,
+      timeSig: opts.timeSig,
+      tempo: 0,
+      evidence: 'score-only',
+      defaultType: 'technique',
+      defaultTitle: 'Practice risk',
+      confidenceCap: 68,
+      confidenceDefault: 58,
+      timestampWindow: 0,
+    }))
+    .filter(Boolean) as NormalizedFlag[])
 
   return { flags }
 }
@@ -625,7 +862,13 @@ serve(async (req: Request) => {
     let flags: unknown[]     = []
     let backend              = 'claude-coaching'
     let backendError: string | null = null
-    let quality: unknown     = { trust: 'low', reasons: ['Sheet music analysis only — no video score or timestamps available.'] }
+    let quality: unknown     = buildQuality({
+      trust: 'low',
+      backend,
+      evidence: 'score-only',
+      flags: [],
+      reasons: ['Sheet music analysis only — no video score or timestamps available.'],
+    })
 
     function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
       return Promise.race([
@@ -640,13 +883,26 @@ serve(async (req: Request) => {
     if (videoSignedUrl) {
       try {
         const geminiResult = await withTimeout(
-          runGeminiVideo({ takeId, videoUrl: videoSignedUrl, videoMimeType, ...sharedOpts }),
+          runGeminiVideo({
+            takeId,
+            videoUrl: videoSignedUrl,
+            videoMimeType,
+            scoreUrl: scoreSignedUrl,
+            scoreMimeType: scoreMimeType ?? null,
+            ...sharedOpts,
+          }),
           120_000, 'Gemini'
         )
         score   = geminiResult.score
         flags   = geminiResult.flags
         backend = 'gemini-inline'
-        quality = { trust: 'high', reasons: [] }
+        quality = buildQuality({
+          trust: 'high',
+          backend,
+          evidence: 'audio-video',
+          flags: geminiResult.flags,
+          scoreContext: geminiResult.scoreContext,
+        })
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
         backendError = (geminiErr as Error).message
@@ -665,11 +921,14 @@ serve(async (req: Request) => {
         score   = visionResult.score
         flags   = visionResult.flags
         backend = 'claude-vision'
-        quality = {
+        quality = buildQuality({
           trust: 'medium',
+          backend,
+          evidence: 'visual-only',
+          flags: visionResult.flags,
           reasons: ['Analyzed from your video — visual technique scored; intonation and precise timing assessed separately.'],
-          ...(backendError ? { gemini_error: backendError } : {}),
-        }
+          backendError,
+        })
         console.log('[analyze-performance] Claude vision done:', takeId, 'score:', score, 'flags:', flags.length)
       } catch (visionErr) {
         console.warn('[analyze-performance] Claude vision failed:', (visionErr as Error).message)
@@ -684,6 +943,15 @@ serve(async (req: Request) => {
           20_000, 'Claude coaching'
         )
         flags = claudeResult.flags
+        backend = 'claude-coaching'
+        quality = buildQuality({
+          trust: 'low',
+          backend,
+          evidence: 'score-only',
+          flags: claudeResult.flags,
+          reasons: ['Generated practice priorities from score/context because full recording analysis was unavailable.'],
+          backendError,
+        })
       } catch (err) {
         console.error('[analyze-performance] Claude coaching failed:', (err as Error).message)
       }

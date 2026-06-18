@@ -158,7 +158,7 @@ export default function Record() {
 
   // ── Frame extraction for Mediant analysis ──────────────
 
-  function extractVideoFrames(videoFile, count = 5) {
+  function extractVideoFrames(videoFile, count = 9) {
     return new Promise((resolve) => {
       const video = document.createElement('video')
       const objectURL = URL.createObjectURL(videoFile)
@@ -179,30 +179,46 @@ export default function Record() {
           return
         }
 
-        const timestamps = Array.from({ length: count }, (_, i) =>
-          parseFloat(((i / (count - 1)) * duration).toFixed(1))
-        )
+        const sampleCount = Math.max(3, count)
+        const start = Math.min(duration * 0.08, 2)
+        const end = Math.max(start + 0.1, duration - Math.min(duration * 0.08, 2))
+        const timestamps = Array.from({ length: sampleCount }, (_, i) => {
+          const ratio = sampleCount === 1 ? 0.5 : i / (sampleCount - 1)
+          return parseFloat((start + ratio * (end - start)).toFixed(1))
+        })
         const frames = []
         let index = 0
+        let seekTimer = null
+
+        function cleanup() {
+          if (seekTimer) clearTimeout(seekTimer)
+          URL.revokeObjectURL(objectURL)
+        }
 
         function seekNext() {
           if (index >= timestamps.length) {
-            URL.revokeObjectURL(objectURL)
+            cleanup()
             resolve(frames)
             return
           }
+          if (seekTimer) clearTimeout(seekTimer)
+          seekTimer = setTimeout(() => {
+            index++
+            seekNext()
+          }, 2500)
           video.currentTime = timestamps[index]
         }
 
         video.addEventListener('seeked', () => {
+          if (seekTimer) clearTimeout(seekTimer)
           try {
-            const scale = Math.min(1, 640 / video.videoWidth)
+            const scale = Math.min(1, 720 / video.videoWidth)
             const canvas = document.createElement('canvas')
             canvas.width  = Math.round(video.videoWidth  * scale)
             canvas.height = Math.round(video.videoHeight * scale)
             const ctx = canvas.getContext('2d')
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const dataURL = canvas.toDataURL('image/jpeg', 0.65)
+            const dataURL = canvas.toDataURL('image/jpeg', 0.72)
             frames.push({ base64: dataURL.split(',')[1], timestamp: timestamps[index] })
           } catch { /* skip malformed frame */ }
           index++
