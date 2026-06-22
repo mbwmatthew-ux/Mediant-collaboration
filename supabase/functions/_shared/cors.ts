@@ -30,7 +30,9 @@ function isAllowedOrigin(origin: string): boolean {
 
 export function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? ''
-  const allowed = isAllowedOrigin(origin) ? origin : (PRODUCTION_ORIGINS[0] ?? '')
+  // Echo the request origin when allowed; fall back to wildcard so
+  // a missing ALLOWED_ORIGINS env var never silently breaks the app.
+  const allowed = isAllowedOrigin(origin) ? origin : (PRODUCTION_ORIGINS[0] ?? '*')
   return {
     'Access-Control-Allow-Origin':  allowed,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
