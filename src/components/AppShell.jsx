@@ -10,7 +10,8 @@ import { playNav } from '../utils/sounds'
 
 const NAV_ITEMS = [
   { to: '/home',     label: 'Home',       icon: HomeIcon     },
-  { to: '/takes',    label: 'Library',    icon: LibraryIcon  },
+  { to: '/search',   label: 'Music',      icon: LibraryIcon  },
+  { to: '/takes',    label: 'Sessions',   icon: SessionsIcon },
   { to: '/record',   label: 'New Take',   icon: RecordIcon   },
   { to: '/progress', label: 'Progress',   icon: ProgressIcon },
   { to: '/settings', label: 'Settings',   icon: SettingsIcon },
@@ -28,7 +29,8 @@ const TOOL_ITEMS = [
 const LIBRARY_MENU = {
   title: 'Library',
   items: [
-    { to: '/takes',    label: 'My Songs', icon: LibraryIcon  },
+    { to: '/search',   label: 'Music',    icon: LibraryIcon  },
+    { to: '/takes',    label: 'Sessions', icon: SessionsIcon },
     { to: '/analysis', label: 'Analysis', icon: AnalysisIcon },
     { to: '/progress', label: 'Progress', icon: ProgressIcon },
   ],
@@ -290,6 +292,15 @@ function LibraryIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+  )
+}
+
+function SessionsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <polyline points="12 7 12 12 15 15"/>
     </svg>
   )
 }

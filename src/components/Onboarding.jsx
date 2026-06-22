@@ -15,7 +15,7 @@ const STEPS = [
     body: 'See your latest analysis, technique tips from your most recent session, your practice streak, and your score history at a glance.',
   },
   {
-    navLabel: 'Library',
+    navLabel: 'Music',
     title: 'Your music library',
     body: 'Upload and organise your sheet music collection. Mediant reads each piece and fills in the key, time signature, composer, and difficulty level automatically.',
   },
