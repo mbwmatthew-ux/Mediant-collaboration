@@ -479,7 +479,7 @@ export default function ProgressFeedback() {
               <div className={pStyles.insightsIcon}>✦</div>
               <h3 className={pStyles.insightsTitle}>{period === 'weekly' ? 'Weekly' : 'Monthly'} Practice Report</h3>
               <p className={pStyles.insightsDesc}>
-                Unlock customized AI recommendations and detailed progress analytics. Mediant will synthesize your practice history to chart your strengths and goals.
+                Unlock customized coaching recommendations and detailed progress analytics. Mediant will synthesize your practice history to chart your strengths and goals.
               </p>
               <button
                 className={styles.primaryBtn}

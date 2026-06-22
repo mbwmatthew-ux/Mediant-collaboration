@@ -1471,13 +1471,13 @@ export default function Analysis({ demo: demoProp = false }) {
                 </div>
               </div>
 
-              {/* Right Column: AI insights, video, chat */}
+              {/* Right Column: Insights, video, chat */}
               <div className={aStyles.rightLane}>
-                {/* AI Insights Card */}
+                {/* Insights Card */}
                 <div className={`${aStyles.laneCard} ${aStyles.insightsCard}`}>
                   <div className={aStyles.laneCardHeader}>
                     <span className={aStyles.laneCardTitle} style={{ display: 'flex', alignItems: 'center' }}>
-                      AI INSIGHTS
+                      INSIGHTS
                       {issueCount > 0 && <span className={aStyles.insightCountBadge}>{issueCount}</span>}
                     </span>
                     <div className={aStyles.insightsLegend}>

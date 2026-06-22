@@ -693,7 +693,7 @@ export default function Landing() {
       {/* ── Analysis Demo ── */}
       <section className={styles.analysisSection} ref={analysisSectionRef}>
         <div className={`${styles.analysisHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>AI Co-Pilot</p>
+          <p className={styles.sectionLabel}>Practice Coach</p>
           <h2 className={styles.analysisTitle}>Real-time performance review</h2>
           <p className={styles.analysisSub}>
             Mediant tracks your pitch, timing, and dynamic weight as you play, matching your performance note-by-note to the score.
@@ -705,7 +705,7 @@ export default function Landing() {
           {/* Visual Callout 1 (Timeline Callout - Left Side) */}
           <div className={`${styles.calloutBox} ${styles.calloutLeft} ${styles.calloutTimeline}`}>
             <p className={styles.calloutText}>
-              <span className={styles.calloutHighlight}>AI analyzes</span> timing, dynamics, and intonation note-by-note.
+              <span className={styles.calloutHighlight}>Mediant analyzes</span> timing, dynamics, and intonation note-by-note.
             </p>
             <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
               <path d="M10,10 C22,10 28,18 30,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
@@ -739,7 +739,7 @@ export default function Landing() {
           <div className={styles.analysisRightColumn}>
             <div className={styles.analysisStatus}>
               <span className={styles.analysisPulse} />
-              <span className={styles.analysisStatusText}>Mediant AI Insights Timeline</span>
+              <span className={styles.analysisStatusText}>Mediant Insights Timeline</span>
               <span className={styles.analysisDivider}>·</span>
               <span className={styles.analysisStatusMeta}>3 issues flagged</span>
             </div>
