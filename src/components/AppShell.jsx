@@ -125,6 +125,7 @@ export default function AppShell() {
                   `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
                 }
                 title={item.label}
+                data-onboarding-label={item.label}
               >
                 <span className={styles.navIcon}><item.icon /></span>
                 <span className={styles.navLabel}>{item.label}</span>
@@ -142,6 +143,7 @@ export default function AppShell() {
                   `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
                 }
                 title={item.label}
+                data-onboarding-label={item.label}
               >
                 <span className={styles.navIcon}><item.icon /></span>
                 <span className={styles.navLabel}>{item.label}</span>
@@ -152,6 +154,7 @@ export default function AppShell() {
                 className={styles.navItem}
                 onClick={() => handleToolAction(item.action)}
                 title={item.label}
+                data-onboarding-label={item.label}
               >
                 <span className={styles.navIcon}><item.icon /></span>
                 <span className={styles.navLabel}>{item.label}</span>
