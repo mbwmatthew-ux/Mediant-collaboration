@@ -493,10 +493,10 @@ Use exact pitches, beats, and technique only when the evidence actually supports
     .filter(Boolean) as NormalizedFlag[])
   const score = calibrateScore(Number(parsed.score) || 75, flags, 'audio-video')
 
-  // If score < 90 and no flags, the video was probably too short/unclear for Gemini
-  // but we still got a score — throw so the caller falls back to Claude coaching
-  if (score < 90 && flags.length === 0) {
-    throw new Error(`Gemini returned score ${score} with no flags — falling back to coaching`)
+  // No flags at all means Gemini couldn't find anything actionable — fall back to
+  // Claude coaching so the user always gets specific practice priorities.
+  if (flags.length === 0) {
+    throw new Error(`Gemini returned no flags (score ${score}) — falling back to coaching`)
   }
 
   return { score, flags, scoreContext: scoreContext.qualityNote }
