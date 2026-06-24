@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { SkeletonCard } from '../components/Skeleton'
 import WaveformTimeline, { WAVEFORM_GROUPS } from '../components/WaveformTimeline'
 import MasterclassPanel from '../components/MasterclassPanel'
+import AnalysisOnboarding from '../components/AnalysisOnboarding'
 import styles from './Page.module.css'
 import aStyles from './Analysis.module.css'
 import { playTick, playPop, playNav } from '../utils/sounds'
@@ -355,6 +356,8 @@ export default function Analysis({ demo: demoProp = false }) {
 
   const [showThreadMenu, setShowThreadMenu] = useState(null) // piece_title of thread with open menu
 
+  const [showAnalysisIntro, setShowAnalysisIntro] = useState(false)
+
   // Overview / Session Summary tabs
   const [activeTab, setActiveTab] = useState('overview')
   const [isLooping, setIsLooping] = useState(false)
@@ -560,6 +563,15 @@ export default function Analysis({ demo: demoProp = false }) {
     }
     return takesForActiveThread[0]
   }, [takesForActiveThread, selectedTakeId])
+
+  // Show analysis onboarding the first time a real take loads
+  useEffect(() => {
+    const isRealTake = take && !take._demo && !String(take.id).startsWith('mock') && String(take.id) !== 'demo'
+    if (!isDemo && isRealTake && !localStorage.getItem('mediant_analysis_intro')) {
+      const t = setTimeout(() => setShowAnalysisIntro(true), 600)
+      return () => clearTimeout(t)
+    }
+  }, [take, isDemo])
 
   // Set default active thread if takeId query parameter exists
   useEffect(() => {
@@ -1434,6 +1446,7 @@ export default function Analysis({ demo: demoProp = false }) {
             Analysis
           </button>
           <button
+            data-onboarding-label="analysis-summary-tab"
             className={`${aStyles.tab} ${activeTab === 'summary' ? aStyles.tabActive : ''}`}
             onClick={() => setActiveTab('summary')}
           >
@@ -1476,7 +1489,7 @@ export default function Analysis({ demo: demoProp = false }) {
               <div className={aStyles.rightLane}>
                 {/* Insights Card */}
                 <div className={`${aStyles.laneCard} ${aStyles.insightsCard}`}>
-                  <div className={aStyles.laneCardHeader}>
+                  <div data-onboarding-label="analysis-flags" className={aStyles.laneCardHeader}>
                     <span className={aStyles.laneCardTitle} style={{ display: 'flex', alignItems: 'center' }}>
                       INSIGHTS
                       {issueCount > 0 && <span className={aStyles.insightCountBadge}>{issueCount}</span>}
@@ -1956,6 +1969,10 @@ export default function Analysis({ demo: demoProp = false }) {
           </div>
         )}
       </main>
+
+      {showAnalysisIntro && (
+        <AnalysisOnboarding onClose={() => setShowAnalysisIntro(false)} />
+      )}
     </div>
   )
 }
