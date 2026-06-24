@@ -288,6 +288,7 @@ async function runGeminiVideo(opts: {
   safeEnd:      number | null
   tempo:        number
   difficulty:   string
+  priorTake:    { score: number | null; flags: any[] } | null
 }): Promise<{ score: number; flags: NormalizedFlag[]; scoreContext: string }> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
   if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured')
@@ -391,7 +392,17 @@ ${opts.tempo > 0 ? `Reference tempo: ${opts.tempo} BPM` : ''}
 Score context: ${scoreContext.promptNote}
 
 ${instrumentSpecific}
+${opts.priorTake ? `
+PREVIOUS TAKE CONTEXT: This student has recorded this piece before. Use this to make the feedback comparative and progress-aware.
+Previous take score: ${opts.priorTake.score ?? 'unknown'}/100
+Previous take issues flagged:
+${opts.priorTake.flags.slice(0, 5).map((f: any) => `- ${f.type ?? 'issue'} (m.${f.measure ?? '?'}): ${f.title ?? ''}`).join('\n') || '- No specific flags recorded'}
 
+Instructions for comparison:
+- If you hear an issue that was flagged in the previous take, note it as RECURRING: "This was also flagged in your previous take — [what changed or didn't]."
+- If a previous issue is no longer present, note it as IMPROVED: "Your [issue] from last time is no longer flagged — good progress."
+- Do not invent improvements or regressions. Only compare what you can actually hear.
+` : ''}
 HIGH-VALUE DETECTION TARGETS:
 1. WRONG NOTES: Only flag when the pitch is clearly wrong against the attached/known score. If the exact expected note is unreadable, say the audible problem without pretending to know the score.
 2. SQUEAKS / TONE BREAKS: Flag unintended squeaks, cracks, pops, or tone failures when clearly audible.
@@ -624,6 +635,7 @@ async function runClaudeCoaching(opts: {
   safeStart:     number
   safeEnd:       number | null
   difficulty:    string
+  priorTake:     { score: number | null; flags: any[] } | null
 }): Promise<{ flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -669,7 +681,11 @@ Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
 ${hasImage ? '\nThe sheet music is shown above — study it carefully.' : ''}
-
+${opts.priorTake ? `
+PREVIOUS TAKE: The student has practiced this piece before (score: ${opts.priorTake.score ?? 'unknown'}/100). Known risk areas from that session:
+${opts.priorTake.flags.slice(0, 5).map((f: any) => `- ${f.type ?? 'issue'} (m.${f.measure ?? '?'}): ${f.title ?? ''}`).join('\n') || '- No specific flags'}
+Prioritise these recurring areas in your practice tips. Mark them as areas to keep watching.
+` : ''}
 Based on this specific passage and instrument, identify 3–5 likely practice risks. Ground them in visible notation, instrument tendencies, and common pedagogy. Do not write as if the student definitely made the mistake.
 
 Cover ALL of these dimensions — do not skip any:
@@ -862,7 +878,27 @@ serve(async (req: Request) => {
       console.warn(`[analyze-performance] Modal unavailable (${modalStatus}), running inline`)
     }
 
-    // ── 2. Inline analysis: vision → Gemini → coaching ───────────
+    // ── 2. Look up most recent prior completed take for this piece ──
+    type PriorTake = { score: number | null; flags: any[] } | null
+    let priorTake: PriorTake = null
+    if (pieceTitle) {
+      const { data: prior } = await admin
+        .from('takes')
+        .select('score, flags')
+        .eq('user_id', user.id)
+        .ilike('piece_title', pieceTitle.trim())
+        .eq('job_status', 'done')
+        .neq('id', takeId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (prior && (prior.score !== null || (Array.isArray(prior.flags) && prior.flags.length > 0))) {
+        priorTake = { score: prior.score, flags: Array.isArray(prior.flags) ? prior.flags : [] }
+        console.log('[analyze-performance] prior take found, score:', prior.score, 'flags:', priorTake.flags.length)
+      }
+    }
+
+    // ── 3. Inline analysis: vision → Gemini → coaching ───────────
     const safeLevel = ['Beginner', 'Intermediate', 'Advanced'].includes(difficulty) ? difficulty : 'Intermediate'
     const sharedOpts = {
       pieceTitle:   pieceTitle   ?? 'Unknown Piece',
@@ -874,6 +910,7 @@ serve(async (req: Request) => {
       safeEnd,
       tempo:        Math.max(0, parseInt(String(tempo ?? 0), 10) || 0),
       difficulty:   safeLevel,
+      priorTake,
     }
 
     let score: number | null = null
