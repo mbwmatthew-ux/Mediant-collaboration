@@ -131,11 +131,11 @@ export default function Record() {
   async function applyVideoFile(f) {
     if (!f) return
     setVideoError('')
-    if (f.size > 500 * 1024 * 1024) {
-      setVideoError(`File is ${Math.round(f.size / 1024 / 1024)} MB — please trim or compress to under 500 MB.`)
+    if (f.size > 200 * 1024 * 1024) {
+      setVideoError(`File is ${Math.round(f.size / 1024 / 1024)} MB — please trim or compress to under 200 MB.`)
       return
     }
-    await new Promise(resolve => {
+    const duration = await new Promise(resolve => {
       const v = document.createElement('video')
       v.preload = 'metadata'
       const url = URL.createObjectURL(f)
@@ -143,6 +143,10 @@ export default function Record() {
       v.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
       v.src = url
     })
+    if (duration && duration > 20 * 60) {
+      setVideoError(`Recording is ${Math.round(duration / 60)} minutes — please keep it under 20 minutes.`)
+      return
+    }
     setFile(f)
   }
 

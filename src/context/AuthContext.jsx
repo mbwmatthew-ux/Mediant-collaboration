@@ -14,6 +14,7 @@ function userFromSession(session) {
   return {
     id:             user.id,
     email:          user.email,
+    emailConfirmed: !!user.email_confirmed_at,
     name:           user.user_metadata?.name           || '',
     instrument:     user.user_metadata?.instrument     || '',
     coaching_style: user.user_metadata?.coaching_style || 'Balanced',

@@ -36,6 +36,7 @@ import Settings from './pages/Settings'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
+import ResetPassword from './pages/ResetPassword'
 
 export default function App() {
   return (
@@ -49,9 +50,10 @@ export default function App() {
           <Route path="/signup"        element={<Signup />} />
           <Route path="/confirm-email" element={<ConfirmEmail />} />
           <Route path="/pricing"       element={<Pricing />} />
-          <Route path="/privacy"       element={<Privacy />} />
-          <Route path="/terms"         element={<Terms />} />
-          <Route path="/contact"       element={<Contact />} />
+          <Route path="/privacy"         element={<Privacy />} />
+          <Route path="/terms"           element={<Terms />} />
+          <Route path="/contact"         element={<Contact />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
           <Route path="/demo"          element={<Analysis demo />} />
           <Route element={<RequireSubscription><AppShell /></RequireSubscription>}>
             <Route path="/home"     element={<Home />} />

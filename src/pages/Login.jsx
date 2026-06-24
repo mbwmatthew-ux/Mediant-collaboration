@@ -8,9 +8,12 @@ import LogoMark from '../components/LogoMark'
 export default function Login() {
   const { login } = useAuth()
   const nav = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [email,      setEmail]      = useState('')
+  const [password,   setPassword]   = useState('')
+  const [error,      setError]      = useState('')
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetState, setResetState] = useState('idle') // idle | sending | sent | error
+  const [resetMsg,   setResetMsg]   = useState('')
 
   // Auto-redirect when user arrives already authenticated — happens after clicking
   // the email confirmation link, which sets the session before landing here.
@@ -35,54 +38,119 @@ export default function Login() {
     }
   }
 
+  async function handleForgot(e) {
+    e.preventDefault()
+    if (resetState === 'sending') return
+    setResetState('sending'); setResetMsg('')
+    const redirectTo = `${window.location.origin}/#/reset-password`
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+    if (error) { setResetState('error'); setResetMsg(error.message); return }
+    setResetState('sent')
+    setResetMsg(`Reset link sent to ${email} — check your inbox.`)
+  }
+
   return (
     <div className={styles.page}>
       <nav className={styles.nav}>
         <Link to="/" className={styles.brandMark} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <LogoMark size={24} />
-            Mediant
-          </Link>
+          <LogoMark size={24} />
+          Mediant
+        </Link>
       </nav>
 
       <div className={styles.card}>
-        <p className={styles.eyebrow}>Welcome back</p>
-        <h1 className={styles.heading}>Log in</h1>
-        <p className={styles.sub}>Pick up right where you left off.</p>
+        {forgotMode ? (
+          <>
+            <p className={styles.eyebrow}>Account recovery</p>
+            <h1 className={styles.heading}>Reset your password</h1>
+            <p className={styles.sub}>Enter your email and we'll send a reset link.</p>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          {error && <div className={styles.error}>{error}</div>}
+            {resetState === 'sent' ? (
+              <p style={{ marginTop: 20, color: 'var(--accent, #587965)', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                {resetMsg}
+              </p>
+            ) : (
+              <form className={styles.form} onSubmit={handleForgot}>
+                {resetState === 'error' && <div className={styles.error}>{resetMsg}</div>}
+                <div className={styles.field}>
+                  <label className={styles.label}>Email</label>
+                  <input
+                    className={styles.input}
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <button className={styles.submitBtn} type="submit" disabled={resetState === 'sending'}>
+                  {resetState === 'sending' ? 'Sending…' : 'Send reset link'}
+                </button>
+              </form>
+            )}
 
-          <div className={styles.field}>
-            <label className={styles.label}>Email</label>
-            <input
-              className={styles.input}
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
+            <p className={styles.footer}>
+              <button
+                onClick={() => { setForgotMode(false); setResetState('idle'); setResetMsg('') }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                className={styles.footerLink}
+              >
+                ← Back to log in
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <p className={styles.eyebrow}>Welcome back</p>
+            <h1 className={styles.heading}>Log in</h1>
+            <p className={styles.sub}>Pick up right where you left off.</p>
 
-          <div className={styles.field}>
-            <label className={styles.label}>Password</label>
-            <input
-              className={styles.input}
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
+            <form className={styles.form} onSubmit={handleSubmit}>
+              {error && <div className={styles.error}>{error}</div>}
 
-          <button className={styles.submitBtn} type="submit">Log in</button>
-        </form>
+              <div className={styles.field}>
+                <label className={styles.label}>Email</label>
+                <input
+                  className={styles.input}
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-        <p className={styles.footer}>
-          Don&apos;t have an account?{' '}
-          <Link to="/signup" className={styles.footerLink}>Sign up free</Link>
-        </p>
+              <div className={styles.field}>
+                <label className={styles.label}>Password</label>
+                <input
+                  className={styles.input}
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button className={styles.submitBtn} type="submit">Log in</button>
+            </form>
+
+            <p className={styles.footer}>
+              <button
+                onClick={() => setForgotMode(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                className={styles.footerLink}
+              >
+                Forgot password?
+              </button>
+            </p>
+            <p className={styles.footer}>
+              Don&apos;t have an account?{' '}
+              <Link to="/signup" className={styles.footerLink}>Sign up free</Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
