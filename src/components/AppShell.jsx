@@ -14,7 +14,6 @@ const NAV_ITEMS = [
   { to: '/takes',    label: 'Sessions',   icon: SessionsIcon },
   { to: '/record',   label: 'New Take',   icon: RecordIcon   },
   { to: '/progress', label: 'Progress',   icon: ProgressIcon },
-  { to: '/settings', label: 'Settings',   icon: SettingsIcon },
 ]
 
 const TOOL_ITEMS = [
