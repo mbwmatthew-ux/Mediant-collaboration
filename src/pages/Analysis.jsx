@@ -744,14 +744,15 @@ export default function Analysis({ demo: demoProp = false }) {
       return
     }
 
-    const flagMeasures = new Map()
+    const flagMeasures = new Map() // Map<measureNum, { flagIds: string[], types: string[] }>
     if (take?.flags?.length) {
       take.flags.forEach((f, i) => {
         const endMeasure = f.measure_end ?? f.measure
         for (let m = f.measure; m <= endMeasure; m++) {
-          const arr = flagMeasures.get(m) ?? []
-          arr.push(`flag_${i}`)
-          flagMeasures.set(m, arr)
+          const existing = flagMeasures.get(m) ?? { flagIds: [], types: [] }
+          existing.flagIds.push(`flag_${i}`)
+          existing.types.push(f.type ?? '')
+          flagMeasures.set(m, existing)
         }
       })
     }
@@ -778,7 +779,7 @@ export default function Analysis({ demo: demoProp = false }) {
           const zoom = osmd.zoom * 10
           const newHighlights = []
 
-          flagMeasures.forEach((flagIds, measureNum) => {
+          flagMeasures.forEach(({ flagIds, types }, measureNum) => {
             const row = measureList[measureNum - 1]
             if (!row) return
             const gm = row[0]
@@ -786,6 +787,7 @@ export default function Analysis({ demo: demoProp = false }) {
             const pos = gm.PositionAndShape
             newHighlights.push({
               flagIds,
+              primaryType: types[0] ?? '',
               measureNum,
               x: pos.AbsolutePosition.x * zoom,
               y: pos.AbsolutePosition.y * zoom,
@@ -1279,8 +1281,10 @@ export default function Analysis({ demo: demoProp = false }) {
           )}
           <div style={{ position: 'relative' }}>
             <div ref={scoreEl} />
-            {scoreReady && highlights.map(({ flagIds, measureNum, x, y, w, h }) => {
+            {scoreReady && highlights.map(({ flagIds, primaryType, measureNum, x, y, w, h }) => {
               const isMeasureActive = flagIds.includes(activeFlag)
+              const TYPE_RGB = { iconGreen: '88,121,101', iconCoral: '207,63,63', iconGold: '184,146,42' }
+              const rgb = TYPE_RGB[flagTypeMeta(primaryType).cls] ?? TYPE_RGB.iconGold
               return (
                 <div key={measureNum}
                   onClick={() => {
@@ -1294,8 +1298,8 @@ export default function Analysis({ demo: demoProp = false }) {
                   }}
                   style={{
                     position: 'absolute', left: x, top: y, width: w, height: h,
-                    background: isMeasureActive ? 'rgba(184,146,42,0.22)' : 'rgba(184,146,42,0.06)',
-                    border: `1.5px solid rgba(184,146,42,${isMeasureActive ? '0.6' : '0.22'})`,
+                    background: isMeasureActive ? `rgba(${rgb},0.22)` : `rgba(${rgb},0.12)`,
+                    border: `1.5px solid rgba(${rgb},${isMeasureActive ? '0.65' : '0.3'})`,
                     borderRadius: 6, cursor: 'pointer', transition: 'background 150ms ease',
                   }}
                 />

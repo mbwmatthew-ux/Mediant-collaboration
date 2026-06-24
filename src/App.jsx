@@ -42,6 +42,7 @@ import { Analytics } from '@vercel/analytics/react'
 
 export default function App() {
   return (
+    <>
     <ErrorBoundary>
     <ThemeProvider>
     <AuthProvider>
@@ -77,5 +78,6 @@ export default function App() {
     </ThemeProvider>
     </ErrorBoundary>
     <Analytics />
+    </>
   )
 }

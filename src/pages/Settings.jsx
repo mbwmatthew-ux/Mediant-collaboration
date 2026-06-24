@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -286,7 +286,7 @@ function SecurityTab() {
     e.preventDefault()
     if (pwState === 'saving') return
     if (pw.length < 8)  { setPwState('error'); setPwMsg('Use at least 8 characters.'); return }
-    if (pw !== pw2)     { setPwState('error'); setPwMsg('The two passwords don’t match.'); return }
+    if (pw !== pw2)     { setPwState('error'); setPwMsg("The two passwords don't match."); return }
     setPwState('saving'); setPwMsg('')
     const { error } = await supabase.auth.updateUser({ password: pw })
     if (error) { setPwState('error'); setPwMsg(error.message); return }
@@ -318,7 +318,7 @@ function SecurityTab() {
         <h2 className={styles.sectionTitle}>Password</h2>
         <div className={styles.card}>
           <form className={styles.cardBody} onSubmit={updatePassword}>
-            <p className={styles.cardDesc}>Choose a new password for your account. You’ll stay signed in on this device.</p>
+            <p className={styles.cardDesc}>Choose a new password for your account. You'll stay signed in on this device.</p>
             <div className={styles.field}>
               <label className={styles.fieldLabel}>New password</label>
               <input
@@ -416,9 +416,12 @@ function SecurityTab() {
 /* ── Privacy tab ─────────────────────────────────────────────── */
 
 function PrivacyTab() {
+  const { logout } = useAuth()
+  const nav = useNavigate()
   const [exportState, setExportState] = useState('idle') // idle | requested
   const [clearState,  setClearState]  = useState('idle') // idle | confirm | done
-  const [delState,    setDelState]    = useState('idle') // idle | confirm
+  const [delState,    setDelState]    = useState('idle') // idle | confirm | deleting | error
+  const [delError,    setDelError]    = useState('')
 
   function requestExport() {
     playTick()
@@ -434,10 +437,25 @@ function PrivacyTab() {
     setTimeout(() => setClearState('idle'), 2600)
   }
 
-  function deleteAccount() {
-    if (delState !== 'confirm') { playTick(); setDelState('confirm'); return }
+  async function deleteAccount() {
+    if (delState === 'idle') { playTick(); setDelState('confirm'); return }
+    if (delState !== 'confirm') return
     playThud()
-    window.location.href = 'mailto:mediantteam@gmail.com?subject=Delete%20my%20Mediant%20account'
+    setDelState('deleting')
+    setDelError('')
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account')
+      if (error || !data?.ok) {
+        setDelState('error')
+        setDelError(error?.message ?? data?.error ?? 'Something went wrong. Please email mediantteam@gmail.com.')
+        return
+      }
+      await logout()
+      nav('/')
+    } catch (e) {
+      setDelState('error')
+      setDelError((e instanceof Error ? e.message : null) ?? 'Something went wrong.')
+    }
   }
 
   return (
@@ -448,7 +466,7 @@ function PrivacyTab() {
         <div className={styles.card}>
           <div className={styles.cardBody}>
             <p className={styles.cardDesc}>
-              When you upload a recording, the audio and any sheet music are sent to Mediant’s
+              When you upload a recording, the audio and any sheet music are sent to Mediant's
               secure storage and processed by our analysis service to generate your feedback.
               Your recordings are tied to your account and are not sold or shared with advertisers.
               Use of your data is covered by our privacy policy.
@@ -468,15 +486,15 @@ function PrivacyTab() {
         <div className={styles.card}>
           <div className={styles.cardBody}>
             <p className={styles.cardDesc}>
-              Request a copy of your recordings, takes, and feedback history. We’ll prepare an
-              archive and email you a download link when it’s ready.
+              Request a copy of your recordings, takes, and feedback history. We'll prepare an
+              archive and email you a download link when it's ready.
             </p>
             <div className={styles.formActions}>
               <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={requestExport}>
                 Request data export
               </button>
               <StatusNote kind={exportState === 'requested' ? 'ok' : ''}>
-                {exportState === 'requested' ? 'Export isn’t live yet — this is where your download will appear soon.' : ''}
+                {exportState === 'requested' ? "Export isn't live yet — this is where your download will appear soon." : ''}
               </StatusNote>
             </div>
           </div>
@@ -490,7 +508,7 @@ function PrivacyTab() {
           <div className={styles.cardBody}>
             <p className={styles.cardDesc}>
               Mediant keeps recent recordings in this browser for faster playback. Clearing them
-              frees up space on this device and doesn’t delete anything from your account.
+              frees up space on this device and doesn't delete anything from your account.
             </p>
             <div className={styles.formActions}>
               <button
@@ -514,20 +532,23 @@ function PrivacyTab() {
           <div className={styles.cardBody}>
             <p className={styles.cardDesc}>
               Permanently delete your account and all associated recordings, takes, and feedback.
-              This can’t be undone. Account deletion isn’t self-serve yet — confirming opens an
-              email to our team, who will remove your account.
+              This cannot be undone — all your data will be removed immediately.
             </p>
             <div className={styles.formActions}>
               <button
                 className={`${styles.btn} ${styles.btnDanger}`}
                 onClick={deleteAccount}
+                disabled={delState === 'deleting'}
               >
-                {delState === 'confirm' ? 'Confirm — email the team' : 'Delete account'}
+                {delState === 'deleting' ? 'Deleting…' : delState === 'confirm' ? 'Confirm — delete everything' : 'Delete account'}
               </button>
-              {delState === 'confirm' && (
-                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setDelState('idle')}>Cancel</button>
+              {(delState === 'confirm' || delState === 'error') && (
+                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setDelState('idle'); setDelError('') }}>Cancel</button>
               )}
             </div>
+            {delState === 'error' && delError && (
+              <StatusNote kind="err">{delError}</StatusNote>
+            )}
           </div>
         </div>
       </section>
@@ -580,7 +601,7 @@ function BillingTab() {
                 <p className={styles.cardDesc}>
                   {isPaid
                     ? renewal ? `Renews on ${renewal}.` : 'Active subscription.'
-                    : 'You’re on the free plan — 5 uploads per month.'}
+                    : "You're on the free plan — 5 uploads per month."}
                 </p>
               </div>
               <span className={`${styles.planBadge} ${isPaid ? '' : styles.planBadgeFree}`}>{planName}</span>
@@ -603,7 +624,7 @@ function BillingTab() {
         <div className={styles.card}>
           <div className={styles.cardBody}>
             <p className={styles.cardDesc}>
-              Billing is handled securely by Stripe — your card details never touch Mediant’s servers.
+              Billing is handled securely by Stripe — your card details never touch Mediant's servers.
             </p>
             <div className={styles.cardOnFile}>
               <span className={styles.cardBrand}>VISA</span>
