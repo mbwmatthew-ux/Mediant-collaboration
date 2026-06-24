@@ -37,6 +37,7 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
 import ResetPassword from './pages/ResetPassword'
+import CookieBanner from './components/CookieBanner'
 
 export default function App() {
   return (
@@ -72,6 +73,7 @@ export default function App() {
       </HashRouter>
     </AuthProvider>
     </ThemeProvider>
+      <CookieBanner />
     </ErrorBoundary>
   )
 }
