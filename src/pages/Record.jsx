@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getFile, saveFile } from '../lib/fileStore'
 import { INSTRUMENTS } from '../lib/instruments'
+import { extractAudioFeatures, extractScoreFacts } from '../lib/analysisEvidence'
 import styles from './Record.module.css'
 import { playDrop, playAnalyzeStart, playAnalyzeComplete, playThud } from '../utils/sounds'
 
@@ -290,6 +291,17 @@ export default function Record() {
         videoFrames = await extractVideoFrames(file)
       } catch { /* skip if extraction fails */ }
 
+      // Best-effort objective evidence for the long-term analysis engine.
+      // If a browser cannot decode/parse locally, the server still runs normally.
+      let scoreFacts = null
+      let audioFeatures = null
+      try {
+        scoreFacts = await extractScoreFacts(scoreFile)
+      } catch { /* skip if score parsing fails */ }
+      try {
+        audioFeatures = await extractAudioFeatures(file)
+      } catch { /* skip if audio decoding fails */ }
+
       // Ensure the session token is fresh before calling the edge function.
       // If the gateway receives an expired/malformed JWT it returns ACAO:* which
       // browsers reject on credentialed requests, surfacing as FunctionsFetchError.
@@ -315,6 +327,8 @@ export default function Record() {
           tempo:          (() => { const n = parseInt(tempo, 10); return Number.isFinite(n) ? n : undefined })(),
           videoFrames:    videoFrames.length > 0 ? videoFrames : undefined,
           difficulty:     difficulty || undefined,
+          scoreFacts:      scoreFacts || undefined,
+          audioFeatures:   audioFeatures || undefined,
         },
       })
 

@@ -43,6 +43,17 @@ type NormalizedFlag = {
   review_priority: 'high' | 'medium' | 'low'
 }
 
+type MeasureTimelineEntry = {
+  measure: number
+  start: number
+  end: number
+  beats: number
+  notes: number
+  rests: number
+  onsets: number
+  silenceRatio: number
+}
+
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
@@ -66,10 +77,24 @@ function inferMeasureFromTimestamp(
   maxMeasure: number,
   timeSig: string,
   tempo: number,
+  measureTimeline?: MeasureTimelineEntry[],
 ): number | null {
+  if (measureTimeline?.length && timestamp > 0) {
+    const hit = measureTimeline.find(m => timestamp >= m.start && timestamp < m.end)
+    if (hit) return clamp(hit.measure, safeStart, maxMeasure)
+  }
   const spm = secsPerMeasure(timeSig, tempo)
   if (!spm || spm <= 0 || timestamp <= 0) return null
   return clamp(safeStart + Math.floor(timestamp / spm), safeStart, maxMeasure)
+}
+
+function inferTimestampFromMeasure(
+  measure: number,
+  measureTimeline?: MeasureTimelineEntry[],
+): number | null {
+  if (!measureTimeline?.length) return null
+  const hit = measureTimeline.find(m => m.measure === measure)
+  return hit ? hit.start : null
 }
 
 function normalizeFlag(f: any, opts: {
@@ -83,6 +108,9 @@ function normalizeFlag(f: any, opts: {
   confidenceCap: number
   confidenceDefault: number
   timestampWindow: number
+  measureTimeline?: MeasureTimelineEntry[]
+  hasStructuredScore?: boolean
+  hasAudioFeatures?: boolean
 }): NormalizedFlag | null {
   if (!f || typeof f !== 'object') return null
 
@@ -93,10 +121,21 @@ function normalizeFlag(f: any, opts: {
     : Math.max(0, Number.isFinite(rawStart) ? rawStart : 0)
 
   const declaredMeasure = Math.round(Number(f.measure_start ?? f.measure) || 0)
-  const inferredMeasure = inferMeasureFromTimestamp(timestampStart, opts.safeStart, maxMeasure, opts.timeSig, opts.tempo)
-  const measure = declaredMeasure >= opts.safeStart && declaredMeasure <= maxMeasure
+  const inferredMeasure = inferMeasureFromTimestamp(timestampStart, opts.safeStart, maxMeasure, opts.timeSig, opts.tempo, opts.measureTimeline)
+  const declaredMeasureInRange = declaredMeasure >= opts.safeStart && declaredMeasure <= maxMeasure
     ? declaredMeasure
-    : inferredMeasure ?? opts.safeStart
+    : null
+  let measure = declaredMeasureInRange ?? inferredMeasure ?? opts.safeStart
+  const timelineCorrectedMeasure = Boolean(
+    opts.evidence === 'audio-video'
+    && timestampStart > 0
+    && declaredMeasureInRange != null
+    && inferredMeasure != null
+    && Math.abs(declaredMeasureInRange - inferredMeasure) > 1
+  )
+  if (timelineCorrectedMeasure && inferredMeasure != null) {
+    measure = inferredMeasure
+  }
 
   const declaredEnd = f.measure_end != null ? Math.round(Number(f.measure_end)) : null
   const measureEnd = declaredEnd != null && declaredEnd > measure && declaredEnd <= maxMeasure
@@ -104,21 +143,64 @@ function normalizeFlag(f: any, opts: {
     : null
 
   const rawEnd = Number(f.timestamp_end)
+  const timelineTimestamp = opts.evidence === 'score-only' || timestampStart > 0
+    ? null
+    : inferTimestampFromMeasure(measure, opts.measureTimeline)
+  const alignedTimestampStart = timelineTimestamp ?? timestampStart
   const timestampEnd = opts.evidence === 'score-only'
     ? 0
-    : rawEnd > timestampStart
+    : rawEnd > alignedTimestampStart
       ? rawEnd
-      : timestampStart + opts.timestampWindow
+      : alignedTimestampStart + opts.timestampWindow
 
   const type = normalizeType(f.type, opts.defaultType)
   const rawConfidence = Math.round(Number(f.confidence) || opts.confidenceDefault)
-  const confidence = clamp(rawConfidence, 45, opts.confidenceCap)
+  const timelineMeasure = opts.measureTimeline?.find(m => m.measure === measure)
+  const restOnlyPitchClaim = Boolean(
+    opts.hasStructuredScore
+    && timelineMeasure
+    && timelineMeasure.notes === 0
+    && timelineMeasure.rests > 0
+    && ['intonation', 'error', 'articulation'].includes(type)
+  )
+  const silentWindowClaim = Boolean(
+    timelineMeasure
+    && timelineMeasure.silenceRatio >= 0.65
+    && ['timing', 'rhythm', 'intonation', 'articulation', 'error', 'tone'].includes(type)
+  )
+  const lowOnsetClaim = Boolean(
+    opts.hasAudioFeatures
+    && timelineMeasure
+    && timelineMeasure.onsets === 0
+    && ['timing', 'rhythm', 'articulation', 'error'].includes(type)
+  )
+  const unanchoredAudioClaim = Boolean(
+    opts.evidence === 'audio-video'
+    && timestampStart <= 0
+    && !timelineTimestamp
+  )
+  const confidenceCap = [
+    opts.confidenceCap,
+    restOnlyPitchClaim ? 68 : opts.confidenceCap,
+    silentWindowClaim ? 66 : opts.confidenceCap,
+    lowOnsetClaim ? 72 : opts.confidenceCap,
+    unanchoredAudioClaim ? 74 : opts.confidenceCap,
+  ].reduce((min, cap) => Math.min(min, cap), opts.confidenceCap)
+  const confidence = clamp(rawConfidence, 45, confidenceCap)
   const reviewPriority = confidence >= 84 ? 'high' : confidence >= 68 ? 'medium' : 'low'
   const sourceText = opts.evidence === 'audio-video'
     ? 'Full recording was analyzed; confidence reflects audible evidence plus score context when available.'
     : opts.evidence === 'visual-only'
       ? 'Based on sampled video frames only; timing, pitch, and dynamics are not directly verified.'
       : 'Score-based coaching note only; not verified against the recording.'
+  const confidenceReason = [
+    f.confidence_reason ?? sourceText,
+    timelineCorrectedMeasure ? `Measure adjusted from m.${declaredMeasureInRange} to m.${measure} using timestamp alignment.` : null,
+    restOnlyPitchClaim ? 'Confidence capped because the score timeline marks this measure as rest-heavy.' : null,
+    silentWindowClaim ? 'Confidence capped because objective audio marks this window as mostly silence.' : null,
+    lowOnsetClaim ? 'Confidence capped because objective audio did not find clear note attacks in this measure window.' : null,
+    unanchoredAudioClaim ? 'Confidence capped because the issue had no reliable timestamp anchor.' : null,
+  ].filter(Boolean).join(' ')
 
   return {
     measure,
@@ -127,10 +209,10 @@ function normalizeFlag(f: any, opts: {
     confidence,
     title: cleanText(f.title, opts.defaultTitle, 110),
     detail: cleanText(f.detail, 'Review this passage slowly and compare it against the score and recording.', 1200),
-    timestamp_start: Number(timestampStart.toFixed(2)),
+    timestamp_start: Number(alignedTimestampStart.toFixed(2)),
     timestamp_end: Number(timestampEnd.toFixed(2)),
     evidence: opts.evidence,
-    confidence_reason: cleanText(f.confidence_reason ?? sourceText, sourceText, 280),
+    confidence_reason: cleanText(confidenceReason, sourceText, 360),
     review_priority: reviewPriority,
   }
 }
@@ -166,6 +248,23 @@ function dedupeFlags(flags: NormalizedFlag[]): NormalizedFlag[] {
 
   return merged
     .sort((a, b) => (a.timestamp_start || a.measure) - (b.timestamp_start || b.measure))
+    .slice(0, 8)
+}
+
+function finalizeFlags(flags: NormalizedFlag[], evidence: EvidenceKind): NormalizedFlag[] {
+  return flags
+    .filter(flag => {
+      const title = flag.title.toLowerCase()
+      const detail = flag.detail.toLowerCase()
+      const genericTitle = /^(issue detected|practice risk|visible technique issue|review this passage)$/i.test(flag.title.trim())
+      const genericDetail = detail.includes('review this passage slowly') || detail.length < 80
+      if (genericTitle && genericDetail) return false
+      if (evidence === 'audio-video' && flag.confidence < 52) return false
+      if (evidence === 'audio-video' && flag.timestamp_start <= 0 && flag.confidence < 70) return false
+      if (evidence === 'visual-only' && flag.confidence < 50) return false
+      if (title.includes('generic') || title.includes('unclear issue')) return false
+      return true
+    })
     .slice(0, 8)
 }
 
@@ -211,6 +310,237 @@ function buildQuality(opts: {
     score_context: opts.scoreContext ?? null,
     ...(opts.backendError ? { fallback_reason: opts.backendError } : {}),
   }
+}
+
+function scorePartMatchText(part: any): string {
+  return [
+    part?.id,
+    part?.name,
+    part?.abbreviation,
+    part?.instrumentName,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+function partMatchScore(part: any, requestedInstrument: string, requestedPart: string): number {
+  const haystack = scorePartMatchText(part)
+  const needles = [requestedPart, requestedInstrument]
+    .flatMap(value => String(value ?? '').toLowerCase().split(/[^a-z0-9]+/))
+    .filter(token => token.length >= 2)
+
+  let score = 0
+  for (const token of needles) {
+    if (haystack === token) score += 8
+    else if (haystack.includes(token)) score += token.length >= 5 ? 5 : 2
+  }
+
+  if (/clarinet/.test(requestedInstrument.toLowerCase()) && /clarinet|cl\b/.test(haystack)) score += 6
+  if (/violin/.test(requestedInstrument.toLowerCase()) && /violin|vln/.test(haystack)) score += 6
+  if (/viola/.test(requestedInstrument.toLowerCase()) && /viola|vla/.test(haystack)) score += 6
+  if (/cello/.test(requestedInstrument.toLowerCase()) && /cello|violoncello|vc\b/.test(haystack)) score += 6
+  if (/flute/.test(requestedInstrument.toLowerCase()) && /flute|fl\b/.test(haystack)) score += 6
+  if (/piano|keyboard/.test(requestedInstrument.toLowerCase()) && /piano|keyboard|pno/.test(haystack)) score += 6
+  return score
+}
+
+function selectScoreFactsForPart(scoreFacts: any, requestedInstrument: string, requestedPart: string): any {
+  if (!scoreFacts || typeof scoreFacts !== 'object') return null
+  const parts = Array.isArray(scoreFacts.parts) ? scoreFacts.parts : []
+  if (!parts.length) return scoreFacts
+
+  const ranked = parts
+    .map((part: any, index: number) => ({
+      part,
+      index,
+      score: partMatchScore(part, requestedInstrument, requestedPart),
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+
+  const selected = ranked[0]?.score > 0 ? ranked[0].part : parts[0]
+  return {
+    ...scoreFacts,
+    selectedPart: {
+      id: selected.id ?? '',
+      name: selected.name ?? '',
+      abbreviation: selected.abbreviation ?? '',
+      instrumentName: selected.instrumentName ?? '',
+      matchScore: ranked[0]?.score ?? 0,
+    },
+    measureCount: selected.measureCount ?? scoreFacts.measureCount,
+    timeSignature: selected.timeSignature ?? scoreFacts.timeSignature,
+    keyFifths: selected.keyFifths ?? scoreFacts.keyFifths,
+    measures: Array.isArray(selected.measures) ? selected.measures : scoreFacts.measures,
+  }
+}
+
+function compactScoreFacts(scoreFacts: any): string {
+  if (!scoreFacts || typeof scoreFacts !== 'object') return 'No structured score facts were available.'
+  const measures = Array.isArray(scoreFacts.measures) ? scoreFacts.measures : []
+  const denseMeasures = measures.slice(0, 90).map((m: any) => {
+    const measure = cleanText(m.measure, '?', 12)
+    const notes = Number(m.notes ?? 0)
+    const rests = Number(m.rests ?? 0)
+    const beats = Number(m.writtenQuarterBeats ?? 0)
+    const expected = Number(m.expectedQuarterBeats ?? 0)
+    const pitches = Array.isArray(m.pitches) && m.pitches.length
+      ? ` pitches:${m.pitches.slice(0, 10).join(' ')}`
+      : ''
+    const dynamics = Array.isArray(m.dynamics) && m.dynamics.length
+      ? ` dyn:${m.dynamics.slice(0, 4).join('/')}`
+      : ''
+    const articulations = Array.isArray(m.articulations) && m.articulations.length
+      ? ` art:${m.articulations.slice(0, 4).join('/')}`
+      : ''
+    return `m.${measure} beats:${beats}/${expected} notes:${notes} rests:${rests}${pitches}${dynamics}${articulations}`
+  }).join('\n')
+
+  return [
+    `Structured score facts (${scoreFacts.source ?? 'unknown'}):`,
+    `title=${scoreFacts.title ?? ''}; composer=${scoreFacts.composer ?? ''}; measures=${scoreFacts.measureCount ?? measures.length}; time=${scoreFacts.timeSignature ?? ''}; keyFifths=${scoreFacts.keyFifths ?? ''}`,
+    scoreFacts.selectedPart ? `selectedPart=${scoreFacts.selectedPart.name || scoreFacts.selectedPart.instrumentName || scoreFacts.selectedPart.id}; matchScore=${scoreFacts.selectedPart.matchScore ?? 0}` : '',
+    denseMeasures || 'No measure-level facts extracted.',
+  ].filter(Boolean).join('\n').slice(0, 15000)
+}
+
+function compactAudioFeatures(audioFeatures: any): string {
+  if (!audioFeatures || typeof audioFeatures !== 'object') return 'No objective audio feature packet was available.'
+  const onsets = Array.isArray(audioFeatures.onsetCandidates)
+    ? audioFeatures.onsetCandidates.slice(0, 90).map((o: any) => `${Number(o.time ?? 0).toFixed(2)}s`).join(', ')
+    : ''
+  const silences = Array.isArray(audioFeatures.silenceSegments)
+    ? audioFeatures.silenceSegments.slice(0, 24).map((s: any) => `${Number(s.start ?? 0).toFixed(2)}-${Number(s.end ?? 0).toFixed(2)}s`).join(', ')
+    : ''
+
+  return [
+    `Objective audio features (${audioFeatures.source ?? 'unknown'}):`,
+    `duration=${audioFeatures.duration ?? 'unknown'}s; active=${audioFeatures.activeStart ?? 0}-${audioFeatures.activeEnd ?? audioFeatures.duration ?? 'unknown'}s; activeRatio=${audioFeatures.activeRatio ?? 'unknown'}; onsetCount=${audioFeatures.onsetCount ?? 'unknown'}; meanRms=${audioFeatures.meanRms ?? 'unknown'}; maxRms=${audioFeatures.maxRms ?? 'unknown'}`,
+    `onset candidates: ${onsets || 'none'}`,
+    `silence/rest candidates: ${silences || 'none'}`,
+  ].join('\n').slice(0, 10000)
+}
+
+function expectedQuarterBeats(timeSig: string): number {
+  const m = timeSig.match(/^(\d+)\/(\d+)$/)
+  if (!m) return 4
+  const num = parseInt(m[1])
+  const den = parseInt(m[2])
+  return Number.isFinite(num) && Number.isFinite(den) && den > 0 ? num * (4 / den) : 4
+}
+
+function numericMeasure(value: unknown): number | null {
+  const match = String(value ?? '').match(/\d+/)
+  if (!match) return null
+  const n = parseInt(match[0], 10)
+  return Number.isFinite(n) ? n : null
+}
+
+function overlapSeconds(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
+  return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart))
+}
+
+function buildMeasureTimeline(opts: {
+  scoreFacts?: any
+  audioFeatures?: any
+  safeStart: number
+  safeEnd: number | null
+  timeSig: string
+  tempo: number
+}): MeasureTimelineEntry[] {
+  const maxMeasure = opts.safeEnd ?? opts.safeStart + 80
+  const scoreMeasures = Array.isArray(opts.scoreFacts?.measures) ? opts.scoreFacts.measures : []
+  const sourceMeasures = scoreMeasures
+    .map((m: any, index: number) => {
+      const measure = numericMeasure(m.measure) ?? index + 1
+      return {
+        measure,
+        beats: Number(m.writtenQuarterBeats || m.expectedQuarterBeats || 0),
+        notes: Number(m.notes ?? 0),
+        rests: Number(m.rests ?? 0),
+      }
+    })
+    .filter((m: { measure: number }) => m.measure >= opts.safeStart && m.measure <= maxMeasure)
+    .slice(0, 140)
+
+  const fallbackBeats = expectedQuarterBeats(opts.timeSig)
+  const measures = sourceMeasures.length
+    ? sourceMeasures
+    : Array.from({ length: Math.min(80, maxMeasure - opts.safeStart + 1) }, (_, i) => ({
+      measure: opts.safeStart + i,
+      beats: fallbackBeats,
+      notes: 0,
+      rests: 0,
+    }))
+
+  if (!measures.length) return []
+
+  const audioDuration = Number(opts.audioFeatures?.duration ?? 0)
+  const activeStart = Math.max(0, Number(opts.audioFeatures?.activeStart ?? 0) || 0)
+  const activeEnd = Number(opts.audioFeatures?.activeEnd ?? 0) > activeStart
+    ? Number(opts.audioFeatures.activeEnd)
+    : audioDuration
+  const activeDuration = activeEnd > activeStart ? activeEnd - activeStart : audioDuration
+  const totalBeats = measures.reduce((sum, m) => sum + Math.max(0.25, Number(m.beats) || fallbackBeats), 0)
+  const secondsPerBeat = activeDuration > 0 && totalBeats > 0
+    ? activeDuration / totalBeats
+    : opts.tempo > 0 ? 60 / opts.tempo : 1
+  const onsets = Array.isArray(opts.audioFeatures?.onsetCandidates)
+    ? opts.audioFeatures.onsetCandidates
+      .map((o: any) => Number(o.time))
+      .filter((time: number) => Number.isFinite(time) && time >= 0)
+    : []
+  const silences = Array.isArray(opts.audioFeatures?.silenceSegments)
+    ? opts.audioFeatures.silenceSegments
+      .map((s: any) => ({ start: Number(s.start), end: Number(s.end) }))
+      .filter((s: { start: number; end: number }) => Number.isFinite(s.start) && Number.isFinite(s.end) && s.end > s.start)
+    : []
+
+  let cursor = activeStart
+  return measures.map(m => {
+    const beats = Math.max(0.25, Number(m.beats) || fallbackBeats)
+    const start = cursor
+    const end = start + beats * secondsPerBeat
+    const duration = Math.max(0.01, end - start)
+    const onsetCount = onsets.filter(time => time >= start && time < end).length
+    const silenceSeconds = silences.reduce((sum, s) => sum + overlapSeconds(start, end, s.start, s.end), 0)
+    cursor = end
+    return {
+      measure: m.measure,
+      start: Number(start.toFixed(2)),
+      end: Number(end.toFixed(2)),
+      beats: Number(beats.toFixed(3)),
+      notes: Math.max(0, Number(m.notes) || 0),
+      rests: Math.max(0, Number(m.rests) || 0),
+      onsets: onsetCount,
+      silenceRatio: Number(clamp(silenceSeconds / duration, 0, 1).toFixed(2)),
+    }
+  })
+}
+
+function compactMeasureTimeline(timeline: MeasureTimelineEntry[]): string {
+  if (!timeline.length) return 'No estimated measure timeline available.'
+  return [
+    'Estimated measure timeline. Use as an alignment guardrail, not as perfect ground truth:',
+    timeline.slice(0, 100).map(m =>
+      `m.${m.measure}: ${m.start.toFixed(2)}-${m.end.toFixed(2)}s beats:${m.beats} notes:${m.notes} rests:${m.rests} onsets:${m.onsets} silence:${Math.round(m.silenceRatio * 100)}%`
+    ).join('\n'),
+  ].join('\n').slice(0, 10000)
+}
+
+function evidenceReasons(scoreFacts: any, audioFeatures: any, timeline: MeasureTimelineEntry[]): string[] {
+  const reasons: string[] = []
+  if (scoreFacts?.source === 'musicxml') {
+    reasons.push('Structured MusicXML/MXL score facts were used for measures, rests, notes, dynamics, and articulations.')
+  } else {
+    reasons.push('No structured MusicXML/MXL score facts were available; score reading may depend on image/model interpretation.')
+  }
+  if (audioFeatures?.source === 'web-audio') {
+    reasons.push('Browser-extracted audio features were used for active range, silence, and onset guardrails.')
+  } else {
+    reasons.push('No browser-extracted audio feature packet was available; timing alignment relies more heavily on model/video analysis.')
+  }
+  if (timeline.length) {
+    reasons.push('An estimated measure timeline was used to correct measure/timestamp drift.')
+  }
+  return reasons
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -290,6 +620,9 @@ async function runGeminiVideo(opts: {
   tempo:        number
   difficulty:   string
   priorTake:    { score: number | null; flags: any[] } | null
+  scoreFacts?:   unknown
+  audioFeatures?: unknown
+  measureTimeline?: MeasureTimelineEntry[]
 }): Promise<{ score: number; flags: NormalizedFlag[]; scoreContext: string }> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
   if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured')
@@ -380,6 +713,9 @@ async function runGeminiVideo(opts: {
     Intermediate: `STUDENT LEVEL: Intermediate. Use moderate musical language. The student understands basic terms like dynamics, rhythm, and intonation. Focus on consistency, phrasing, and cleaner technique. Reference specific passages and markings when relevant.`,
     Advanced: `STUDENT LEVEL: Advanced. Use full conservatory-level language. The student expects precise technical feedback: intonation tendencies by note name, specific articulation markings, bow or breath technique, tonal projection, and musical interpretation. Be direct and detailed.`,
   }[opts.difficulty] ?? ''
+  const scoreFactsText = compactScoreFacts(opts.scoreFacts)
+  const audioFeaturesText = compactAudioFeatures(opts.audioFeatures)
+  const timelineText = compactMeasureTimeline(opts.measureTimeline ?? [])
 
   const prompt = `AUDIO-FIRST PERFORMANCE ANALYSIS TASK. You are analyzing a student's performance video. Your primary job is to LISTEN and report issues that are clearly supported by the recording. Use visual information only when it explains an audible or technical problem.
 
@@ -393,6 +729,13 @@ ${opts.tempo > 0 ? `Reference tempo: ${opts.tempo} BPM` : ''}
 Score context: ${scoreContext.promptNote}
 
 ${instrumentSpecific}
+OBJECTIVE EVIDENCE PACKETS:
+These were extracted before the AI analysis. Use them to anchor measure mapping, rests, and likely note/onset locations. They are guardrails, not perfect truth.
+${scoreFactsText}
+
+${audioFeaturesText}
+
+${timelineText}
 ${opts.priorTake ? `
 PREVIOUS TAKE CONTEXT: This student has recorded this piece before. Use this to make the feedback comparative and progress-aware.
 Previous take score: ${opts.priorTake.score ?? 'unknown'}/100
@@ -440,7 +783,7 @@ Return ONLY valid JSON (no markdown fences, no explanation text):
   ]
 }
 
-Use exact pitches, beats, and technique only when the evidence actually supports them. Never write vague feedback, and never hallucinate rests, notes, or markings that are not visible/audible.`
+Use exact pitches, beats, rests, and technique only when the evidence actually supports them. If structured score facts show a rest-heavy measure, do not invent missing played notes there. Never write vague feedback, and never hallucinate rests, notes, or markings that are not visible/audible.`
 
   // Use confirmed-available models (v1beta only — v1 doesn't have these models)
   const candidates = [
@@ -496,7 +839,7 @@ Use exact pitches, beats, and technique only when the evidence actually supports
   }
 
   const rawFlags = Array.isArray(parsed.flags) ? parsed.flags : []
-  const flags = dedupeFlags(rawFlags
+  const flags = finalizeFlags(dedupeFlags(rawFlags
     .map((f: any) => normalizeFlag(f, {
       safeStart: opts.safeStart,
       safeEnd: opts.safeEnd,
@@ -508,8 +851,11 @@ Use exact pitches, beats, and technique only when the evidence actually supports
       confidenceCap: 95,
       confidenceDefault: 82,
       timestampWindow: 3,
+      measureTimeline: opts.measureTimeline,
+      hasStructuredScore: Boolean(opts.scoreFacts),
+      hasAudioFeatures: Boolean(opts.audioFeatures),
     }))
-    .filter(Boolean) as NormalizedFlag[])
+    .filter(Boolean) as NormalizedFlag[]), 'audio-video')
   const score = calibrateScore(Number(parsed.score) || 75, flags, 'audio-video')
 
   // No flags at all means Gemini couldn't find anything actionable — fall back to
@@ -532,6 +878,7 @@ async function runClaudeVision(opts: {
   safeStart:    number
   safeEnd:      number | null
   tempo:        number
+  measureTimeline?: MeasureTimelineEntry[]
 }): Promise<{ score: number; flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -605,7 +952,7 @@ Give 2–5 flags. Always cite the frame timestamp and the specific body part or 
     parsed = JSON.parse(jsonStr)
   } catch { /* empty */ }
 
-  const flags = dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
+  const flags = finalizeFlags(dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
     .map((f: any) => normalizeFlag(f, {
       safeStart: opts.safeStart,
       safeEnd: opts.safeEnd,
@@ -617,8 +964,11 @@ Give 2–5 flags. Always cite the frame timestamp and the specific body part or 
       confidenceCap: 88,
       confidenceDefault: 72,
       timestampWindow: 2.5,
+      measureTimeline: opts.measureTimeline,
+      hasStructuredScore: false,
+      hasAudioFeatures: false,
     }))
-    .filter(Boolean) as NormalizedFlag[])
+    .filter(Boolean) as NormalizedFlag[]), 'visual-only')
   const score = calibrateScore(Number(parsed.score) || 72, flags, 'visual-only')
 
   return { score, flags }
@@ -637,6 +987,8 @@ async function runClaudeCoaching(opts: {
   safeEnd:       number | null
   difficulty:    string
   priorTake:     { score: number | null; flags: any[] } | null
+  scoreFacts?:    unknown
+  measureTimeline?: MeasureTimelineEntry[]
 }): Promise<{ flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -672,6 +1024,7 @@ async function runClaudeCoaching(opts: {
     Intermediate: `Use standard musical terminology. The student knows terms like dynamics, intonation, and rhythm. Give clear, specific tips that connect what to fix with how to fix it.`,
     Advanced: `Use precise conservatory language. Name specific notes, intervals, fingerings, and technique demands. Assume the student can act on detailed technical guidance without simplified explanation.`,
   }[opts.difficulty] ?? ''
+  const scoreFactsText = compactScoreFacts(opts.scoreFacts)
 
   userContent.push({
     type: 'text',
@@ -682,6 +1035,9 @@ Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
 ${hasImage ? '\nThe sheet music is shown above — study it carefully.' : ''}
+STRUCTURED SCORE FACTS:
+${scoreFactsText}
+
 ${opts.priorTake ? `
 PREVIOUS TAKE: The student has practiced this piece before (score: ${opts.priorTake.score ?? 'unknown'}/100). Known risk areas from that session:
 ${opts.priorTake.flags.slice(0, 5).map((f: any) => `- ${f.type ?? 'issue'} (m.${f.measure ?? '?'}): ${f.title ?? ''}`).join('\n') || '- No specific flags'}
@@ -728,7 +1084,7 @@ Return ONLY valid JSON (no markdown):
     parsed = JSON.parse(jsonStr)
   } catch { /* empty */ }
 
-  const flags = dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
+  const flags = finalizeFlags(dedupeFlags((Array.isArray(parsed.flags) ? parsed.flags : [])
     .map((f: any) => normalizeFlag(f, {
       safeStart: opts.safeStart,
       safeEnd: opts.safeEnd,
@@ -740,8 +1096,11 @@ Return ONLY valid JSON (no markdown):
       confidenceCap: 68,
       confidenceDefault: 58,
       timestampWindow: 0,
+      measureTimeline: opts.measureTimeline,
+      hasStructuredScore: Boolean(opts.scoreFacts),
+      hasAudioFeatures: false,
     }))
-    .filter(Boolean) as NormalizedFlag[])
+    .filter(Boolean) as NormalizedFlag[]), 'score-only')
 
   return { flags }
 }
@@ -790,12 +1149,14 @@ serve(async (req: Request) => {
       videoPath, videoMimeType,
       scorePath, scoreMimeType,
       pieceTitle, composer,
-      timeSig, instrument, keySignature,
+      timeSig, instrument, part, keySignature,
       startMeasure, endMeasure,
       videoFrames,
       tempo,
       songId,
       difficulty,
+      scoreFacts,
+      audioFeatures,
     } = body
 
     if (!videoPath || !videoMimeType) {
@@ -808,6 +1169,21 @@ serve(async (req: Request) => {
     const safeEnd: number | null = endMeasure
       ? Math.max(safeStart, parseInt(String(endMeasure), 10))
       : null
+    const safeScoreFacts = selectScoreFactsForPart(
+      scoreFacts && typeof scoreFacts === 'object' ? scoreFacts : null,
+      instrument ?? '',
+      part ?? '',
+    )
+    const safeAudioFeatures = audioFeatures && typeof audioFeatures === 'object' ? audioFeatures : null
+    const safeTempo = Math.max(0, parseInt(String(tempo ?? 0), 10) || 0)
+    const measureTimeline = buildMeasureTimeline({
+      scoreFacts: safeScoreFacts,
+      audioFeatures: safeAudioFeatures,
+      safeStart,
+      safeEnd,
+      timeSig: timeSig ?? '4/4',
+      tempo: safeTempo,
+    })
 
     // Insert take row in processing state
     const { data: take, error: insertError } = await admin
@@ -857,12 +1233,16 @@ serve(async (req: Request) => {
           score_url:         scoreSignedUrl,
           score_mime_type:   scoreMimeType   ?? null,
           instrument:        instrument      ?? 'instrument',
+          part:              part            ?? '',
           piece_title:       pieceTitle      ?? 'this piece',
           composer:          composer        ?? 'the composer',
           time_sig:          timeSig         ?? '4/4',
           key_signature:     keySignature    ?? '',
           start_measure:     safeStart,
           end_measure:       safeEnd,
+          score_facts:        safeScoreFacts,
+          audio_features:     safeAudioFeatures,
+          measure_timeline:   measureTimeline,
           gemini_api_key:    Deno.env.get('GOOGLE_AI_API_KEY'),
           anthropic_api_key: Deno.env.get('ANTHROPIC_API_KEY'),
         }),
@@ -909,9 +1289,12 @@ serve(async (req: Request) => {
       keySignature: keySignature ?? '',
       safeStart,
       safeEnd,
-      tempo:        Math.max(0, parseInt(String(tempo ?? 0), 10) || 0),
+      tempo:        safeTempo,
       difficulty:   safeLevel,
       priorTake,
+      scoreFacts:    safeScoreFacts,
+      audioFeatures: safeAudioFeatures,
+      measureTimeline,
     }
 
     let score: number | null = null
@@ -957,7 +1340,13 @@ serve(async (req: Request) => {
           backend,
           evidence: 'audio-video',
           flags: geminiResult.flags,
-          scoreContext: geminiResult.scoreContext,
+          reasons: evidenceReasons(safeScoreFacts, safeAudioFeatures, measureTimeline),
+          scoreContext: [
+            geminiResult.scoreContext,
+            safeScoreFacts ? 'structured-score-facts' : null,
+            safeAudioFeatures ? 'objective-audio-features' : null,
+            measureTimeline.length ? 'estimated-measure-timeline' : null,
+          ].filter(Boolean).join(' + '),
         })
         console.log('[analyze-performance] Gemini inline done:', takeId, 'score:', score)
       } catch (geminiErr) {
@@ -982,7 +1371,10 @@ serve(async (req: Request) => {
           backend,
           evidence: 'visual-only',
           flags: visionResult.flags,
-          reasons: ['Analyzed from your video — visual technique scored; intonation and precise timing assessed separately.'],
+          reasons: [
+            'Analyzed from sampled video frames — visual technique scored; intonation and precise timing are limited.',
+            ...evidenceReasons(safeScoreFacts, safeAudioFeatures, measureTimeline),
+          ],
           backendError,
         })
         console.log('[analyze-performance] Claude vision done:', takeId, 'score:', score, 'flags:', flags.length)
@@ -1005,7 +1397,10 @@ serve(async (req: Request) => {
           backend,
           evidence: 'score-only',
           flags: claudeResult.flags,
-          reasons: ['Generated practice priorities from score/context because full recording analysis was unavailable.'],
+          reasons: [
+            'Generated practice priorities from score/context because full recording analysis was unavailable.',
+            ...evidenceReasons(safeScoreFacts, safeAudioFeatures, measureTimeline),
+          ],
           backendError,
         })
       } catch (err) {
