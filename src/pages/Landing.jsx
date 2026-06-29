@@ -47,10 +47,10 @@ function Reveal({ as: Tag = 'div', className = '', children, delay = '0ms' }) {
 }
 
 const STATS = [
-  { value: '4,200+', label: 'Analyses run' },
-  { value: '1,100+', label: 'Musicians active' },
+  { value: '3,800+', label: 'Analyses run' },
+  { value: '620+', label: 'Musicians active' },
   { value: '17', label: 'Instruments supported' },
-  { value: '94%', label: 'Would recommend' },
+  { value: '< 90 sec', label: 'Avg. turnaround time' },
 ]
 
 const STEPS = [
