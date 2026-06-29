@@ -130,15 +130,19 @@
 
 .heroInner {
   align-items: center;
-  display: grid;
-  gap: clamp(40px, 6vw, 88px);
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(40px, 6vw, 64px);
   margin: 0 auto;
   max-width: 1220px;
   position: relative;
+  text-align: center;
 }
 
-.heroCopy { max-width: 600px; }
+.heroCopy {
+  max-width: 720px;
+  width: 100%;
+}
 
 .heroEyebrow {
   color: rgba(255, 255, 255, 0.6);
@@ -163,7 +167,7 @@
   color: rgba(255, 255, 255, 0.72);
   font-size: clamp(1rem, 1.4vw, 1.14rem);
   line-height: 1.65;
-  margin: 0 0 32px;
+  margin: 0 auto 32px;
   max-width: 500px;
 }
 
@@ -172,6 +176,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  justify-content: center;
   margin-bottom: 20px;
 }
 
@@ -274,6 +279,8 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
+  max-width: 640px;
 }
 
 .waveformCard {
@@ -1047,8 +1054,7 @@
 
 /* ── RESPONSIVE ─────────────────────────────────────── */
 @media (max-width: 1060px) {
-  .heroInner { grid-template-columns: 1fr; }
-  .heroVisual { display: none; }
+  .heroVisual { max-width: 100%; }
   .featuresList { grid-template-columns: 1fr; }
   .featListItem:nth-child(odd)  { border-right: none; padding-right: 0; }
   .featListItem:nth-child(even) { padding-left: 0; }
@@ -1071,7 +1077,7 @@
   .footerBrand { grid-column: 1; }
   .statsInner { flex-wrap: wrap; }
   .statItem { border-right: none; border-bottom: 1px solid var(--line); flex: 1 1 45%; }
-  .heroActions { flex-direction: column; align-items: flex-start; }
+  .heroActions { flex-direction: column; align-items: center; }
   .ctaActions { flex-direction: column; }
   .pricingGrid { grid-template-columns: 1fr; max-width: 100%; }
   .stepRow { grid-template-columns: 48px 1px 1fr; padding: 28px 0; }
