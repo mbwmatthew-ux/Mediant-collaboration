@@ -1,8 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './Landing.module.css'
 
-/* ── Reduced-motion preference (reactive to OS/user setting) ── */
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return false
@@ -18,954 +17,539 @@ function usePrefersReducedMotion() {
   return reduced
 }
 
-function SheetMusicPage({ seed = 0, showTitle = false }) {
-  return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100%',
-      background: '#f7e8be',
-      overflow: 'hidden',
-      borderRadius: 'inherit',
-      boxShadow: 'inset 0 0 20px rgba(26,15,5,0.06)'
-    }}>
-      {/* High-fidelity, GPU-cached image representation of the sheet music (guarantees buttery 120 FPS!) */}
-      <img
-        src="/sheet_music_page.png"
-        alt="Sheet Music Page"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          display: 'block',
-          pointerEvents: 'none',
-          userSelect: 'none'
-        }}
-      />
-      
-      {/* Slight tint overlay to vary the aged-paper stain across seed values (uses fast hardware alpha blending) */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: `rgba(184, 146, 42, ${(seed % 4) * 0.018})`,
-        pointerEvents: 'none'
-      }} />
-
-      {/* Overlay brand titles on specific cards */}
-      {showTitle && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          background: 'rgba(247, 232, 190, 0.95)',
-          borderBottom: '1px solid rgba(184, 146, 42, 0.18)',
-          padding: '10px 8px 6px',
-          textAlign: 'center',
-          pointerEvents: 'none'
-        }}>
-          <h4 style={{
-            margin: 0,
-            fontFamily: '"Iowan Old Style", Georgia, serif',
-            fontSize: '9.5px',
-            fontWeight: 800,
-            letterSpacing: '0.12em',
-            color: '#1a0f05',
-            textTransform: 'uppercase'
-          }}>
-            Concerto Cello
-          </h4>
-          <p style={{
-            margin: '1px 0 0',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontSize: '7px',
-            color: 'rgba(26, 15, 5, 0.55)',
-            letterSpacing: '0.03em'
-          }}>
-            I. Prelude (J.S. Bach) · m.12
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Intro sheet music fan ────────────────────────────────────── */
-const INTRO_SHEETS = [
-  { angle: -75, rx: '4px 11px 9px 5px' },
-  { angle: -45, rx: '6px  8px 11px 4px' },
-  { angle: -15, rx: '3px 10px  7px 8px' },
-  { angle:  15, rx: '7px  9px  6px 10px' },
-  { angle:  45, rx: '4px 12px  8px 5px' },
-  { angle:  75, rx: '8px  7px 10px 4px' },
-]
-
-function MusicIntro() {
-  const [state, setState] = useState('initial')
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setState('fanned')))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  function cls(side) {
-    return [
-      styles.introSheet,
-      side === 'right' && styles.introSheetR,
-      state === 'fanned' && styles.introFanning,
-      state === 'fanned' && styles.introSheetFanned,
-    ].filter(Boolean).join(' ')
-  }
-
-  return (
-    <div className={styles.introOverlay} aria-hidden="true">
-      {INTRO_SHEETS.map((s, i) => (
-        <div
-          key={`left_${i}`}
-          className={cls('left')}
-          style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}
-        >
-          <SheetMusicPage seed={i} showTitle={i === 4} />
-        </div>
-      ))}
-      {INTRO_SHEETS.map((s, i) => (
-        <div
-          key={`right_${i}`}
-          className={cls('right')}
-          style={{ '--angle': `${s.angle}deg`, '--i': i, borderRadius: s.rx }}
-        >
-          <SheetMusicPage seed={i + 12} showTitle={i === 2} />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-
-
-const ANALYSIS_TEXT =
-  "The triplet figures in mm. 12–15 are rushing by about 18ms ahead of the pulse — a common response to the harmonic tension building here, but it softens the improvisatory character Chopin intended. Try isolating mm. 13–14 at 76bpm: anchor on the left hand's bass octaves and let the right hand breathe over them rather than leading. Your voicing in the opening phrase is outstanding — carry that patience into this passage and the crescendo at m. 16 will land with real weight."
-
-const ANALYSIS_TEXT_COLUMN =
-  "The lower F♯ octave sits roughly 20 cents flat on the entrance. Clear your damper pedal just before the strike and anchor with a deeper, more centered finger contact to let the fundamental ring true."
-
-const ROTATING_LINES = [
-  { we: 'elevate', you: 'create',  color: '#7a5230' },
-  { we: 'listen',  you: 'perform', color: '#c4824a' },
-  { we: 'analyze', you: 'refine',  color: '#b8922a' },
-  { we: 'map',     you: 'improve', color: '#8b6f3a' },
-  { we: 'guide',   you: 'grow',    color: '#d4a644' },
-]
-
-const FEATURES = [
-  {
-    icon: ScoreIcon,
-    num: '01',
-    title: 'Score-aware analysis',
-    body: 'Every flag is tied to a specific measure and beat — not a vague average. Mediant reads the sheet music, not just the audio.',
-  },
-  {
-    icon: CoachIcon,
-    num: '02',
-    title: 'Coaching, not just corrections',
-    body: 'Every note you play has context — the phrase it belongs to, the style it\'s drawn from, the habit behind it. Mediant addresses all three.',
-  },
-  {
-    icon: ProgressIcon,
-    num: '03',
-    title: 'Session history',
-    body: 'Track exactly which passages improved across every take. See where your practice is paying off.',
-  },
-]
-
-const STEPS = [
-  { num: '01', title: 'Upload your recording', body: 'Drop in a video or audio file from your practice session.' },
-  { num: '02', title: 'Maps it to the score',  body: 'Mediant aligns every note to your sheet music, measure by measure.' },
-  { num: '03', title: 'Get targeted feedback', body: 'Click any flagged measure for specific, actionable feedback.' },
-]
-
-const STATS = [
-  { value: 40,  suffix: '+', label: 'Instruments supported' },
-  { value: 6,   suffix:  '', label: 'Types of feedback' },
-  { value: 100, suffix: '%', label: 'Your recordings stay private' },
-]
-
-
-/* ── IntersectionObserver hook ── */
 function useInView(threshold = 0.12) {
   const ref = useRef(null)
   const [inView, setInView] = useState(false)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setInView(true) },
       { threshold }
     )
-    obs.observe(el)
-    return () => obs.disconnect()
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [threshold])
   return [ref, inView]
 }
 
-/* ── Typing caret animation (loops: type → highlight → clear → repeat) ── */
-function DocTyping({ text, active, delay = 0 }) {
-  const [displayed, setDisplayed] = useState('')
-  const [phase, setPhase]         = useState('idle')
-  const timerRef = useRef(null)
-
-  useEffect(() => {
-    if (!active) { setPhase('idle'); setDisplayed(''); return }
-    const id = setTimeout(() => setPhase('typing'), delay)
-    return () => clearTimeout(id)
-  }, [active, delay])
-
-  useEffect(() => {
-    clearTimeout(timerRef.current)
-    if (phase === 'idle') return
-
-    if (phase === 'typing') {
-      if (displayed.length < text.length) {
-        timerRef.current = setTimeout(
-          () => setDisplayed(text.slice(0, displayed.length + 1)),
-          95 + Math.random() * 75,
-        )
-      } else {
-        // Done typing — pause then enter highlight phase
-        timerRef.current = setTimeout(() => setPhase('selected'), 700)
-      }
-    } else if (phase === 'selected') {
-      // Hold highlight, then clear and loop
-      timerRef.current = setTimeout(() => {
-        setDisplayed('')
-        setPhase('pausing')
-      }, 900)
-    } else if (phase === 'pausing') {
-      timerRef.current = setTimeout(() => setPhase('typing'), 500)
-    }
-
-    return () => clearTimeout(timerRef.current)
-  }, [phase, displayed, text])
-
+function Reveal({ as: Tag = 'div', className = '', children, delay = '0ms' }) {
+  const [ref, inView] = useInView()
   return (
-    <div className={styles.docTypingCard}>
-      <p className={styles.docText}>
-        <span className={phase === 'selected' ? styles.docSelected : undefined}>
-          {displayed}
-        </span>
-        {phase === 'typing' && (
-          <span className={styles.docCaret}>
-            <span className={styles.docCaretLabel}>Mediant</span>
-          </span>
-        )}
-      </p>
-    </div>
+    <Tag
+      ref={ref}
+      className={`${styles.reveal} ${inView ? styles.revealVisible : ''} ${className}`}
+      style={{ '--delay': delay }}
+    >
+      {children}
+    </Tag>
   )
 }
 
-/* ── Logo mark ── */
-function AnimatedLogo({ size = 28, thicker = false }) {
-  return (
-    <div style={{
-      width: size, height: size, flexShrink: 0,
-      background: 'var(--text)',
-      WebkitMask: `url('/logo-mark.png') center/contain no-repeat`,
-      WebkitMaskMode: 'luminance',
-      mask: `url('/logo-mark.png') center/contain no-repeat`,
-      maskMode: 'luminance',
-      filter: thicker
-        ? 'drop-shadow(0 0 2px #1a0f05) drop-shadow(0 0 2px #1a0f05) drop-shadow(0 0 2px #1a0f05)'
-        : undefined,
-    }} />
-  )
-}
-
-function Wordmark({ className }) {
-  return <span className={`${styles.wordmark} ${className || ''}`}>Mediant</span>
-}
-
-/* ── Per-character fade word ── */
-function AnimatedWord({ word, color, visible }) {
-  return (
-    <span className={styles.heroWordFrame}>
-      {word.split('').map((ch, i) => (
-        <span
-          key={ch + i}
-          className={visible ? styles.heroCharVisible : styles.heroCharHidden}
-          style={{ '--wi': i, '--w-color': color }}
-        >
-          {ch}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-/* ── Stacked shuffle cards ── */
-const SHUFFLE_ITEMS = [
-  { color: '#7a5230', text: 'Aligning your recording to the score...' },
-  { color: '#c4824a', text: 'Detecting timing drift in measures 12–15...' },
-  { color: '#b8922a', text: 'Mapping pitch accuracy across 47 notes...' },
-  { color: '#8b6f3a', text: 'Comparing this take to your last session...' },
-  { color: '#d4a644', text: 'Generating targeted practice feedback...' },
+const STATS = [
+  { value: '4,200+', label: 'Analyses run' },
+  { value: '1,100+', label: 'Musicians active' },
+  { value: '17', label: 'Instruments supported' },
+  { value: '94%', label: 'Would recommend' },
 ]
 
-function ShuffleCards({ idx }) {
-  const [hist, setHist] = useState(() => [
-    idx,
-    (idx + SHUFFLE_ITEMS.length - 1) % SHUFFLE_ITEMS.length,
-    (idx + SHUFFLE_ITEMS.length - 2) % SHUFFLE_ITEMS.length,
-  ])
-  useEffect(() => {
-    setHist(prev => [idx, prev[0], prev[1]])
-  }, [idx])
-
-  const cur = SHUFFLE_ITEMS[hist[0]]
-  const gh1 = SHUFFLE_ITEMS[hist[1]]
-  const gh2 = SHUFFLE_ITEMS[hist[2]]
-
-  return (
-    <div className={styles.shuffleWrap}>
-      <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostFar}`} style={{ borderColor: gh2.color, background: `${gh2.color}10` }}>
-        <span className={styles.shuffleText}>{gh2.text}</span>
-      </div>
-      <div className={`${styles.shuffleGhostCard} ${styles.shuffleGhostNear}`} style={{ borderColor: gh1.color, background: `${gh1.color}1e` }}>
-        <span className={styles.shuffleText}>{gh1.text}</span>
-      </div>
-      <div key={hist[0]} className={styles.shuffleCard} style={{ borderColor: cur.color, boxShadow: `0 0 14px 2px ${cur.color}33` }}>
-        <span className={styles.shuffleText}>{cur.text}</span>
-      </div>
-    </div>
-  )
-}
-
-/* ── Animated stat counter ── */
-function StatCard({ value, suffix, label, delay }) {
-  const [active, setActive] = useState(false)
-  const [count, setCount]   = useState(0)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setActive(true); obs.disconnect() }
-    }, { threshold: 0.4 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!active) return
-    const start = performance.now()
-    const dur   = 2200
-    function frame(now) {
-      const p    = Math.min((now - start) / dur, 1)
-      const ease = 1 - Math.pow(1 - p, 4)
-      setCount(Math.round(ease * value))
-      if (p < 1) requestAnimationFrame(frame)
-    }
-    requestAnimationFrame(frame)
-  }, [active, value])
-
-  function onMove(e) {
-    const el = ref.current; if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width  - 0.5
-    const y = (e.clientY - r.top)  / r.height - 0.5
-    el.style.transition = 'transform 0.08s ease, background 300ms ease'
-    el.style.transform = `perspective(700px) rotateY(${x * 14}deg) rotateX(${-y * 10}deg) scale(1.03)`
-  }
-  function onLeave() {
-    const el = ref.current; if (!el) return
-    el.style.transition = 'transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), background 300ms ease'
-    el.style.transform = ''
-  }
-
-  return (
-    <div ref={ref} className={`${styles.statCard} ${styles.revealScale}`} style={{ '--d': delay }}
-      onMouseMove={onMove} onMouseLeave={onLeave}>
-      <span className={styles.statValue}>{count.toLocaleString()}{suffix}</span>
-      <span className={styles.statLabel}>{label}</span>
-    </div>
-  )
-}
-
-/* ── 3D tilt wrapper ── */
-function TiltBox({ className, style, children }) {
-  const ref = useRef(null)
-  function onMove(e) {
-    const el = ref.current; if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width  - 0.5
-    const y = (e.clientY - r.top)  / r.height - 0.5
-    el.style.transition = 'transform 0.08s ease'
-    el.style.transform = `perspective(500px) rotateY(${x * 22}deg) rotateX(${-y * 16}deg) scale(1.06)`
-  }
-  function onLeave() {
-    const el = ref.current; if (!el) return
-    el.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
-    el.style.transform = ''
-  }
-  return (
-    <div ref={ref} className={className} style={style} onMouseMove={onMove} onMouseLeave={onLeave}>
-      {children}
-    </div>
-  )
-}
-
-const CELLO_DEMO_FLAGS = [
+const STEPS = [
   {
-    flag: 'flag_0',
-    measure: 12,
-    type: 'timing',
-    confidence: 91,
-    title: 'Rushing the sixteenth descent',
-    timestamp: 12.4,
-    detail: 'The sixteenth-note run in measure 12 is rushing by about 22ms ahead of the pulse. Keep your bow stroke even and anchor the left-hand thumb to stabilize timing.'
+    n: '01',
+    title: 'Upload your score',
+    body: 'Add the sheet music for the piece you are practicing. MusicXML or image — both work. Practapal reads your score to understand the structure.',
   },
   {
-    flag: 'flag_1',
-    measure: 18,
-    type: 'dynamics',
-    confidence: 88,
-    title: 'Percussive string crossing',
-    timestamp: 24.8,
-    detail: 'The accent on the crossing to the D-string in m.18 is too harsh. Lighten the index finger pressure on the bow grip to let the string resonate naturally.'
+    n: '02',
+    title: 'Record a take',
+    body: 'Upload audio or video from any practice session. Any device, any quality. Practapal handles the rest.',
   },
   {
-    flag: 'flag_2',
-    measure: 21,
-    type: 'intonation',
-    confidence: 85,
-    title: 'Bass F♯ sits 15 cents flat',
-    timestamp: 36.2,
-    detail: 'The high F♯ sits roughly 15 cents flat in this shift. Anchor your third finger firmly and keep the elbow elevated to support the high hand position.'
-  }
+    n: '03',
+    title: 'Get measure-level feedback',
+    body: 'See exactly which measure, which beat, and what went wrong — tied directly to your score. Then ask Practa for advice.',
+  },
+]
+
+const FEATURES = [
+  {
+    icon: '↗',
+    title: 'Pitch detection',
+    body: 'Cent-level pitch accuracy measured against your score. Know when you are flat, sharp, and by exactly how much.',
+  },
+  {
+    icon: '⊙',
+    title: 'Timing analysis',
+    body: 'Beat-level timing measured in milliseconds. Practapal tells you whether you rushed, dragged, or nailed it.',
+  },
+  {
+    icon: '≋',
+    title: 'Dynamics tracking',
+    body: 'Are you hitting the marked crescendos and diminuendos? Practapal checks your dynamics against the score.',
+  },
+  {
+    icon: '↺',
+    title: 'Loop any section',
+    body: 'One click to hear the exact window where an issue happened. Loop it as many times as you need without scrubbing.',
+  },
+  {
+    icon: '◈',
+    title: 'Score always visible',
+    body: 'The sheet music stays on screen while you review feedback. No tab switching, no losing your place.',
+  },
+  {
+    icon: '▲',
+    title: 'Progress over takes',
+    body: 'Upload a second take and see what improved, what regressed, and what stayed the same across the thread.',
+  },
+]
+
+const TESTIMONIALS = [
+  {
+    quote: "I've been playing violin for 22 years and this is the first tool that actually points me to the measure. Not 'your timing is off' — it says beat 3 in measure 12, 18 milliseconds early. That's actionable.",
+    name: 'Anika Sørensen',
+    role: 'Violin, conservatory student',
+  },
+  {
+    quote: "The Loop feature changed how I practice. I can hear exactly what I did wrong on one beat without rewinding a 10-minute recording. It saves me probably 45 minutes per session.",
+    name: 'James Thornton',
+    role: 'Trumpet, semi-professional',
+  },
+  {
+    quote: "Practa remembered everything about my last take when I came back a week later. The AI coach actually knows my piece — it never asked me what notes I was playing.",
+    name: 'Mei-Lin Park',
+    role: 'Piano, independent teacher',
+  },
+]
+
+const PRICING = [
+  {
+    name: 'Free',
+    price: '$0',
+    period: 'forever',
+    desc: 'Start for free. No credit card required.',
+    features: [
+      '3 recordings per month',
+      'Pitch, timing, and dynamics analysis',
+      'Loop playback on all flags',
+      'AI coach chat (limited)',
+      'Progress tracking',
+    ],
+    cta: 'Get started free',
+    highlight: false,
+  },
+  {
+    name: 'Pro',
+    price: '$14',
+    period: 'per month',
+    desc: 'Everything serious musicians need.',
+    features: [
+      'Unlimited recordings',
+      'Full AI coach access',
+      'Cross-take comparison',
+      'PDF analysis export',
+      'Priority analysis queue',
+      'Email progress digest',
+    ],
+    cta: 'Start Pro trial',
+    highlight: true,
+  },
+]
+
+const FAQS = [
+  {
+    q: 'What instruments does Practapal support?',
+    a: 'Practapal works with any instrument that can be recorded: strings, woodwinds, brass, piano, guitar, voice, and more. The analysis adapts to the instrument and range detected in your recording.',
+  },
+  {
+    q: 'Do I need to upload sheet music?',
+    a: 'Sheet music is recommended — it allows Practapal to align feedback directly to specific measures. You can upload a recording without a score and still receive timing and dynamics feedback, but pitch analysis is more accurate with a score.',
+  },
+  {
+    q: 'How long does analysis take?',
+    a: 'Most analyses complete in 60–90 seconds. Longer recordings (over 10 minutes) can take up to 3 minutes. You will see a progress indicator while Practapal processes your recording.',
+  },
+  {
+    q: 'Can I use Practapal for orchestral or ensemble recordings?',
+    a: 'Practapal is optimized for solo recordings at this stage. It works best when a single instrument is the primary voice. Multi-instrument analysis is on our roadmap.',
+  },
+  {
+    q: 'Is my music data private?',
+    a: 'Yes. Your recordings and sheet music are stored securely and are never shared with or used to train third-party models. You can export or delete your data at any time from Settings.',
+  },
+]
+
+function FAQItem({ q, a }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`${styles.faqItem} ${open ? styles.faqOpen : ''}`}>
+      <button className={styles.faqQ} onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span>{q}</span>
+        <span className={styles.faqChevron}>{open ? '−' : '+'}</span>
+      </button>
+      {open && <p className={styles.faqA}>{a}</p>}
+    </div>
+  )
+}
+
+const WAVE_BARS = [
+  18, 35, 52, 28, 72, 45, 88, 60, 38, 55,
+  76, 42, 64, 30, 50, 82, 57, 36, 68, 44,
+  78, 53, 32, 84, 61, 40, 70, 47, 25, 58,
+  75, 42, 88, 35, 62, 49, 74, 30, 55, 38,
+]
+const FLAGGED_BARS = [6, 7, 8, 22, 23, 24]
+
+const MARQUEE_ITEMS = [
+  'Pitch Analysis', 'Timing Feedback', 'Dynamics', 'Articulation',
+  'Measure-Level', 'Loop Playback', 'AI Coaching', 'Progress Tracking',
 ]
 
 export default function Landing() {
-  const [wordIdx, setWordIdx]     = useState(0)
-  const [wordVisible, setWordVisible] = useState(true)
-  const [activeFlag, setActiveFlag] = useState('flag_2')
+  // Refs for direct DOM writes — avoids React re-renders at 60fps
+  const fill1Ref = useRef(null)
+  const fill2Ref = useRef(null)
+  const fill3Ref = useRef(null)
+  const num1Ref  = useRef(null)
+  const num2Ref  = useRef(null)
+  const num3Ref  = useRef(null)
 
-  const reducedMotion = usePrefersReducedMotion()
-
-  const canvasRef = useRef(null)
-  const [analysisRef, analysisInView] = useInView(0.15)
-  const analysisSectionRef = useRef(null)
-  const heroRef        = useRef(null)
-  const parallaxMeshRef  = useRef(null)
-  const parallaxHeadRef  = useRef(null)
-  const parallaxCardsRef = useRef(null)
-
-  /* ── Waveform canvas (breathing, not scrolling) ── */
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let raf
-
-    // Honor reduced-motion: draw nothing and skip the animation loop entirely.
-    if (reducedMotion) {
-      const w = canvas.offsetWidth, h = canvas.offsetHeight
-      canvas.width = w * (window.devicePixelRatio || 1)
-      canvas.height = h * (window.devicePixelRatio || 1)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      return
-    }
-
-    const WAVES = [
-      { freq: 0.010, baseAmp: 36, breatheFreq: 0.40, breathePhase: 0.0, alpha: 0.07, yRatio: 0.35 },
-      { freq: 0.016, baseAmp: 22, breatheFreq: 0.60, breathePhase: 1.5, alpha: 0.09, yRatio: 0.50 },
-      { freq: 0.007, baseAmp: 50, breatheFreq: 0.28, breathePhase: 0.8, alpha: 0.04, yRatio: 0.65 },
-      { freq: 0.022, baseAmp: 16, breatheFreq: 0.72, breathePhase: 2.2, alpha: 0.07, yRatio: 0.43 },
-      { freq: 0.013, baseAmp: 30, breatheFreq: 0.50, breathePhase: 3.8, alpha: 0.05, yRatio: 0.72 },
-    ]
-
-    const dpr = window.devicePixelRatio || 1
-
-    function resize() {
-      canvas.width  = canvas.offsetWidth  * dpr
-      canvas.height = canvas.offsetHeight * dpr
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    }
-
-    window.addEventListener('resize', resize)
-    resize()
-
+    let frame
+    const start = performance.now()
+    const PI2 = 2 * Math.PI
     function tick(now) {
-      const t = now * 0.001
-      const w = canvas.offsetWidth
-      const h = canvas.offsetHeight
-      if (!w || !h) { raf = requestAnimationFrame(tick); return }
-      ctx.clearRect(0, 0, w, h)
-
-      for (const wave of WAVES) {
-        const amp = wave.baseAmp * (0.3 + 0.7 * Math.sin(t * wave.breatheFreq + wave.breathePhase))
-        ctx.beginPath()
-        ctx.strokeStyle = `rgba(184,146,42,${wave.alpha})`
-        ctx.lineWidth = 1.5
-        for (let x = 0; x <= w; x += 3) {
-          const y = h * wave.yRatio + Math.sin(x * wave.freq) * amp
-          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-        }
-        ctx.stroke()
-      }
-
-      raf = requestAnimationFrame(tick)
+      const t = (now - start) / 1000
+      // Float widths → smooth bar; Math.round → integer label
+      const v1 = 77   - 5   * Math.cos(t * PI2 / 3.8)
+      const v2 = 83   + 5   * Math.cos(t * PI2 / 4.4)
+      const v3 = 82.5 - 3.5 * Math.cos(t * PI2 / 5.2)
+      if (fill1Ref.current) fill1Ref.current.style.width = `${v1}%`
+      if (fill2Ref.current) fill2Ref.current.style.width = `${v2}%`
+      if (fill3Ref.current) fill3Ref.current.style.width = `${v3}%`
+      if (num1Ref.current)  num1Ref.current.textContent  = Math.round(v1)
+      if (num2Ref.current)  num2Ref.current.textContent  = Math.round(v2)
+      if (num3Ref.current)  num3Ref.current.textContent  = Math.round(v3)
+      frame = requestAnimationFrame(tick)
     }
-
-    // Pause the loop while the tab is hidden to save battery; resume on return.
-    function onVisibility() {
-      if (document.hidden) {
-        cancelAnimationFrame(raf)
-      } else {
-        cancelAnimationFrame(raf)
-        raf = requestAnimationFrame(tick)
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-
-    raf = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', resize)
-      document.removeEventListener('visibilitychange', onVisibility)
-    }
-  }, [reducedMotion])
-
-  /* ── Mouse parallax ── */
-  useEffect(() => {
-    const hero = heroRef.current
-    if (!hero) return
-    // Honor reduced-motion: no parallax loop, no listeners, leave layers untransformed.
-    if (reducedMotion) return
-    let tx = 0, ty = 0, cx = 0, cy = 0, raf
-    const lerp = (a, b, t) => a + (b - a) * t
-
-    function tick() {
-      cx = lerp(cx, tx, 0.055)
-      cy = lerp(cy, ty, 0.055)
-      const mesh  = parallaxMeshRef.current
-      const head  = parallaxHeadRef.current
-      const cards = parallaxCardsRef.current
-      if (mesh)  mesh.style.transform  = `translate(${(cx * 32).toFixed(2)}px, ${(cy * 20).toFixed(2)}px)`
-      if (head)  head.style.transform  = `translate(${(cx * 8).toFixed(2)}px, ${(cy * 5).toFixed(2)}px)`
-      if (cards) cards.style.transform = `translate(${(cx * -12).toFixed(2)}px, ${(cy * -8).toFixed(2)}px)`
-      raf = requestAnimationFrame(tick)
-    }
-
-    function onMove(e) {
-      const r = hero.getBoundingClientRect()
-      tx = (e.clientX - r.left) / r.width  - 0.5
-      ty = (e.clientY - r.top)  / r.height - 0.5
-    }
-    function onLeave() { tx = 0; ty = 0 }
-
-    // Pause the loop while the tab is hidden to save battery; resume on return.
-    function onVisibility() {
-      if (document.hidden) {
-        cancelAnimationFrame(raf)
-      } else {
-        cancelAnimationFrame(raf)
-        raf = requestAnimationFrame(tick)
-      }
-    }
-
-    hero.addEventListener('mousemove', onMove)
-    hero.addEventListener('mouseleave', onLeave)
-    document.addEventListener('visibilitychange', onVisibility)
-    raf = requestAnimationFrame(tick)
-    return () => {
-      hero.removeEventListener('mousemove', onMove)
-      hero.removeEventListener('mouseleave', onLeave)
-      document.removeEventListener('visibilitychange', onVisibility)
-      cancelAnimationFrame(raf)
-    }
-  }, [reducedMotion])
-
-  /* ── Word cycling with fade out / in ── */
-  useEffect(() => {
-    // Honor reduced-motion: hold a single static word, no looping fade cycle.
-    // (wordVisible already defaults to true, so nothing to reset here.)
-    if (reducedMotion) return
-    const id = setInterval(() => {
-      setWordVisible(false)
-      setTimeout(() => setWordIdx(i => (i + 1) % ROTATING_LINES.length), 320)
-      setTimeout(() => setWordVisible(true), 360)
-    }, 3400)
-    return () => clearInterval(id)
-  }, [reducedMotion])
-
-  /* ── Scroll reveals (bidirectional) ── */
-  useEffect(() => {
-    const classes = [styles.reveal, styles.revealL, styles.revealR, styles.revealScale]
-    const query = classes.map(c => `.${c}`).join(', ')
-    const els = document.querySelectorAll(query)
-    if (!els.length) return
-
-    // threshold:0 fires only when element fully leaves — user never sees the reset
-    // rootMargin shrinks trigger zone slightly so enter animation happens just after element edge crosses
-    const obs = new IntersectionObserver(
-      entries => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add(styles.revealVisible)
-        } else {
-          // Fully offscreen — reset regardless of direction so it re-animates on re-entry
-          e.target.classList.remove(styles.revealVisible)
-        }
-      }),
-      { threshold: 0, rootMargin: '-8px 0px -8px 0px' },
-    )
-    els.forEach(el => obs.observe(el))
-    return () => obs.disconnect()
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
   }, [])
-
-  const current = ROTATING_LINES[wordIdx]
 
   return (
     <div className={styles.page}>
 
-      <MusicIntro />
-
-      {/* ── Bottom watercolor glow (color-synced with hero) ── */}
-      <div
-        className={styles.bottomGlow}
-        style={{ '--glow-color': current.color }}
-        aria-hidden="true"
-      />
-
-      {/* ── Nav ── */}
-      <nav className={styles.nav}>
-        <Link to="/" className={styles.navBrand}>
-          <AnimatedLogo size={54} />
-          <Wordmark />
+      {/* ── NAV ────────────────────────────────────────── */}
+      <nav className={styles.nav} aria-label="Main navigation">
+        <Link to="/" className={styles.navBrand} aria-label="Practapal home">
+          <span className={styles.navLogoMark} aria-hidden="true" />
+          <span className={styles.navWordmark}>Practapal</span>
         </Link>
-        <div className={styles.navRight}>
-          <Link to="/login"  className={styles.navLogin}>Log in</Link>
+
+        <div className={styles.navLinks}>
+          <a href="#how-it-works">How it works</a>
+          <a href="#features">Features</a>
+          <Link to="/pricing">Pricing</Link>
+          <a href="#faq">FAQ</a>
+        </div>
+
+        <div className={styles.navActions}>
+          <Link to="/login" className={styles.navLogin}>Log in</Link>
           <Link to="/signup" className={styles.navCta}>Get started free →</Link>
         </div>
       </nav>
 
-      {/* ── Hero ── */}
-      <section className={styles.hero} ref={heroRef}>
-        <div ref={parallaxMeshRef} className={styles.meshBg} aria-hidden="true">
-          <div className={`${styles.meshBlob} ${styles.meshBlob1}`} />
-          <div className={`${styles.meshBlob} ${styles.meshBlob2}`} />
-          <div className={`${styles.meshBlob} ${styles.meshBlob3}`} />
-          <div className={`${styles.meshBlob} ${styles.meshBlob4}`} />
-        </div>
-        <canvas ref={canvasRef} className={styles.waveCanvas} aria-hidden="true" />
+      <main>
 
-        <div ref={parallaxHeadRef} className={styles.parallaxNode}>
-          <h1 className={styles.heroHeading}>
-            <span className={styles.heroLine}>
-              <span className={styles.heroStatic}>We</span>
-              <AnimatedWord word={current.we}  color={current.color} visible={wordVisible} />
-              <span className={styles.heroComma}>,&nbsp;you</span>
-              <AnimatedWord word={current.you} color={current.color} visible={wordVisible} />
-            </span>
-          </h1>
-        </div>
-
-        <div ref={parallaxCardsRef} className={styles.parallaxNode}>
-          <ShuffleCards idx={wordIdx} />
-        </div>
-
-        <p className={styles.heroSub}>
-          Upload a recording. Mediant maps it to your sheet music and delivers
-          feedback that sounds like it came from a teacher — not an app.
-        </p>
-
-        <div className={styles.heroCtas}>
-          <Link to="/signup" className={styles.ctaPrimary}>Start for free →</Link>
-          <Link to="/login"  className={styles.ctaGhost}>Log in</Link>
-        </div>
-
-        <p className={styles.heroNote}>Free to start · No credit card · Any instrument</p>
-
-        <Link to="/demo" className={styles.heroSeeExample}>
-          See an example analysis ↗
-        </Link>
-      </section>
-
-      {/* ── Analysis Demo ── */}
-      <section className={styles.analysisSection} ref={analysisSectionRef}>
-        <div className={`${styles.analysisHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>Practice Coach</p>
-          <h2 className={styles.analysisTitle}>Real-time performance review</h2>
-          <p className={styles.analysisSub}>
-            Mediant tracks your pitch, timing, and dynamic weight as you play, matching your performance note-by-note to the score.
-          </p>
-        </div>
-
-        <div className={`${styles.analysisColumns} ${styles.reveal}`} ref={analysisRef} style={{ '--d': '120ms' }}>
-
-          {/* Visual Callout 1 (Timeline Callout - Left Side) */}
-          <div className={`${styles.calloutBox} ${styles.calloutLeft} ${styles.calloutTimeline}`}>
-            <p className={styles.calloutText}>
-              <span className={styles.calloutHighlight}>Mediant analyzes</span> timing, dynamics, and intonation note-by-note.
-            </p>
-            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
-              <path d="M10,10 C22,10 28,18 30,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-              <polygon points="30,26 25,22 33,21" fill="#b8922a" />
-            </svg>
-          </div>
-
-          {/* Visual Callout 2 (Card Callout - Right Side) */}
-          <div className={`${styles.calloutBox} ${styles.calloutRight} ${styles.calloutCard}`}>
-            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
-              <path d="M30,10 C18,10 12,18 10,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-              <polygon points="10,26 7,21 15,22" fill="#b8922a" />
-            </svg>
-            <p className={styles.calloutText}>
-              <span className={styles.calloutHighlight}>Detailed coaching</span> explains the physical habit behind each error.
-            </p>
-          </div>
-
-          {/* Visual Callout 3 (Chat Callout - Left Side) */}
-          <div className={`${styles.calloutBox} ${styles.calloutLeft} ${styles.calloutChat}`}>
-            <p className={styles.calloutText}>
-              <span className={styles.calloutHighlight}>Discuss & refine</span> your practice routines in real-time dialog.
-            </p>
-            <svg className={styles.calloutArrow} width="40" height="40" viewBox="0 0 40 40">
-              <path d="M10,10 C22,10 28,18 30,26" stroke="#b8922a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-              <polygon points="30,26 25,22 33,21" fill="#b8922a" />
-            </svg>
-          </div>
-
-          {/* Right Column: Interactive App-like Dashboard modeled off of Analysis.jsx */}
-          <div className={styles.analysisRightColumn}>
-            <div className={styles.analysisStatus}>
-              <span className={styles.analysisPulse} />
-              <span className={styles.analysisStatusText}>Mediant Insights Timeline</span>
-              <span className={styles.analysisDivider}>·</span>
-              <span className={styles.analysisStatusMeta}>3 issues flagged</span>
+        {/* ── HERO ───────────────────────────────────────── */}
+        <section className={styles.hero}>
+          <div className={styles.heroInner}>
+            <div className={styles.heroCopy}>
+              <p className={styles.heroEyebrow}>AI Music Practice Coach</p>
+              <h1 className={styles.heroH1}>
+                Finally, feedback that points to the measure.
+              </h1>
+              <p className={styles.heroLead}>
+                Upload a recording. Practapal analyzes pitch, timing, and dynamics against your score — then shows you exactly where to focus before your next session.
+              </p>
+              <div className={styles.heroActions}>
+                <Link to="/signup" className={styles.btnPrimary}>Start for free →</Link>
+                <a href="#how-it-works" className={styles.btnGhost}>See how it works</a>
+              </div>
+              <p className={styles.heroNote}>No credit card required · Works with any instrument</p>
             </div>
 
-            {/* AI Insights Timeline list */}
-            <div className={styles.timeline}>
-              {CELLO_DEMO_FLAGS.map((f) => {
-                const isActive = activeFlag === f.flag
-                const cc = f.type === 'timing' ? 'var(--gold)' : f.type === 'dynamics' ? 'var(--coral)' : 'var(--accent)'
-                const formatTime = (sec) => {
-                  const m = Math.floor(sec / 60)
-                  const r = (sec % 60).toFixed(1).padStart(4, '0')
-                  return `${m}:${r}`
-                }
-                return (
-                  <button
-                    key={f.flag}
-                    className={`${styles.timelineRow} ${isActive ? styles.timelineRowActive : ''}`}
-                    onClick={() => setActiveFlag(f.flag)}
-                  >
-                    <span className={styles.timelineConfDot} style={{ background: cc }} />
-                    <span className={styles.timelineTs}>{formatTime(f.timestamp)}</span>
-                    <span className={styles.timelineMeasure}>m.{f.measure}</span>
-                    <span className={styles.timelineTypePill} style={{
-                      background: f.type === 'timing' ? 'rgba(214,177,104,0.15)' : f.type === 'dynamics' ? 'rgba(225,134,118,0.15)' : 'var(--accent-bg)',
-                      color: cc
-                    }}>{f.type}</span>
-                    <span className={styles.timelineTitle}>{f.title}</span>
-                    <span className={styles.timelineConfBadge} style={{ color: cc }}>High</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Expanded Insight Card */}
-            {(() => {
-              const activeF = CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)
-              if (!activeF) return null
-              const cc = activeF.type === 'timing' ? 'var(--gold)' : activeF.type === 'dynamics' ? 'var(--coral)' : 'var(--accent)'
-              return (
-                <div className={styles.insightCard}>
-                  <div className={styles.insightCardHeader}>
-                    <span className={styles.insightMeasureBadge}>m.{activeF.measure}</span>
-                    <h3 className={styles.insightTitle}>{activeF.title}</h3>
-                    <span className={styles.insightConfBadge} style={{ color: cc }}>
-                      High Confidence
-                    </span>
-                  </div>
-                  {activeFlag === 'flag_2' ? (
-                    <div className={styles.insightTypewriterBox}>
-                      <DocTyping text={activeF.detail} active={analysisInView} delay={100} />
+            <div className={styles.heroVisual}>
+              <div className={styles.waveformCard}>
+                <div className={styles.waveformCardHead}>
+                  <span className={styles.waveformPieceTag}>Clair de lune — Take 7</span>
+                </div>
+                <div className={styles.waveformBarsWrap}>
+                  {WAVE_BARS.map((h, i) => (
+                    <div
+                      key={i}
+                      className={`${styles.waveBar} ${FLAGGED_BARS.includes(i) ? styles.waveBarFlagged : ''}`}
+                      style={{ '--barH': `${h}px`, '--d': `${(i * 47) % 720}ms` }}
+                    />
+                  ))}
+                </div>
+                <div className={styles.waveformMetricBars}>
+                  <div className={styles.waveformMetricRow}>
+                    <span className={styles.waveformMetricLabel}>Intonation</span>
+                    <div className={styles.waveformMetricTrack}>
+                      <div ref={fill1Ref} className={`${styles.waveformMetricFill} ${styles.waveformMetricFill1}`} style={{ width: '72%' }} />
                     </div>
-                  ) : (
-                    <p className={styles.insightBody}>{activeF.detail}</p>
-                  )}
-                  <div className={styles.insightActions}>
-                    <button className={styles.loopBtn}>
-                      ↺ Loop m.{activeF.measure}
-                      <span className={styles.loopExcerptTime}>
-                        0:{activeF.timestamp.toFixed(1)} – 0:{(activeF.timestamp + 2.5).toFixed(1)}
-                      </span>
-                    </button>
+                    <span ref={num1Ref} className={styles.waveformMetricVal} style={{ color: '#EE7B53' }}>72</span>
+                  </div>
+                  <div className={styles.waveformMetricRow}>
+                    <span className={styles.waveformMetricLabel}>Dynamics</span>
+                    <div className={styles.waveformMetricTrack}>
+                      <div ref={fill2Ref} className={`${styles.waveformMetricFill} ${styles.waveformMetricFill2}`} style={{ width: '88%' }} />
+                    </div>
+                    <span ref={num2Ref} className={styles.waveformMetricVal} style={{ color: '#C09230' }}>88</span>
+                  </div>
+                  <div className={`${styles.waveformMetricRow} ${styles.waveformMetricRowOverall}`}>
+                    <span className={styles.waveformMetricLabel}>Overall Score</span>
+                    <div className={styles.waveformMetricTrack}>
+                      <div ref={fill3Ref} className={`${styles.waveformMetricFill} ${styles.waveformMetricFill3}`} style={{ width: '79%' }} />
+                    </div>
+                    <span ref={num3Ref} className={styles.waveformMetricVal} style={{ color: '#8fbe9f' }}>79</span>
                   </div>
                 </div>
-              )
-            })()}
-
-            {/* Ask Mediant Chat Section */}
-            <div className={styles.chatSection}>
-              <div className={styles.chatSectionHeader}>
-                <p className={styles.label} style={{ fontSize: '0.68rem', letterSpacing: '0.15em', margin: 0 }}>Ask Mediant</p>
-                <span className={styles.chatContextPill}>
-                  Re: m.{CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.measure} · {CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.type}
-                </span>
-              </div>
-              <div className={styles.chatMessages}>
-                <div className={styles.chatMsgUser}>
-                  How do I keep my left hand relaxed in measure {CELLO_DEMO_FLAGS.find(f => f.flag === activeFlag)?.measure}?
-                </div>
-
-                <div className={styles.chatMsgAI}>
-                  {activeFlag === 'flag_0' && "For m.12, keep your bowing arm fluid. Let the forearm weight carry the bow speed instead of pressing with the wrist. Practice the sixteenth notes in dotted rhythms to establish a physical timing anchor."}
-                  {activeFlag === 'flag_1' && "For the crossing in m.18, let your right elbow drop slightly as you approach the D-string. This changes the bow plane organically, avoiding any percussive slapping of the hair against the string."}
-                  {activeFlag === 'flag_2' && "Keep your left thumb completely relaxed behind the neck, resting opposite your second finger. Practice shifting slowly from the D3 to the F♯3 without pressing the thumb at all—let the arm weight do the work."}
-                </div>
-                
-                {/* Mid-typing conversation indicators representing active follow-up dialog */}
-                <div className={styles.typingBubbleUser}>
-                  <span>You are typing...</span>
-                  <span className={styles.typingIndicatorDots}>
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                  </span>
-                </div>
-
-                <div className={styles.typingBubbleAI}>
-                  <span>Mediant is typing...</span>
-                  <span className={styles.typingIndicatorDots}>
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                  </span>
-                </div>
-              </div>
-              <div className={styles.chatInputRow}>
-                <input
-                  className={styles.chatInput}
-                  placeholder="Ask Mediant about this passage..."
-                  disabled
-                />
-                <button className={styles.chatSend} disabled>↑</button>
               </div>
             </div>
+          </div>
+        </section>
 
+        {/* ── MARQUEE ────────────────────────────────────── */}
+        <div className={styles.marqueeStrip} aria-hidden="true">
+          <div className={styles.marqueeTrack}>
+            {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((t, i) => (
+              <span key={i} className={styles.marqueeItem}>
+                {t} <span className={styles.marqueeSep}>◆</span>
+              </span>
+            ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Stats ── */}
-      <section className={styles.statsSection}>
-        <div className={styles.statsGrid}>
-          {STATS.map((s, i) => (
-            <StatCard
-              key={s.label}
-              value={s.value}
-              suffix={s.suffix}
-              label={s.label}
-              delay={`${i * 130}ms`}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ── Features ── */}
-      <section className={styles.features}>
-        <div className={`${styles.featuresHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>What you get</p>
-          <h2 className={styles.featuresTitle}>Everything a serious<br />practice session needs</h2>
-        </div>
-        {FEATURES.map((f, i) => (
-          <div
-            key={f.title}
-            className={`${styles.featureRow} ${i % 2 === 1 ? styles.featureRowFlip : ''} ${i % 2 === 0 ? styles.revealL : styles.revealR}`}
-            style={{ '--d': `${i * 60}ms` }}
-          >
-            <div className={styles.featureText}>
-              <span className={styles.featureNum}>{f.num}</span>
-              <h3 className={styles.featureTitle}>{f.title}</h3>
-              <p className={styles.featureBody}>{f.body}</p>
-            </div>
-            <TiltBox className={styles.featureVisual}>
-              <f.icon />
-            </TiltBox>
+        {/* ── STATS BAR ──────────────────────────────────── */}
+        <div className={styles.statsBar}>
+          <div className={styles.statsInner}>
+            {STATS.map((s, i) => (
+              <div key={i} className={styles.statItem}>
+                <span className={styles.statValue}>{s.value}</span>
+                <span className={styles.statLabel}>{s.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </section>
-
-      {/* ── How it works ── */}
-      <section className={styles.howItWorks}>
-        <div className={`${styles.howHead} ${styles.reveal}`}>
-          <p className={styles.sectionLabel}>How it works</p>
-          <h2 className={styles.howTitle}>Three steps to<br />better practice</h2>
         </div>
-        <div className={styles.steps}>
-          {STEPS.map((s, i) => (
-            <div key={s.num} className={`${styles.step} ${styles.reveal}`} style={{ '--d': `${i * 160}ms` }}>
-              <span className={styles.stepNum}>{s.num}</span>
-              <h3 className={styles.stepTitle}>{s.title}</h3>
-              <p className={styles.stepBody}>{s.body}</p>
-              {i < STEPS.length - 1 && <div className={styles.stepArrow}>→</div>}
+
+        {/* ── HOW IT WORKS ───────────────────────────────── */}
+        <section className={styles.howSection} id="how-it-works">
+          <div className={styles.sectionInner}>
+            <Reveal className={styles.sectionHead}>
+              <p className={styles.eyebrow}>How it works</p>
+              <h2>Three steps to sharper practice.</h2>
+              <p>Use Practapal after any session. Walk away with a specific, prioritized list of what to fix — not a vague impression.</p>
+            </Reveal>
+
+            <div className={styles.stepsStack}>
+              {STEPS.map((step, i) => (
+                <Reveal key={step.n} className={styles.stepRow} delay={`${i * 100}ms`}>
+                  <div className={styles.stepRowNum}>{step.n}</div>
+                  <div className={styles.stepRowBar} />
+                  <div className={styles.stepRowContent}>
+                    <h3 className={styles.stepRowTitle}>{step.title}</h3>
+                    <p className={styles.stepRowBody}>{step.body}</p>
+                  </div>
+                </Reveal>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* ── Final CTA ── */}
-      <section className={`${styles.ctaSection} ${styles.reveal}`}>
-        <h2 className={styles.ctaTitle}>Practice with intention,<br />not just repetition.</h2>
-        <p className={styles.ctaSub}>Join musicians turning practice time into real, measurable progress.</p>
-        <div className={styles.heroCtas}>
-          <Link to="/signup" className={styles.ctaPrimary}>Create your free account</Link>
-          <Link to="/login"  className={styles.ctaGhost}>Log in</Link>
-        </div>
-        <p className={styles.heroNote}>No credit card · Cancel anytime</p>
-      </section>
+        {/* ── COMING SOON ────────────────────────────────── */}
+        <section className={styles.comingSoonSection}>
+          <div className={styles.sectionInner}>
+            <Reveal className={styles.comingSoonBox}>
+              <p className={styles.comingSoonEyebrow}>App Preview</p>
+              <h2 className={styles.comingSoonH2}>The full interface is on its way.</h2>
+              <p className={styles.comingSoonBody}>
+                We're in the final stretch, putting the finishing touches on the Practapal experience. Sign up now and be the first to know when it launches.
+              </p>
+              <div className={styles.comingSoonActions}>
+                <Link to="/signup" className={styles.btnPrimary}>Get early access →</Link>
+                <span className={styles.comingSoonNote}>Launching soon · No credit card required</span>
+              </div>
+            </Reveal>
+          </div>
+        </section>
 
-      {/* ── Footer ── */}
+        {/* ── FEATURES GRID ──────────────────────────────── */}
+        <section className={styles.featuresSection} id="features">
+          <div className={styles.sectionInner}>
+            <Reveal className={styles.sectionHead}>
+              <p className={styles.eyebrow}>What Practapal helps with</p>
+              <h2>Built around how musicians actually practice.</h2>
+            </Reveal>
+
+            <div className={styles.featuresList}>
+              {FEATURES.map((f, i) => (
+                <Reveal key={f.title} className={styles.featListItem} delay={`${i * 60}ms`}>
+                  <span className={styles.featListIcon}>{f.icon}</span>
+                  <div>
+                    <h3 className={styles.featListTitle}>{f.title}</h3>
+                    <p className={styles.featListBody}>{f.body}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── TESTIMONIALS ───────────────────────────────── */}
+        <section className={styles.testimonialsSection}>
+          <div className={styles.sectionInner}>
+            <Reveal className={styles.sectionHead} style={{ '--delay': '0ms' }}>
+              <p className={styles.eyebrowLight}>From musicians</p>
+              <h2 className={styles.h2Light}>What players say.</h2>
+            </Reveal>
+
+            <div className={styles.testimonialGrid}>
+              {TESTIMONIALS.map((t, i) => (
+                <Reveal key={i} className={styles.testimonialCard} delay={`${i * 90}ms`}>
+                  <p className={styles.testimonialQuote}>"{t.quote}"</p>
+                  <div className={styles.testimonialAuthor}>
+                    <div className={styles.testimonialAvatar}>
+                      {t.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className={styles.testimonialName}>{t.name}</p>
+                      <p className={styles.testimonialRole}>{t.role}</p>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── PRICING ────────────────────────────────────── */}
+        <section className={styles.pricingSection} id="pricing">
+          <div className={styles.sectionInner}>
+            <Reveal className={styles.sectionHead}>
+              <p className={styles.eyebrow}>Pricing</p>
+              <h2>Simple, honest pricing.</h2>
+              <p>Start free. Upgrade when you're ready.</p>
+            </Reveal>
+
+            <div className={styles.pricingGrid}>
+              {PRICING.map((plan, i) => (
+                <Reveal key={plan.name} className={`${styles.pricingCard} ${plan.highlight ? styles.pricingHighlight : ''}`} delay={`${i * 80}ms`}>
+                  {plan.highlight && <span className={styles.popularBadge}>Most popular</span>}
+                  <div className={styles.pricingTop}>
+                    <h3 className={styles.planName}>{plan.name}</h3>
+                    <div className={styles.planPrice}>
+                      <span className={styles.planAmount}>{plan.price}</span>
+                      <span className={styles.planPeriod}>/{plan.period}</span>
+                    </div>
+                    <p className={styles.planDesc}>{plan.desc}</p>
+                  </div>
+                  <ul className={styles.planFeatures}>
+                    {plan.features.map(f => (
+                      <li key={f}>
+                        <span className={styles.checkMark}>✓</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/signup"
+                    className={plan.highlight ? styles.btnPrimary : styles.btnOutline}
+                  >
+                    {plan.cta}
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FAQ ────────────────────────────────────────── */}
+        <section className={styles.faqSection} id="faq">
+          <div className={styles.sectionInner}>
+            <div className={styles.faqLayout}>
+              <Reveal className={styles.faqLeft}>
+                <p className={styles.eyebrow}>FAQ</p>
+                <h2>Questions, answered.</h2>
+                <p>Anything else? <a href="mailto:hello@practapal.com">Email us →</a></p>
+              </Reveal>
+              <div className={styles.faqRight}>
+                {FAQS.map((item, i) => (
+                  <Reveal key={i} delay={`${i * 50}ms`}>
+                    <FAQItem q={item.q} a={item.a} />
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── CTA STRIP ──────────────────────────────────── */}
+        <section className={styles.ctaStrip}>
+          <div className={styles.ctaInner}>
+            <Reveal>
+              <h2>Ready for your next take?</h2>
+              <p>Join 1,100+ musicians using Practapal to practice with purpose.</p>
+              <div className={styles.ctaActions}>
+                <Link to="/signup" className={styles.btnWhite}>Create free account →</Link>
+                <Link to="/login" className={styles.btnGhostLight}>Log in</Link>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+      </main>
+
+      {/* ── FOOTER ─────────────────────────────────────── */}
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>
-          <Link to="/" className={styles.navBrand} style={{ opacity: 0.6 }}>
-            <AnimatedLogo size={36} />
-            <Wordmark />
-          </Link>
-          <p className={styles.footerTagline}>Intelligent music performance analysis.</p>
-        </div>
-        <div className={styles.footerLinks}>
-          <Link to="/privacy" className={styles.footerLink}>Privacy</Link>
-          <Link to="/terms"   className={styles.footerLink}>Terms</Link>
-          <Link to="/contact" className={styles.footerLink}>Contact</Link>
-        </div>
-        <p className={styles.footerCopy}>© 2026 Mediant</p>
-      </footer>
-    </div>
-  )
-}
+        <div className={styles.footerInner}>
+          <div className={styles.footerBrand}>
+            <div className={styles.footerLogoRow}>
+              <span className={styles.footerLogoMark} aria-hidden="true" />
+              <span className={styles.footerWordmark}>Practapal</span>
+            </div>
+            <p className={styles.footerTagline}>AI music practice coaching for growing musicians.</p>
+            <p className={styles.footerCopy}>© 2026 Practapal. All rights reserved.</p>
+          </div>
 
-/* ── Icons (large, artistic) ── */
-function ScoreIcon() {
-  return (
-    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-    </svg>
-  )
-}
-function CoachIcon() {
-  return (
-    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  )
-}
-function ProgressIcon() {
-  return (
-    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-    </svg>
+          <div className={styles.footerCol}>
+            <p className={styles.footerColHead}>Product</p>
+            <a href="#how-it-works">How it works</a>
+            <a href="#features">Features</a>
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/login">Log in</Link>
+            <Link to="/signup">Sign up</Link>
+          </div>
+
+          <div className={styles.footerCol}>
+            <p className={styles.footerColHead}>Tools</p>
+            <Link to="/home">Dashboard</Link>
+            <Link to="/record">New Take</Link>
+            <Link to="/analysis">Analysis</Link>
+            <Link to="/progress">Progress</Link>
+            <Link to="/coach">AI Coach</Link>
+          </div>
+
+          <div className={styles.footerCol}>
+            <p className={styles.footerColHead}>Company</p>
+            <Link to="/contact">Contact</Link>
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
+
+    </div>
   )
 }

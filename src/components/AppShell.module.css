@@ -7,38 +7,38 @@
 }
 
 :global([data-theme="light"]) .shell {
-  --bg: #f8f6f2;
+  --bg: #FAF8F3;
   --bg-deep: #f1ede6;
-  --bg-card: #fffefa;
-  --bg-card-hover: #fbf8f2;
-  --text: #211d19;
-  --text-soft: #5f5953;
-  --text-muted: #777068;
-  --text-dim: #777068;
-  --text-faint: #777068;
-  --text-faintest: #aaa39b;
-  --nav-text: #5f5953;
-  --border: #e6e1d9;
-  --line: #ebe6de;
-  --surface-border: #e4dfd7;
-  --surface-hover: #f0ede7;
-  --surface-subtle: #f5f2ed;
-  --input-bg: #f3f1ed;
-  --input-border: #e5e0d8;
-  --dropdown-bg: #fffefa;
-  --accent: #bc9463;
-  --accent-dim: rgba(188, 148, 99, 0.16);
-  --accent-bg: #f2e9dc;
-  --accent-bg-hover: #ebddca;
-  --accent-border: rgba(188, 148, 99, 0.38);
-  --gold: #bc9463;
-  --hero-green: #bc9463;
-  --panel-green: #9d7749;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #f5f3ef;
+  --text: #2C2C2A;
+  --text-soft: #4a4a48;
+  --text-muted: #6B6A64;
+  --text-dim: #6B6A64;
+  --text-faint: #6B6A64;
+  --text-faintest: #a8a6a0;
+  --nav-text: #4a4a48;
+  --border: #E4E1D8;
+  --line: #E4E1D8;
+  --surface-border: #E4E1D8;
+  --surface-hover: rgba(21, 154, 134, 0.07);
+  --surface-subtle: #f5f3ef;
+  --input-bg: #f5f3ef;
+  --input-border: #E4E1D8;
+  --dropdown-bg: #FFFFFF;
+  --accent: #159A86;
+  --accent-dim: rgba(21, 154, 134, 0.12);
+  --accent-bg: rgba(21, 154, 134, 0.10);
+  --accent-bg-hover: rgba(21, 154, 134, 0.17);
+  --accent-border: rgba(21, 154, 134, 0.28);
+  --gold: #159A86;
+  --hero-green: #159A86;
+  --panel-green: #0C5C52;
   --mint: #4eaa78;
-  --coral: #cf3f3f;
-  --shadow-lg: 0 18px 45px rgba(48, 39, 29, 0.08);
-  --shadow-md: 0 10px 28px rgba(48, 39, 29, 0.07);
-  --shadow-sm: 0 3px 12px rgba(48, 39, 29, 0.05);
+  --coral: #EE7B53;
+  --shadow-lg: 0 18px 45px rgba(12, 92, 82, 0.08);
+  --shadow-md: 0 10px 28px rgba(12, 92, 82, 0.06);
+  --shadow-sm: 0 3px 12px rgba(12, 92, 82, 0.04);
 }
 
 @keyframes shellIn {
@@ -77,8 +77,8 @@
 }
 .sidebar::-webkit-scrollbar { display: none; }
 .sidebar:hover {
-  border-right-color: rgba(188, 148, 99, 0.24);
-  box-shadow: 18px 0 42px rgba(48, 39, 29, 0.08);
+  border-right-color: rgba(21, 154, 134, 0.22);
+  box-shadow: 18px 0 42px rgba(12, 92, 82, 0.07);
   width: 176px;
 }
 
@@ -103,13 +103,13 @@
 .sidebarLogoMark {
   align-items: center;
   background:
-    linear-gradient(135deg, rgba(255, 254, 250, 0.96), rgba(242, 233, 220, 0.72));
-  border: 1px solid rgba(33, 29, 25, 0.12);
+    linear-gradient(135deg, rgba(21, 154, 134, 0.12), rgba(12, 92, 82, 0.08));
+  border: 1px solid rgba(21, 154, 134, 0.2);
   border-radius: 9px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    0 6px 14px rgba(48, 39, 29, 0.08);
-  color: #211d19;
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 12px rgba(12, 92, 82, 0.08);
+  color: #0C5C52;
   display: inline-flex;
   flex: 0 0 34px;
   height: 34px;
@@ -124,19 +124,19 @@
 }
 
 .sidebarLogo:hover .sidebarLogoMark {
-  border-color: rgba(188, 148, 99, 0.34);
+  border-color: rgba(21, 154, 134, 0.38);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 8px 18px rgba(188, 148, 99, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(21, 154, 134, 0.14);
   transform: translateY(-1px);
 }
 
 .sidebarLogoText {
   color: var(--text);
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 1.02rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   max-width: 0;
   opacity: 0;
   overflow: hidden;
@@ -213,7 +213,7 @@
 
 .sidebarLogo:focus-visible,
 .navItem:focus-visible {
-  outline: 2px solid rgba(188, 148, 99, 0.48);
+  outline: 2px solid rgba(21, 154, 134, 0.5);
   outline-offset: -2px;
 }
 
@@ -383,10 +383,10 @@
   }
   .mobileRecordBtn {
     align-items: center;
-    background: var(--accent);
+    background: var(--coral);
     border: 3px solid var(--bg-card);
     border-radius: 50%;
-    box-shadow: 0 6px 16px rgba(184, 146, 42, 0.4);
+    box-shadow: 0 6px 16px rgba(238, 123, 83, 0.38);
     color: #fff;
     display: flex;
     height: 52px;
@@ -396,7 +396,7 @@
     width: 52px;
   }
   .mobileRecord:hover .mobileRecordBtn { filter: brightness(1.06); transform: translateY(-1px); }
-  .mobileRecordActive .mobileRecordBtn { box-shadow: 0 6px 22px rgba(184, 146, 42, 0.6); }
+  .mobileRecordActive .mobileRecordBtn { box-shadow: 0 6px 22px rgba(238, 123, 83, 0.55); }
   .mobileRecordLabel { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em; }
 
   /* ── Mobile top header ────────────────────────────────────── */
@@ -431,8 +431,9 @@
   }
   .mobileHeaderWordmark {
     color: var(--text);
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-    font-size: 1.2rem;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
     letter-spacing: -0.01em;
   }
   .mobileHeaderAvatar {

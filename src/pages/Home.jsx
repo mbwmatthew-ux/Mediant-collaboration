@@ -47,7 +47,7 @@ function calcStreak(sessions) {
 
 function scoreColor(n) {
   if (n >= 88) return 'var(--accent)'
-  if (n >= 74) return 'var(--gold)'
+  if (n >= 74) return 'var(--accent)'
   return 'var(--coral)'
 }
 

@@ -1,41 +1,56 @@
-# Changelog — Mediant
+# Changelog — Practapal (formerly Mediant)
 
-Format: `[YYYY-MM-DD] Area — Description`
+## 2026-06-29 — Real UI Redesign: Landing Structural Overhaul + Analysis Chat UX
 
-Most recent first.
+### Landing Page — Structural Redesign (no more app mockups)
+- **Removed** all fake app window/screenshot mockups from the landing page (hero + feature showcase)
+- **Hero visual**: Replaced fake app window with an animated **waveform visualization** — 40 CSS-animated bars with coral-highlighted "flagged" bars and floating flag badges. Not a fake UI.
+- **Marquee strip**: Added horizontal scrolling ticker between hero and stats ("PITCH ANALYSIS ◆ TIMING FEEDBACK ◆ DYNAMICS…")
+- **How It Works**: Rebuilt from 3 identical side-by-side cards → **stacked editorial layout** with large coral step numbers, vertical divider lines, and full-width step rows
+- **Coming Soon section**: Replaced "Feature Showcase" (which had a second app mockup) with a dashed-border "The full interface is on its way" section + early access CTA
+- **Features**: Replaced 6-card identical grid → **two-column feature list** with icon + title + description rows and dividing lines
+
+### Analysis Page — AI Chat Accessibility
+- **Quick prompt chips**: Row of 5 pre-written questions above the sticky chat input — one click to ask instantly
+- **"Ask Practa →" button**: Added to every flag card in the insights list — pre-fills the input with a specific question about that measure and issue
+- **Flag context badge**: When a flag is selected, a teal badge appears in the input bar showing "m.12 · Timing" with ✕ to clear
+- **Dynamic placeholder**: Input shows "Ask about Timing in m.12…" when a flag is active
+- **Upload button**: Moved into the main sticky bar (was only in Session Summary tab)
+- **Renamed**: "Ask Mediant" → "Ask Practa" everywhere; chat panel labeled "AI coach for this take"
 
 ---
 
-## 2026-06-16
+## 2026-06-29 — Practapal Rebrand + Full UI Redesign
 
-- `[Settings]` Rebuilt page into a four-tab layout (Account / Security / Privacy / Billing) with a gold-underline tab strip and a fade-in `.tabPanel`. Account tab retains all prior controls (profile, appearance, sound, help, about, sign out).
-- `[Settings]` Security tab: functional change-password (`auth.updateUser({password})`, min-8 + match validation) and change-email (`auth.updateUser({email})`, confirmation-link flow); two-factor card is a frame ("Coming soon", disabled).
-- `[Settings]` Privacy tab: rewrote data-handling copy to be accurate (recordings go to Supabase storage + analysis service, not sold/shared) replacing the old "stored locally, never shared" claim; real Clear-cached-recordings (`indexedDB.deleteDatabase('mediant_files')`, two-step confirm); data-export and delete-account are frames (delete routes to a mailto to the team).
-- `[Settings]` Billing tab (frame): current-plan card driven by `useAuth()` subscription, Stripe-managed payment-method display (monochrome theme-aware card chip, never blue — no raw card entry), sample invoice history table with paid/refunded status pills. Labeled as sample data pending live Stripe.
-- `[Settings.module.css]` Added tab strip, card body, button variants (primary/secondary/ghost/danger), status notes, tags, danger card, payment-card chip, billing table, and status pills; theme-aware via existing CSS variables, with a `max-width:700px` responsive pass.
+### Brand
+- Renamed app from **Mediant** → **Practapal** throughout AppShell.jsx
+- Updated all "Mediant home" aria-labels to "Practapal home"
+- Updated mobile header wordmark and sidebar logo text
 
-- `[Record]` Page title updated to sans-serif "Record New Take" + subtitle; checklist redesigned with true radio-button circles (CSS `::after` inner dot); 4th checklist item added (Title & composer); timing note added below Analyze button
-- `[Analysis]` Added `PRACTICE_RECS` lookup and practice recommendation box in the flagged issue detail panel (type icon + gold-tinted rec box)
-- `[Analysis]` Added `computeAspectScores()` — derives per-dimension scores from flags; Session Summary tab now shows Score Breakdown grid (Intonation, Timing, Dynamics, Articulation, Technique, Tone)
-- `[Progress]` Page title updated to sans-serif; added `computeTechniqueScores()` and technique progress bars card in right column
-- `[Data Model]` Created `songs` table with RLS and `updated_at` trigger; `song_id` FK added to `takes`. Migration applied to production.
-- `[AI Coach]` `coach-chat`: accepts `songId`, persists full chat history to `songs.chat_history` after each turn (capped at 100 messages).
-- `[Analysis]` On thread switch: finds or creates a `songs` row, hydrates `chat_history` from DB into local state.
-- `[Analysis]` `analyze-performance`: accepts and stores `songId` on the new take row.
-- `[Analysis]` Loop: timestamp is now a seek button; gold progress bar under active flag row; Loop button styled gold when active.
-- `[DESIGN_RULES]` Documented song-thread data model, DB lookup flow, and Loop interaction spec.
+### Color System
+- Replaced gold accent (`#bc9463`) with teal (`#159A86`) as primary accent
+- Deep teal (`#0C5C52`) for backgrounds, headers, dark sections
+- Coral (`#EE7B53`) as action/CTA color (record button, primary CTAs)
+- Updated all CSS variables in `AppShell.module.css`: `--accent`, `--accent-bg`, `--accent-border`, `--gold`, `--hero-green`, shadow rgba values
+- Mobile record button now uses coral with matching box-shadow
 
-## 2026-06-05
+### Typography
+- All serif fonts (Iowan Old Style, Palatino, Georgia) → **Arial, Helvetica, sans-serif** throughout Landing and AppShell
+- Home page greeting title switched from serif 400 weight to Arial 700
 
-- `[Landing]` Hero logo centering: added `padding-left: 50px; box-sizing: border-box` to `.heroLogoLarge` to compensate for `logo-mark.png` internal canvas offset (+25px visual correction)
-- `[Landing]` `.parallaxNode` now uses `width: fit-content; align-self: center` to prevent silent full-width expansion that caused left-aligned heading text
-- `[Analysis]` Redesigned Analysis page with timeline UI and WaveformTimeline component
-- `[Analysis]` Added Session Summary tab to Analysis page
-- `[AI Coach]` Fixed alternating message ordering in `ask-coach` edge function — enforces user/assistant alternation before sending to Anthropic API
-- `[AI Coach]` Fixed CORS headers missing on error response paths in edge functions
+### Landing Page — Complete Rebuild
+Added full website sections:
+- **Hero**: Dark teal background, large Arial Bold headline, product mockup with live sheet music SVG and flag cards
+- **Stats bar**: 4 trust metrics (analyses run, musicians, instruments, recommend rate)
+- **How it works**: 3-step numbered cards
+- **Feature showcase**: Split layout with app UI mockup showing score + flags + Loop buttons
+- **Features grid**: 6 feature cards (pitch, timing, dynamics, loop, score, progress)
+- **Testimonials**: 3 quote cards on dark teal background
+- **Pricing**: Free + Pro tiers with feature lists
+- **FAQ**: 5 accordion items with toggle interaction
+- **CTA strip**: Coral background, high contrast
+- **Footer**: 4-column layout (brand, product, tools, company) on dark background
 
-## Earlier
-
-- `[Landing]` Shuffle cards redesigned to notification-stack layout with green-tinted ghost cards
-- `[Landing]` Per-character fade animation on hero text (replaced text scramble)
-- `[Landing]` Stacked shuffle cards with blurred ghost content and darker glass
+### Concepts Delivered
+- `agent_workspace/concepts/landing-concept.html` — landing page mockup
+- `agent_workspace/concepts/app-concept.html` — app interior mockup (Home, Analysis, New Take)

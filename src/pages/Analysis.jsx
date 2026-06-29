@@ -13,6 +13,14 @@ import { playTick, playPop, playNav } from '../utils/sounds'
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
+const QUICK_PROMPTS = [
+  'What should I practice first?',
+  'Give me a drill for the hardest flag',
+  'How can I fix my timing?',
+  'What improved from my last take?',
+  'Explain the biggest issue in detail',
+]
+
 const TYPE_META = {
   technique:    { icon: '⊙', cls: 'iconGreen' },
   intonation:   { icon: '♯', cls: 'iconCoral' },
@@ -1565,6 +1573,18 @@ export default function Analysis({ demo: demoProp = false }) {
                                 </svg>
                                 {isThisLooping ? 'Stop' : 'Loop'}
                               </button>
+                              <button
+                                className={aStyles.insightAskBtn}
+                                title="Ask Practa about this flag"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const msg = `Explain the ${capitalize(f.type)} issue in measure ${f.measure} — "${f.title}". How do I fix it?`
+                                  setChatInput(msg)
+                                  document.getElementById('practa-chat-input')?.focus()
+                                }}
+                              >
+                                Ask Practa →
+                              </button>
                             </div>
                             {isThisLooping && (
                               <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', margin: '0 12px', borderRadius: 1, overflow: 'hidden' }}>
@@ -1644,10 +1664,11 @@ export default function Analysis({ demo: demoProp = false }) {
                   </div>
                 </div>
 
-                {/* Ask Mediant Chat history panel */}
+                {/* Ask Practa Chat history panel */}
                 <div className={aStyles.laneCard}>
                   <div className={aStyles.laneCardHeader}>
-                    <span className={aStyles.laneCardTitle}>Ask Mediant Discussion</span>
+                    <span className={aStyles.laneCardTitle}>Ask Practa</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-faint)', fontWeight: 500 }}>AI coach for this take</span>
                   </div>
                   <div className={aStyles.analysisChatMessages}>
                     {chatMessages.map((m, i) => (
@@ -1664,24 +1685,55 @@ export default function Analysis({ demo: demoProp = false }) {
               </div>
             </div>
 
-            {/* Pinned Ask Mediant bottom search bar */}
+            {/* Pinned Ask Practa bottom bar */}
             <div className={aStyles.stickyBottomBar}>
+              <div className={aStyles.stickyBarPrompts}>
+                {QUICK_PROMPTS.map(p => (
+                  <button
+                    key={p}
+                    className={aStyles.stickyPromptChip}
+                    onClick={() => sendMessage(p)}
+                    disabled={chatLoading}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
               <div className={aStyles.stickyBarInner}>
+                {activeFlagRaw && (
+                  <span className={aStyles.stickyBarFlagCtx} title={`Context: ${activeFlagRaw.title}`}>
+                    m.{activeFlagRaw.measure} · {capitalize(activeFlagRaw.type)}
+                    <button className={aStyles.stickyBarFlagCtxClear} onClick={() => setActiveFlag(null)}>✕</button>
+                  </span>
+                )}
                 <div className={aStyles.stickyBarLeft}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--gold)', marginRight: 8 }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
                     <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" />
                   </svg>
-                  <span className={aStyles.stickyBarLabel}>Ask Mediant</span>
+                  <span className={aStyles.stickyBarLabel}>Ask Practa</span>
                 </div>
                 <div className={aStyles.stickyBarDivider} />
                 <input
+                  id="practa-chat-input"
                   className={aStyles.stickyBarInput}
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                  placeholder="Ask a question about your performance or get personalized practice suggestions..."
+                  placeholder={activeFlagRaw ? `Ask about ${capitalize(activeFlagRaw.type)} in m.${activeFlagRaw.measure}…` : 'Ask anything about your performance…'}
                   disabled={chatLoading}
                 />
+                <button
+                  className={aStyles.stickyBarUploadBtn}
+                  onClick={triggerFileUpload}
+                  title="Upload follow-up take"
+                  disabled={chatLoading}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </button>
                 <button
                   className={aStyles.stickyBarSendBtn}
                   onClick={() => sendMessage()}
