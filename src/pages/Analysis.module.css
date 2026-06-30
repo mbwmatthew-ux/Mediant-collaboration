@@ -1912,7 +1912,7 @@
   background: rgba(38, 104, 103, 0.1);
   border: 1px solid rgba(38, 104, 103, 0.22);
   border-radius: 99px;
-  color: var(--accent);
+  color: var(--link);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -2437,7 +2437,7 @@
 }
 
 .practiceRecLabel {
-  color: var(--accent);
+  color: var(--link);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -3804,7 +3804,7 @@
 .stickyBarFlagCtxClear {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   cursor: pointer;
   font-size: 0.7rem;
   line-height: 1;

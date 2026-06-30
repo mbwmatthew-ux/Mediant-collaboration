@@ -215,7 +215,7 @@
 .viewAllBtn {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 600;

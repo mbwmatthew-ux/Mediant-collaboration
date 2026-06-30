@@ -269,13 +269,13 @@
 .continueCard:hover { background: var(--accent-bg-hover); border-color: var(--accent); }
 
 .continueCardLeft { display: flex; flex-direction: column; gap: 3px; }
-.continueEyebrow  { color: var(--accent); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+.continueEyebrow  { color: var(--link); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
 .continueName     { color: var(--text); font-size: 1rem; font-weight: 600; }
 .continueMeta     { color: var(--text-dim); font-size: 0.82rem; }
 .continueArrow    { color: var(--text-faintest); font-size: 1.2rem; flex-shrink: 0; }
 
 .accentLabel {
-  color: var(--accent);
+  color: var(--link);
   font-size: 0.69rem;
   letter-spacing: 0.12em;
   margin: 0 0 3px;

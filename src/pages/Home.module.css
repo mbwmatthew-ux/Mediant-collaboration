@@ -154,7 +154,7 @@
 .viewAllBtn {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 600;
@@ -257,7 +257,7 @@
 .inlineLink {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--link);
   cursor: pointer;
   font-size: inherit;
   padding: 0;
@@ -411,10 +411,10 @@
 
 .recordBtn {
   align-items: center;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
+  background: var(--btn2-bg);
+  border: 1px solid var(--btn2-border);
   border-radius: 7px;
-  color: var(--text-soft);
+  color: var(--btn2-text);
   cursor: pointer;
   display: flex;
   font-size: 0.81rem;
@@ -425,7 +425,7 @@
   transition: background 130ms ease, color 130ms ease;
   width: 100%;
 }
-.recordBtn:hover { background: var(--accent-bg); color: var(--accent); }
+.recordBtn:hover { background: var(--btn2-bg-hover); color: var(--btn2-text-hover); }
 
 /* ── Trend list ──────────────────────────────────────────── */
 .trendList {
@@ -461,7 +461,7 @@
 
 .focusCardLabel {
   align-items: center;
-  color: var(--accent);
+  color: var(--link);
   display: flex;
   font-size: 0.68rem;
   font-weight: 700;
