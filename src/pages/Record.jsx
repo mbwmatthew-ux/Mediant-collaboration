@@ -78,6 +78,13 @@ export default function Record() {
 
   const readyToAnalyze = Boolean(scoreFile && file && instrument)
 
+  // The technical fields (tempo, key, measures…) are collapsed by default so the
+  // form stays simple. They auto-fill from the sheet music and are all optional.
+  const [showMore, setShowMore] = useState(false)
+  const hasExtraDetails = Boolean(
+    part || tempo || keySignature || startMeasure || endMeasure || (timeSig && timeSig !== '4/4')
+  )
+
   // Pre-fill from library "Start Recording" click
   useEffect(() => {
     async function applyPrefill() {
@@ -653,103 +660,25 @@ export default function Record() {
 
           {/* Performance details */}
           <div className={styles.section}>
-            <p className={styles.sectionTitle} style={{ marginBottom: 16 }}>Performance details</p>
+            <p className={styles.sectionTitle} style={{ marginBottom: 16 }}>A few details</p>
 
-            <div className={styles.formGrid}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Instrument <span className={styles.requiredDot}>required</span></label>
-                <select
-                  className={styles.formSelect}
-                  value={instrument}
-                  onChange={e => setInstrument(e.target.value)}
-                >
-                  <option value="" disabled>Select instrument…</option>
-                  {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Movement / part <span className={styles.formOptional}>(optional)</span>
-                </label>
-                <input
-                  className={styles.formInput}
-                  value={part}
-                  onChange={e => setPart(e.target.value)}
-                  placeholder="e.g. III. Passepied"
-                />
-              </div>
+            {/* The one required detail */}
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Instrument <span className={styles.requiredDot}>required</span></label>
+              <select
+                className={styles.formSelect}
+                value={instrument}
+                onChange={e => setInstrument(e.target.value)}
+              >
+                <option value="" disabled>Select instrument…</option>
+                {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
             </div>
 
-            <div className={styles.formGridWide} style={{ marginTop: 14 }}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Time signature</label>
-                <input
-                  className={styles.formInput}
-                  value={timeSig}
-                  onChange={e => setTimeSig(e.target.value)}
-                  placeholder="4/4"
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Tempo (BPM)
-                  {tempo && <span className={styles.ocrBadge}>Auto-detected</span>}
-                </label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  max="400"
-                  value={tempo}
-                  onChange={e => setTempo(e.target.value)}
-                  placeholder="e.g. 56"
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Key</label>
-                <input
-                  className={styles.formInput}
-                  value={keySignature}
-                  onChange={e => setKeySignature(e.target.value)}
-                  placeholder="e.g. D minor, B♭ major"
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Starting measure</label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  value={startMeasure}
-                  onChange={e => setStartMeasure(e.target.value)}
-                  placeholder="1"
-                />
-              </div>
-            </div>
-
-            <div className={styles.formGrid} style={{ marginTop: 14 }}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Ending measure <span className={styles.formOptional}>(optional)</span>
-                </label>
-                <input
-                  className={styles.formInput}
-                  type="number"
-                  min="1"
-                  value={endMeasure}
-                  onChange={e => setEndMeasure(e.target.value)}
-                  placeholder="auto"
-                />
-                <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
-                  Last measure played. Prevents false flags beyond your excerpt.
-                </span>
-              </div>
-            </div>
-
-            {/* Notes for the AI */}
+            {/* Notes for the AI — optional, but the most useful extra context */}
             <div className={styles.formGroup} style={{ marginTop: 18 }}>
               <label className={styles.formLabel}>
-                Notes for the AI <span className={styles.formOptional}>(optional)</span>
+                Anything the AI should know? <span className={styles.formOptional}>(optional)</span>
               </label>
               <textarea
                 className={styles.formTextarea}
@@ -757,7 +686,7 @@ export default function Record() {
                 onChange={e => setNotes(e.target.value)}
                 maxLength={800}
                 rows={3}
-                placeholder="Context that helps the AI understand this recording - e.g. sight-reading, my piano runs a bit flat, recorded on my phone in a small room."
+                placeholder="e.g. sight-reading, my piano runs a bit flat, recorded on my phone in a small room."
               />
               <div className={styles.noteChips}>
                 {NOTE_CHIPS.map(c => (
@@ -809,6 +738,108 @@ export default function Record() {
                 )}
               </div>
             </div>
+
+            {/* Everything else is optional and auto-fills from the sheet music —
+                tucked away so the form isn't overwhelming. */}
+            <button
+              type="button"
+              className={styles.moreToggle}
+              onClick={() => setShowMore(s => !s)}
+              aria-expanded={showMore}
+            >
+              <span className={styles.moreToggleText}>
+                {showMore ? 'Hide extra details' : 'Add extra details'}
+              </span>
+              <span className={styles.moreToggleHint}>
+                {hasExtraDetails && !showMore ? 'Some details auto-filled' : 'Movement · tempo · key · measures'}
+              </span>
+              <svg
+                className={`${styles.moreToggleChevron} ${showMore ? styles.moreToggleChevronOpen : ''}`}
+                width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {showMore && (
+              <div className={styles.moreFields}>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Movement / part <span className={styles.formOptional}>(optional)</span>
+                    </label>
+                    <input
+                      className={styles.formInput}
+                      value={part}
+                      onChange={e => setPart(e.target.value)}
+                      placeholder="e.g. III. Passepied"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Time signature</label>
+                    <input
+                      className={styles.formInput}
+                      value={timeSig}
+                      onChange={e => setTimeSig(e.target.value)}
+                      placeholder="4/4"
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formGridWide} style={{ marginTop: 14 }}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Tempo (BPM)
+                      {tempo && <span className={styles.ocrBadge}>Auto</span>}
+                    </label>
+                    <input
+                      className={styles.formInput}
+                      type="number"
+                      min="1"
+                      max="400"
+                      value={tempo}
+                      onChange={e => setTempo(e.target.value)}
+                      placeholder="e.g. 56"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Key</label>
+                    <input
+                      className={styles.formInput}
+                      value={keySignature}
+                      onChange={e => setKeySignature(e.target.value)}
+                      placeholder="e.g. D minor"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Starting measure</label>
+                    <input
+                      className={styles.formInput}
+                      type="number"
+                      min="1"
+                      value={startMeasure}
+                      onChange={e => setStartMeasure(e.target.value)}
+                      placeholder="1"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Ending measure</label>
+                    <input
+                      className={styles.formInput}
+                      type="number"
+                      min="1"
+                      value={endMeasure}
+                      onChange={e => setEndMeasure(e.target.value)}
+                      placeholder="auto"
+                    />
+                  </div>
+                </div>
+                <span className={styles.formOptional} style={{ marginTop: 8, display: 'block' }}>
+                  Setting the ending measure prevents false flags beyond the part you played.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -835,13 +866,6 @@ export default function Record() {
                   <p className={styles.checkItemSub}>{file ? file.name : 'No recording uploaded'}</p>
                 </div>
               </div>
-              <div className={`${styles.checkItem} ${pieceTitle ? styles.checkItemDone : ''}`}>
-                <span className={styles.checkDot} />
-                <div>
-                  <p className={styles.checkItemLabel}>Title & composer</p>
-                  <p className={styles.checkItemSub}>{pieceTitle || 'Not filled in'}</p>
-                </div>
-              </div>
               <div className={`${styles.checkItem} ${instrument ? styles.checkItemDone : ''}`}>
                 <span className={styles.checkDot} />
                 <div>
@@ -862,13 +886,8 @@ export default function Record() {
           </div>
 
           <div className={styles.captureCard}>
-            <p className={styles.captureCardLabel}>What Mediant sees</p>
-            <p className={styles.captureCardText}>Sheet music · Measure structure · Notation</p>
-          </div>
-
-          <div className={styles.captureCard}>
-            <p className={styles.captureCardLabel}>What Mediant listens for</p>
-            <p className={styles.captureCardText}>Timing · Dynamics · Articulation · Intonation</p>
+            <p className={styles.captureCardLabel}>What Mediant analyzes</p>
+            <p className={styles.captureCardText}>Timing · Dynamics · Articulation · Intonation · Notation</p>
           </div>
         </div>
       </div>

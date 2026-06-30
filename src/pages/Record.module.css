@@ -318,6 +318,50 @@
   text-align: center;
 }
 
+/* ── "Add extra details" disclosure ───────────────────────────── */
+.moreToggle {
+  align-items: center;
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 11px 14px;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+  width: 100%;
+}
+.moreToggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-border);
+}
+
+.moreToggleText {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.moreToggleHint {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  margin-left: auto;
+}
+
+.moreToggleChevron {
+  color: var(--text-faint);
+  flex-shrink: 0;
+  transition: transform 180ms ease;
+}
+.moreToggleChevronOpen { transform: rotate(180deg); }
+
+.moreFields {
+  margin-top: 4px;
+}
+
 /* ── Error banner ─────────────────────────────────────────────── */
 .errorBanner {
   background: rgba(192, 83, 74, 0.06);
@@ -592,6 +636,10 @@
   .analyzeBtn { padding: 16px 20px; }
   .checkItem { padding: 14px 18px; }
   .errorRetry { min-height: 44px; padding: 8px 16px; }
+
+  /* Keep the disclosure row uncluttered on small screens */
+  .moreToggleHint { display: none; }
+  .moreToggle { min-height: 44px; }
 }
 
 @media (max-width: 460px) {

@@ -55,9 +55,13 @@ export default function Coach() {
   useEffect(() => { takeRef.current = take }, [take])
 
   useEffect(() => {
+    // /coach is auth-gated, so there is normally a user. If somehow there isn't,
+    // skip the load rather than fetch a global (someone else's) take.
+    if (!user?.id) return
     supabase
       .from('takes')
       .select('id, piece_title, piece_composer, instrument, score, flags, chat_history')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -75,7 +79,7 @@ export default function Coach() {
           if (stored) setTake(JSON.parse(stored))
         } catch {}
       })
-  }, [])
+  }, [user?.id])
 
   const isStreaming = streamingText !== null
 

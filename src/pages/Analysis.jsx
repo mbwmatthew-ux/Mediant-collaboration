@@ -373,7 +373,10 @@ export default function Analysis({ demo: demoProp = false }) {
 
   // Threads & database takes state
   const [allTakes, setAllTakes] = useState([])
-  const [activeThreadTitle, setActiveThreadTitle] = useState('Procession of the Nobles')
+  const [takesLoaded, setTakesLoaded] = useState(false)
+  // Real users start with no thread selected (it resolves to their first real
+  // session once takes load); the public demo keeps the sample piece selected.
+  const [activeThreadTitle, setActiveThreadTitle] = useState(isDemo ? 'Procession of the Nobles' : '')
   const [selectedTakeId, setSelectedTakeId] = useState(null)
 
   const [showThreadMenu, setShowThreadMenu] = useState(null) // piece_title of thread with open menu
@@ -434,8 +437,10 @@ export default function Analysis({ demo: demoProp = false }) {
       } catch {
         setAllTakes([])
       }
+      setTakesLoaded(true)
       return
     }
+    setTakesLoaded(false)
     supabase
       .from('takes')
       .select('id, piece_title, piece_composer, instrument, score, flags, analysis_quality, analysis_backend, video_path, score_path, note, created_at')
@@ -445,6 +450,7 @@ export default function Analysis({ demo: demoProp = false }) {
         if (!error && data) {
           setAllTakes(data)
         }
+        setTakesLoaded(true)
       })
   }, [user?.id])
 
@@ -546,6 +552,12 @@ export default function Analysis({ demo: demoProp = false }) {
       groups[title].takes.push(t)
     })
 
+    // Real, signed-in users see only their own sessions. The sample sessions
+    // below are seeded ONLY on the public /demo route — never blended into a
+    // real account's library (that's what made another player's clarinet
+    // session show up for a trumpet player).
+    if (!isDemo) return Object.values(groups)
+
     // Premium demo mock fallbacks
     const mockData = [
       {
@@ -612,7 +624,7 @@ export default function Analysis({ demo: demoProp = false }) {
     })
 
     return Object.values(groups)
-  }, [allTakes])
+  }, [allTakes, isDemo])
 
   // Handle active thread and selected take resolution
   const activeThread = useMemo(() => {
@@ -629,6 +641,15 @@ export default function Analysis({ demo: demoProp = false }) {
     }
     return takesForActiveThread[0]
   }, [takesForActiveThread, selectedTakeId])
+
+  // Keep the active thread valid. If the current selection isn't among the
+  // available threads (e.g. a real user whose demo defaults are no longer
+  // injected, or after deleting the last take), fall back to the newest thread.
+  useEffect(() => {
+    if (threads.length > 0 && !threads.some(t => t.piece_title === activeThreadTitle)) {
+      setActiveThreadTitle(threads[0].piece_title)
+    }
+  }, [threads, activeThreadTitle])
 
   // Load the active take's saved AI-context note into the editor
   useEffect(() => {
@@ -1398,6 +1419,41 @@ export default function Analysis({ demo: demoProp = false }) {
     const maxMeasure = Math.max(...flags.map(f => f.measure ?? 0), 30)
     return flags.map(f => Math.round(((f.measure ?? 1) / maxMeasure) * (HEADER_WAVE_BARS.length - 1)))
   }, [take?.flags])
+
+  // Real user with no recordings yet — show a friendly empty state instead of
+  // the full analysis UI populated with placeholder numbers.
+  if (!isDemo && takesLoaded && threads.length === 0) {
+    return (
+      <div className={aStyles.pageShell}>
+        <main className={aStyles.mainPageContent}>
+          <div className={aStyles.analysisPageHeader}>
+            <div className={aStyles.analysisPageHeaderLeft}>
+              <h1 className={aStyles.analysisPageTitle}>Sessions</h1>
+              <p className={aStyles.analysisPageSubtitle}>Your analyzed performances will show up here.</p>
+            </div>
+          </div>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+            gap: 14, padding: '64px 24px', margin: '8px auto 0', maxWidth: 460,
+          }}>
+            <div style={{
+              fontSize: 38, lineHeight: 1, width: 84, height: 84, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg-card, rgba(255,255,255,0.04))', color: 'var(--accent)',
+              border: '1px solid var(--border, rgba(255,255,255,0.08))',
+            }}>♪</div>
+            <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text)' }}>No sessions yet</h2>
+            <p style={{ margin: 0, color: 'var(--text-soft)', lineHeight: 1.5 }}>
+              Record your first take and Mediant will break down your timing, dynamics, and intonation right here.
+            </p>
+            <button className={aStyles.analysisNewSessionBtn} style={{ marginTop: 8 }} onClick={() => nav('/record')}>
+              Record your first take →
+            </button>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   const scoreAreaContent = (
     <div className={`${styles.scoreArea} ${aStyles.scoreAreaPolish} ${isImageScore ? `${styles.scoreAreaImage} ${aStyles.scoreAreaImagePolish}` : ''}`}>
