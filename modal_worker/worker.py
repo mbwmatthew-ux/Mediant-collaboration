@@ -1192,6 +1192,39 @@ def _instrument_guidance(instrument: str) -> str:
     return "Flag all audible errors: wrong notes, intonation drift, tone issues, and rhythmic problems."
 
 
+def _technique_visual_guidance(instrument: str) -> str:
+    """Per-instrument visual technique prompts for Gemini's video observation."""
+    i = instrument.lower()
+    if any(x in i for x in ("violin", "viola")):
+        return (f"For {instrument}: observe bow contact point (is it between bridge and fingerboard, or sliding to sul tasto?), "
+                "bow direction (tilting toward bridge or fingerboard?), bow distribution (hogging upper or lower half?), "
+                "bow speed (too slow/choppy causing scratches?), left hand thumb position (squeezing the neck?), "
+                "wrist collapse on either hand, and shoulder/chin rest setup causing tension.")
+    if any(x in i for x in ("cello",)):
+        return ("For cello: observe bow contact point, bow arm path (should travel parallel to the bridge), "
+                "left thumb behind the neck (not squeezing), wrist angle in thumb position, and seat posture (instrument angle).")
+    if any(x in i for x in ("double bass", "bass")):
+        return ("For double bass: observe bow contact point near the bridge, standing posture and instrument angle, "
+                "left hand thumb release in upper positions, and bow arm path.")
+    if any(x in i for x in ("piano", "keyboard")):
+        return ("For piano: observe finger curvature (curved vs. flat fingers), wrist height (collapsing below keys?), "
+                "arm weight into keys vs. arm tension, pedal foot position, and overall bench height and distance.")
+    if any(x in i for x in ("clarinet", "saxophone", "oboe", "bassoon")):
+        return (f"For {instrument}: observe instrument angle relative to body, embouchure shape if visible, "
+                "finger position over keys (hovering close vs. far), and general posture (shoulders hunched?).")
+    if any(x in i for x in ("flute",)):
+        return ("For flute: observe head position (tilting down to see keys?), embouchure plate angle, "
+                "finger spacing over keys, and any visible tension in the right wrist or arm.")
+    if any(x in i for x in ("trumpet", "trombone", "french horn", "tuba", "horn")):
+        return (f"For {instrument} (brass): observe embouchure angle and pressure, posture (slumped vs. upright), "
+                "breath support posture (diaphragm engagement visible?), and slide/valve hand position.")
+    if any(x in i for x in ("voice", "soprano", "alto", "tenor", "bass")):
+        return ("For voice: observe posture (chin jutting forward, shoulders raised?), jaw tension, "
+                "visible breath support (stomach vs. chest breathing), and general tension in neck/throat.")
+    return ("Observe general posture: slouching, raised shoulders, excessive tension in arms or hands, "
+            "and any visible mechanical issues with how the instrument is being held or operated.")
+
+
 def evaluate_with_gemini(
     file_uri: str, mime_type: str,
     instrument: str, piece_title: str, composer: str,
@@ -1206,30 +1239,35 @@ def evaluate_with_gemini(
     import httpx
     end_info = f" through measure {end_measure}" if end_measure else ""
     instrument_guidance = _instrument_guidance(instrument)
+    technique_guidance  = _technique_visual_guidance(instrument)
     note_block = (
-        f'\nSTUDENT NOTE about this recording (subjective context — always prioritize what you actually HEAR over this; '
+        f'\nSTUDENT NOTE about this recording (subjective context — always prioritize what you actually HEAR/SEE over this; '
         f'use it only to interpret ambiguous moments, never to invent or excuse audible problems): "{user_note}"\n'
         if user_note else ""
     )
-    prompt = f"""AUDIO ANALYSIS TASK. You are listening to a student's recording of "{piece_title}" by {composer} on {instrument}, starting at measure {start_measure}{end_info}.
+    prompt = f"""PERFORMANCE ANALYSIS TASK. You are analyzing a student's recording of "{piece_title}" by {composer} on {instrument}, starting at measure {start_measure}{end_info}.
 
-Your ONLY job is to LISTEN. Report exactly what you HEAR — not what you see.
+You have access to BOTH the audio AND the video. Listen carefully to the sound for categories 1–5. Observe the player visually for categories 6–7.
 
 {instrument_guidance}
 {note_block}
-MANDATORY — address all five categories. Do not skip any:
+MANDATORY — address all seven categories. Do not skip any:
 
-1. INTONATION: Every passage where pitch is audibly flat or sharp. Give timestamp, direction (flat/sharp), and magnitude. If clean, say so.
+1. INTONATION (listen): Every passage where pitch is audibly flat or sharp. Give timestamp, direction (flat/sharp), and magnitude. If clean, say so.
 
-2. TIMING / RHYTHM: Rushing, dragging, uneven spacing, hesitations, beat instability. Give timestamps. If solid, say so.
+2. TIMING / RHYTHM (listen): Rushing, dragging, uneven spacing, hesitations, beat instability. Give timestamps. If solid, say so.
 
-3. WRONG NOTES / CRACKS: Any pitch that doesn't belong, squeaks, tone breaks. Name the note heard if possible.
+3. WRONG NOTES / CRACKS (listen): Any pitch that doesn't belong, squeaks, tone breaks. Name the note heard if possible.
 
-4. DYNAMICS: Where the student ignores or fails dynamic markings. Is forte actually forte? Does piano recede?
+4. DYNAMICS (listen): Where the student ignores or fails dynamic markings. Is forte actually forte? Does piano recede?
 
-5. TONE QUALITY: Breathy, unfocused, over-pressured, or inconsistent tone. When and where?
+5. TONE QUALITY (listen): Breathy, unfocused, over-pressured, or inconsistent tone. When and where?
 
-Be specific — name timestamps (e.g. "0:08"), direction (sharp/flat), magnitude (slightly / roughly a quarter tone). Vague observations like "intonation issues present" are not useful.
+6. POSTURE (visual): Observe head/neck alignment, shoulder tension, overall body posture, and how the instrument is supported. If the player is not visible in the frame, write "not visible".
+
+7. TECHNIQUE (visual): {technique_guidance} If not clearly observable from this camera angle, write "not visible".
+
+Be specific — name timestamps (e.g. "0:08"), direction (sharp/flat), magnitude (slightly / roughly a quarter tone). Vague observations are not useful.
 
 Return JSON only (no markdown fences):
 {{
@@ -1238,6 +1276,8 @@ Return JSON only (no markdown fences):
   "wrong_notes_cracks": ["<timestamp>: <what was heard vs. expected>"],
   "dynamics_issues": ["<timestamp>: <marking expected vs. what was played>"],
   "tone_issues": ["<timestamp>: <specific description>"],
+  "posture_issues": ["<specific observation with timestamp if relevant>"],
+  "technique_issues": ["<specific observation with timestamp if relevant>"],
   "overall": "<one sentence: the single most important thing to fix>"
 }}"""
 
@@ -1275,13 +1315,19 @@ Return JSON only (no markdown fences):
                 print(f"[evaluate_with_gemini] {last_error}: {text[:200]}")
                 continue
             print(f"[evaluate_with_gemini] success via {model} | overall: {str(parsed.get('overall', ''))[:120]}")
+            # Filter out "not visible" placeholders from visual categories
+            def _vis(items) -> list:
+                if not items:
+                    return []
+                return [x for x in items if "not visible" not in str(x).lower()]
             return {
                 "intonation_issues":   parsed.get("intonation_issues", []),
                 "rhythm_issues":       parsed.get("rhythm_issues", []),
                 "wrong_notes_cracks":  parsed.get("wrong_notes_cracks", []),
                 "dynamics_issues":     parsed.get("dynamics_issues", []),
                 "tone_issues":         parsed.get("tone_issues", []),
-                "technique_issues":    parsed.get("technique_issues", []),  # legacy compat
+                "posture_issues":      _vis(parsed.get("posture_issues", [])),
+                "technique_issues":    _vis(parsed.get("technique_issues", [])),
                 "overall":             parsed.get("overall", ""),
             }
         except RuntimeError:
@@ -1423,18 +1469,87 @@ def anchor_and_align_py(
 
 def build_gemini_block(assessment: dict) -> str:
     def fmt(items: list) -> str:
-        return " | ".join(items) if items else "None reported."
+        if not items:
+            return "None reported."
+        return " | ".join(str(x) for x in items)
+    posture   = fmt(assessment.get("posture_issues", []))
+    technique = fmt(assessment.get("technique_issues", []))
     lines = [
-        "GEMINI AUDIO ANALYSIS (Gemini listened to the full recording — treat as primary evidence):",
+        "GEMINI ANALYSIS (Gemini analyzed the full recording — audio AND video — treat as primary evidence):",
         f"- Intonation: {fmt(assessment.get('intonation_issues', []))}",
         f"- Rhythm/Timing: {fmt(assessment.get('rhythm_issues', []))}",
         f"- Wrong notes / cracks: {fmt(assessment.get('wrong_notes_cracks', []))}",
         f"- Dynamics: {fmt(assessment.get('dynamics_issues', []))}",
         f"- Tone quality: {fmt(assessment.get('tone_issues', []))}",
+        f"- Posture (visual): {posture}",
+        f"- Technique (visual): {technique}",
         f"- Overall: {assessment.get('overall') or 'No overall note.'}",
-        "Your flags MUST be grounded in this audio evidence. Do not invent issues not mentioned above.",
+        "Your flags MUST be grounded in this evidence. Do not invent issues not observed above.",
     ]
     return "\n".join(lines)
+
+
+def find_wrong_note_candidates(
+    aligned: list[dict],
+    score: dict,
+) -> list[str]:
+    """
+    Direct CREPE-vs-score comparison to surface wrong note candidates.
+
+    For each aligned audio event, compute the distance (in semitones) to the
+    nearest expected note in that measure. Events that are ≥2 semitones from
+    every expected note — and not explained by octave transposition — are
+    flagged as wrong note candidates and formatted as evidence strings for
+    the Claude coaching prompt.
+    """
+    if not aligned or not score.get("measures"):
+        return []
+
+    # Build map: measure_number → list of expected MIDI pitches
+    score_by_measure: dict[int, list[int]] = {}
+    for m in score["measures"]:
+        midis = []
+        for n in m.get("notes", []):
+            midi = midi_from_name(n.get("pitch", ""))
+            if midi is not None:
+                midis.append(midi)
+        if midis:
+            score_by_measure[m["number"]] = midis
+
+    if not score_by_measure:
+        return []
+
+    # Track one candidate per measure (highest confidence)
+    best: dict[int, tuple[int, str]] = {}  # measure → (confidence, evidence_string)
+    for ev in aligned:
+        m_num   = ev.get("measure")
+        ev_midi = ev.get("midi")
+        ev_conf = ev.get("confidence", 0)
+        if m_num is None or ev_midi is None or ev_conf < 50:
+            continue
+        expected = score_by_measure.get(m_num)
+        if not expected:
+            continue
+
+        raw_dists   = [abs(ev_midi - e) for e in expected]
+        octave_adj  = [max(0, d - 12) + 3 for d in raw_dists]  # octave confusion costs +3
+        min_dist    = min(raw_dists)
+        min_adj     = min(min(raw_dists), min(octave_adj))
+
+        if min_dist >= 2 and min_adj >= 2:
+            nearest = min(expected, key=lambda e: abs(ev_midi - e))
+            desc = (
+                f"wrong_note | measure {m_num} | "
+                f"CREPE detected {midi_to_scientific(ev_midi)} ({ev.get('pitch_hz', 0):.0f} Hz, conf={ev_conf}%), "
+                f"closest expected {midi_to_scientific(nearest)} ({min_dist} semitones away) "
+                f"at t={ev['time_sec']:.2f}s"
+            )
+            prev = best.get(m_num)
+            if prev is None or ev_conf > prev[0]:
+                best[m_num] = (ev_conf, desc)
+
+    candidates = [v[1] for v in sorted(best.values(), key=lambda x: -x[0])]
+    return candidates[:6]
 
 
 def compare_and_coach_claude(
@@ -1444,8 +1559,11 @@ def compare_and_coach_claude(
     user_note: str = "",
 ) -> list[dict]:
     import anthropic as ac, re
-    CLAUDE_MODEL = "claude-haiku-4-5-20251001"
-    allowed_types = {"intonation", "timing", "rhythm", "articulation", "dynamics", "voicing", "phrasing", "tone", "error"}
+    CLAUDE_MODEL = "claude-sonnet-4-6"
+    allowed_types = {
+        "intonation", "timing", "rhythm", "articulation", "dynamics",
+        "voicing", "phrasing", "tone", "error", "posture", "technique",
+    }
     events_by_measure: dict[int, list] = {}
     for ev in aligned:
         events_by_measure.setdefault(ev["measure"], []).append(ev)
@@ -1481,15 +1599,19 @@ def compare_and_coach_claude(
                         f"timing | measure {m['number']} near beat {beat} | {gap:.2f}s gap after {'/'.join(events[i]['pitches'])} at {events[i]['time_sec']:.2f}s"
                     )
     strongest = evidence_candidates[:8]
-    crepe_has_data = bool(strongest)
+
+    # Add direct CREPE-vs-score wrong note candidates
+    wrong_note_candidates = find_wrong_note_candidates(aligned, score)
+
+    crepe_has_data = bool(strongest or wrong_note_candidates)
     # Gemini is always present — check if it found anything across all categories
     has_gemini_data = bool(any(
         gemini_assessment.get(k) for k in (
             "intonation_issues", "rhythm_issues", "wrong_notes_cracks",
-            "dynamics_issues", "tone_issues", "technique_issues",
+            "dynamics_issues", "tone_issues", "posture_issues", "technique_issues",
         )
     ))
-    if not strongest and not has_gemini_data:
+    if not strongest and not wrong_note_candidates and not has_gemini_data:
         print("[compare_and_coach_claude] no evidence from CREPE or Gemini; returning no flags")
         return []
 
@@ -1524,12 +1646,14 @@ def compare_and_coach_claude(
             heard_parts.append(f"{'/'.join(ev['pitches'])}{cents_str} @ +{ev['time_sec'] - m_start:.2f}s{loudness}")
         heard = ", ".join(heard_parts) if heard_parts else "(no events)"
         measure_blocks.append(f"Measure {m['number']}:\n  WRITTEN: {written}\n  HEARD:   {heard}")
-    cand_block = (
-        f"MEASURABLE ISSUE CANDIDATES:\n" + "\n".join(f"{i+1}. {e}" for i, e in enumerate(strongest))
-        if crepe_has_data else
-        "MEASURABLE ISSUE CANDIDATES: (pitch analysis did not produce specific candidates — rely on direct listening below)"
-    )
-    prompt = f"""You are a master {instrument} teacher giving feedback to a student on "{piece_title}" by {composer}.
+    all_candidates = strongest + wrong_note_candidates
+    if all_candidates:
+        cand_block = "MEASURABLE ISSUE CANDIDATES (from CREPE pitch analysis):\n" + "\n".join(
+            f"{i+1}. {e}" for i, e in enumerate(all_candidates)
+        )
+    else:
+        cand_block = "MEASURABLE ISSUE CANDIDATES: (pitch analysis did not produce specific candidates — rely on Gemini evidence below)"
+    prompt = f"""You are a master {instrument} teacher giving targeted, evidence-based feedback on "{piece_title}" by {composer}.
 
 {chr(10).join(measure_blocks)}
 
@@ -1537,22 +1661,33 @@ def compare_and_coach_claude(
 
 Tempo: {tempo.get('bpm', '?')} BPM. Key: {score.get('key_signature', '?')}. Time signature: {score.get('time_signature', '?')}.
 {gemini_block}
-{f'STUDENT NOTE (subjective context — prioritize the audio evidence above over this; use it only to interpret ambiguous moments, never to invent or excuse issues): "{user_note}"' if user_note else ''}
+{f'STUDENT NOTE (subjective context — prioritize the evidence above; use only to interpret ambiguous moments, never to invent or excuse issues): "{user_note}"' if user_note else ''}
 
-YOUR TASK: Identify 3–6 issues grounded in the Gemini audio evidence above. Priority: direct listening observations first, then CREPE intonation candidates, then pitch mismatches, then rhythm.
+YOUR TASK: Identify 4–8 specific, actionable issues grounded in the Gemini evidence above.
+
+PRIORITY ORDER (most important first):
+1. Wrong notes / pitch errors / tone cracks — flag every confirmed one ("error" type)
+2. Intonation with specific direction: sharp or flat, magnitude, which note or passage ("intonation" type)
+3. Posture problems if Gemini observed them visually ("posture" type)
+4. Technique issues if Gemini observed them visually ("technique" type)
+5. Rhythm/timing, dynamics, articulation, tone, phrasing
 
 HARD RULES:
 - Every "measure" field MUST be one of: [{', '.join(str(m) for m in valid_list)}].
 - Do NOT flag rests, silence, missing notes, or coverage gaps.
 - For "intonation" flags: raw_detail MUST cite cents ("+22¢") OR a timestamp (e.g. "0:08") OR a measure reference (e.g. "m.5").
-- "type" must be exactly one of: intonation, timing, rhythm, articulation, dynamics, tone, error, voicing, phrasing.
-  - Use "error" for wrong notes, squeaks, cracks, or tone breaks.
-  - Use "tone" for breathy, unfocused, or over-pressured tone quality issues.
-  - Use "dynamics" for missed dynamic markings (too loud, too soft).
-  - Use "articulation" for staccato/tenuto/accent execution issues.
-  - Use "phrasing" for musical shape, line, or expression issues.
-- Do NOT make up issues not supported by the Gemini audio evidence.
-- If the recording sounds clean in a category, do not flag it.
+- "type" must be exactly one of: intonation, timing, rhythm, articulation, dynamics, tone, error, voicing, phrasing, posture, technique.
+  - "error" → wrong notes, squeaks, cracks, or any pitch that doesn't belong
+  - "intonation" → audibly flat or sharp pitch (not a wrong note, just out of tune)
+  - "tone" → breathy, unfocused, or over-pressured sound quality
+  - "dynamics" → missed dynamic markings (too loud, too soft)
+  - "articulation" → staccato/tenuto/accent execution failures
+  - "phrasing" → musical shape, line, or expression issues
+  - "posture" → body alignment, shoulder tension, instrument hold issues (observed visually by Gemini)
+  - "technique" → mechanical execution issues: bow technique, finger position, embouchure (observed visually)
+- Do NOT invent issues not supported by the Gemini evidence or CREPE candidates.
+- If the Gemini evidence says something is clean in a category, do not flag it.
+- Use "posture" or "technique" ONLY when Gemini's posture_issues or technique_issues explicitly mention an observation.
 
 Return JSON only (no markdown):
 {{
@@ -1563,15 +1698,15 @@ Return JSON only (no markdown):
       "type": "<type from the list above>",
       "confidence": <70-100>,
       "title": "<6-10 word specific title naming the exact issue>",
-      "raw_detail": "<one sentence: the specific evidence — cite a timestamp or measure>",
-      "body": "<3-sentence coaching paragraph: (1) what happened and when, (2) why it matters, (3) a specific practice fix>"
+      "raw_detail": "<one sentence: the specific evidence — cite a timestamp, measure, or Gemini observation>",
+      "body": "<3-sentence coaching paragraph: (1) what happened and when, (2) why it matters musically, (3) a specific daily practice fix>"
     }}
   ]
 }}"""
     try:
         client = ac.Anthropic(api_key=anthropic_api_key)
         msg    = client.messages.create(
-            model="claude-haiku-4-5-20251001", max_tokens=2000,
+            model=CLAUDE_MODEL, max_tokens=3000,
             messages=[{"role": "user", "content": prompt}],
         )
         raw    = msg.content[0].text
@@ -1637,17 +1772,25 @@ Return JSON only (no markdown):
             "timestamp_start": ts_start,
             "timestamp_end":   ts_end,
         })
+    # Deduplicate: allow one flag per (measure, type) but always allow posture/technique
+    # regardless of measure (they're typically whole-performance observations).
     seen: set = set()
     deduped = []
     for flag in sorted(flags, key=lambda x: -x["confidence"]):
-        # Dedupe by (measure, type) but allow two intonation flags in different measures
-        key = (flag["measure"], flag["type"])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(flag)
+        ftype = flag["type"]
+        if ftype in ("posture", "technique"):
+            # Only one posture and one technique flag total (they're global observations)
+            if ftype not in seen:
+                seen.add(ftype)
+                deduped.append(flag)
+        else:
+            key = (flag["measure"], ftype)
+            if key not in seen:
+                seen.add(key)
+                deduped.append(flag)
     deduped.sort(key=lambda x: x["measure"])
     print(f"[compare_and_coach_claude] {len(deduped)} flags: {[(f['measure'], f['type']) for f in deduped]}")
-    return deduped[:6]
+    return deduped[:8]
 
 
 def assess_quality(
