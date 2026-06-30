@@ -14,7 +14,7 @@
 
 /* ── Panel ────────────────────────────────────────────────── */
 .panel {
-  background: var(--cream-strong);
+  background: var(--bg-card);
   box-shadow: -24px 0 80px rgba(20, 30, 26, 0.25);
   display: flex;
   flex-direction: column;
@@ -38,7 +38,7 @@
   background: rgba(88, 121, 101, 0.08);
   border: 1px solid rgba(88, 121, 101, 0.18);
   border-radius: 999px;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   cursor: pointer;
   flex-shrink: 0;
   font-size: 0.88rem;
@@ -63,7 +63,7 @@
 }
 
 .pieceSub {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.85rem;
   margin: 3px 0 0;
 }
@@ -90,7 +90,7 @@
 .deletePieceBtn:hover:not(:disabled) {
   background: rgba(171,101,89,0.08);
   border-color: rgba(171,101,89,0.5);
-  color: #c06454;
+  color: var(--coral);
 }
 .deletePieceBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -127,7 +127,7 @@
 
 .scoreLoading {
   align-items: center;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   display: flex;
   flex-direction: column;
   font-size: 0.88rem;
@@ -147,7 +147,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .sourceLabel {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.75rem;
   font-style: italic;
   margin: 12px 0 0;
@@ -156,7 +156,7 @@
 
 .noScore {
   align-items: center;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   display: flex;
   font-size: 0.88rem;
   justify-content: center;
@@ -183,7 +183,7 @@
 }
 
 .noSessions {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.88rem;
   line-height: 1.65;
   margin: 0;
@@ -196,7 +196,7 @@
 }
 
 .sessionCard {
-  background: var(--cream);
+  background: var(--input-bg);
   border: 1px solid rgba(88, 121, 101, 0.14);
   border-radius: 12px;
   display: flex;
@@ -212,7 +212,7 @@
 }
 
 .sessionDate {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.82rem;
 }
 
@@ -253,7 +253,7 @@
 }
 
 .flagTag {
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -282,7 +282,7 @@
 }
 
 .confirmBox {
-  background: var(--cream-strong);
+  background: var(--bg-card);
   border-radius: 20px;
   box-shadow: 0 24px 64px rgba(20, 30, 26, 0.22);
   max-width: 360px;
@@ -307,7 +307,7 @@
 }
 
 .confirmSub {
-  color: rgba(47,52,64,0.5);
+  color: var(--text-muted);
   font-size: 0.84rem;
   margin: 0 0 24px;
 }
@@ -322,7 +322,7 @@
   background: none;
   border: 1px solid var(--accent-border);
   border-radius: 999px;
-  color: rgba(47,52,64,0.6);
+  color: var(--text-soft);
   cursor: pointer;
   font-size: 0.88rem;
   padding: 9px 20px;
@@ -334,7 +334,7 @@
 }
 
 .confirmDelete {
-  background: #c06454;
+  background: var(--coral);
   border: none;
   border-radius: 999px;
   color: #fff;

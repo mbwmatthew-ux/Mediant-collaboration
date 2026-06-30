@@ -270,9 +270,9 @@ function formatTs(sec) {
 }
 
 function confColor(confidence) {
-  if (confidence >= 90) return 'var(--accent)'
-  if (confidence >= 70) return 'var(--gold)'
-  return 'var(--coral)'
+  if (confidence >= 90) return 'var(--score-good)'
+  if (confidence >= 70) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 function confLabel(confidence) {
@@ -282,15 +282,15 @@ function confLabel(confidence) {
 }
 
 function scoreColor(n) {
-  if (n >= 88) return '#8fbe9f'
-  if (n >= 74) return 'var(--gold)'
-  return 'var(--coral)'
+  if (n >= 88) return 'var(--score-good)'
+  if (n >= 74) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 function scoreBgColor(n) {
-  if (n >= 88) return 'rgba(143, 190, 159, 0.14)'
-  if (n >= 74) return 'rgba(184, 146, 42, 0.12)'
-  return 'rgba(192, 83, 74, 0.12)'
+  if (n >= 88) return 'color-mix(in srgb, var(--score-good) 16%, transparent)'
+  if (n >= 74) return 'color-mix(in srgb, var(--score-ok) 16%, transparent)'
+  return 'color-mix(in srgb, var(--score-bad) 16%, transparent)'
 }
 
 function scoreFileForPiece(title) {
@@ -407,6 +407,12 @@ export default function Analysis({ demo: demoProp = false }) {
   // Song-thread persistence state
   const [activeSongId, setActiveSongId] = useState(null)
 
+  // AI-context note (per-take) + re-analyze state
+  const [noteDraft, setNoteDraft]   = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteSaved, setNoteSaved]   = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
+
   // Keyboard shortcut state ref
   const kbRef = useRef({})
 
@@ -423,7 +429,7 @@ export default function Analysis({ demo: demoProp = false }) {
     }
     supabase
       .from('takes')
-      .select('id, piece_title, piece_composer, instrument, score, flags, analysis_quality, analysis_backend, video_path, score_path, created_at')
+      .select('id, piece_title, piece_composer, instrument, score, flags, analysis_quality, analysis_backend, video_path, score_path, note, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -585,6 +591,68 @@ export default function Analysis({ demo: demoProp = false }) {
     }
     return takesForActiveThread[0]
   }, [takesForActiveThread, selectedTakeId])
+
+  // Load the active take's saved AI-context note into the editor
+  useEffect(() => {
+    setNoteDraft(take?.note ?? '')
+    setNoteSaved(false)
+  }, [take?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save the per-take AI-context note (does not re-run analysis)
+  async function saveNote() {
+    if (noteSaving || isDemo || !take?.id || !user?.id) return
+    setNoteSaving(true)
+    try {
+      await supabase.from('takes').update({ note: noteDraft.trim() }).eq('id', take.id)
+      setAllTakes(prev => prev.map(t => t.id === take.id ? { ...t, note: noteDraft.trim() } : t))
+      setNoteSaved(true)
+      setTimeout(() => setNoteSaved(false), 2200)
+    } catch (e) {
+      console.error('[save-note]', e)
+    } finally {
+      setNoteSaving(false)
+    }
+  }
+
+  // Re-run analysis on this same recording, now with the note as context
+  async function reanalyzeWithNote() {
+    if (reanalyzing || isDemo || !take?.video_path || !user?.id) return
+    setReanalyzing(true)
+    try {
+      // Persist the note first so it travels with the take
+      await supabase.from('takes').update({ note: noteDraft.trim() }).eq('id', take.id).catch(() => {})
+      const { data: jobResult, error: fnError } = await supabase.functions.invoke('analyze-performance', {
+        body: {
+          videoPath:     take.video_path,
+          videoMimeType: 'video/mp4',
+          scorePath:     take.score_path || null,
+          pieceTitle:    take.piece_title,
+          composer:      take.piece_composer,
+          instrument:    take.instrument,
+          songId:        activeSongId ?? null,
+          notes:         noteDraft.trim() || undefined,
+        },
+      })
+      if (fnError || jobResult?.error) throw new Error(jobResult?.error || fnError?.message)
+      const jobId = jobResult?.jobId
+      let completed = null
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 4000))
+        const { data, error } = await supabase.from('takes').select('*').eq('id', jobId).single()
+        if (!error && data && data.job_status === 'done') { completed = data; break }
+      }
+      if (completed) {
+        setAllTakes(prev => [completed, ...prev.filter(t => t.id !== completed.id)])
+        setSelectedTakeId(completed.id)
+      } else {
+        throw new Error('Re-analysis timed out')
+      }
+    } catch (e) {
+      console.error('[reanalyze]', e)
+    } finally {
+      setReanalyzing(false)
+    }
+  }
 
   // Show analysis onboarding the first time a real take loads
   useEffect(() => {
@@ -989,6 +1057,7 @@ export default function Analysis({ demo: demoProp = false }) {
             composer:       activeThread?.piece_composer,
             instrument:     activeThread?.instrument,
             songId:         activeSongId ?? null,
+            notes:          noteDraft.trim() || undefined,
           }
         })
         if (fnError || jobResult?.error) throw new Error(jobResult?.error || fnError?.message)
@@ -1474,23 +1543,23 @@ export default function Analysis({ demo: demoProp = false }) {
             <div className={aStyles.waveHeaderMetricRow}>
               <span className={aStyles.waveHeaderMetricLabel}>Intonation</span>
               <div className={aStyles.waveHeaderMetricTrack}>
-                <div ref={hFill1Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill1}`} style={{ width: `${aspectScores?.intonation ?? 77}%` }} />
+                <div ref={hFill1Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill1}`} style={{ width: `${aspectScores?.intonation ?? 77}%`, background: scoreColor(Math.round(aspectScores?.intonation ?? 77)) }} />
               </div>
-              <span ref={hNum1Ref} className={aStyles.waveHeaderMetricVal} style={{ color: '#EE7B53' }}>{Math.round(aspectScores?.intonation ?? 77)}</span>
+              <span ref={hNum1Ref} className={aStyles.waveHeaderMetricVal} style={{ color: scoreColor(Math.round(aspectScores?.intonation ?? 77)) }}>{Math.round(aspectScores?.intonation ?? 77)}</span>
             </div>
             <div className={aStyles.waveHeaderMetricRow}>
               <span className={aStyles.waveHeaderMetricLabel}>Dynamics</span>
               <div className={aStyles.waveHeaderMetricTrack}>
-                <div ref={hFill2Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill2}`} style={{ width: `${aspectScores?.dynamics ?? 83}%` }} />
+                <div ref={hFill2Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill2}`} style={{ width: `${aspectScores?.dynamics ?? 83}%`, background: scoreColor(Math.round(aspectScores?.dynamics ?? 83)) }} />
               </div>
-              <span ref={hNum2Ref} className={aStyles.waveHeaderMetricVal} style={{ color: '#C09230' }}>{Math.round(aspectScores?.dynamics ?? 83)}</span>
+              <span ref={hNum2Ref} className={aStyles.waveHeaderMetricVal} style={{ color: scoreColor(Math.round(aspectScores?.dynamics ?? 83)) }}>{Math.round(aspectScores?.dynamics ?? 83)}</span>
             </div>
             <div className={`${aStyles.waveHeaderMetricRow} ${aStyles.waveHeaderMetricRowOverall}`}>
               <span className={aStyles.waveHeaderMetricLabel}>Overall</span>
               <div className={aStyles.waveHeaderMetricTrack}>
-                <div ref={hFill3Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill3}`} style={{ width: `${score ?? 82}%` }} />
+                <div ref={hFill3Ref} className={`${aStyles.waveHeaderMetricFill} ${aStyles.waveHeaderFill3}`} style={{ width: `${score ?? 82}%`, background: scoreColor(score ?? 82) }} />
               </div>
-              <span ref={hNum3Ref} className={aStyles.waveHeaderMetricVal} style={{ color: '#8fbe9f' }}>{score ?? 82}</span>
+              <span ref={hNum3Ref} className={aStyles.waveHeaderMetricVal} style={{ color: scoreColor(score ?? 82) }}>{score ?? 82}</span>
             </div>
           </div>
 
@@ -1531,6 +1600,40 @@ export default function Analysis({ demo: demoProp = false }) {
             </span>
           </div>
         </div>
+
+        {/* ── AI context note + re-analyze ── */}
+        {!isDemo && (
+          <div className={aStyles.noteCard}>
+            <div className={aStyles.noteCardHead}>
+              <span className={aStyles.noteCardTitle}>NOTES FOR THE AI</span>
+              <span className={aStyles.noteCardHint}>Context the AI uses when analyzing this take</span>
+            </div>
+            <textarea
+              className={aStyles.noteCardInput}
+              value={noteDraft}
+              onChange={e => setNoteDraft(e.target.value)}
+              maxLength={800}
+              rows={2}
+              placeholder="e.g. “sight-reading”, “my piano runs flat”, “recorded on my phone” — then re-analyze to apply it."
+            />
+            <div className={aStyles.noteCardActions}>
+              <button
+                className={aStyles.noteSaveBtn}
+                onClick={saveNote}
+                disabled={noteSaving || reanalyzing || noteDraft.trim() === (take?.note ?? '').trim()}
+              >
+                {noteSaving ? 'Saving…' : noteSaved ? '✓ Saved' : 'Save note'}
+              </button>
+              <button
+                className={aStyles.noteReanalyzeBtn}
+                onClick={reanalyzeWithNote}
+                disabled={reanalyzing || !take?.video_path}
+              >
+                {reanalyzing ? 'Re-analyzing…' : '↻ Re-analyze with this context'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab strip */}
         <div className={aStyles.tabStrip}>
@@ -1658,7 +1761,7 @@ export default function Analysis({ demo: demoProp = false }) {
                               </button>
                               <button
                                 className={aStyles.insightAskBtn}
-                                title="Ask Practa about this flag"
+                                title="Ask Mediant about this flag"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   const msg = `Explain the ${capitalize(f.type)} issue in measure ${f.measure} — "${f.title}". How do I fix it?`
@@ -1666,7 +1769,7 @@ export default function Analysis({ demo: demoProp = false }) {
                                   document.getElementById('practa-chat-input')?.focus()
                                 }}
                               >
-                                Ask Practa →
+                                Ask Mediant →
                               </button>
                             </div>
                             {isThisLooping && (
@@ -1747,10 +1850,10 @@ export default function Analysis({ demo: demoProp = false }) {
                   </div>
                 </div>
 
-                {/* Ask Practa Chat history panel */}
+                {/* Ask Mediant Chat history panel */}
                 <div className={aStyles.laneCard}>
                   <div className={aStyles.laneCardHeader}>
-                    <span className={aStyles.laneCardTitle}>Ask Practa</span>
+                    <span className={aStyles.laneCardTitle}>Ask Mediant</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-faint)', fontWeight: 500 }}>AI coach for this take</span>
                   </div>
                   <div className={aStyles.analysisChatMessages}>
@@ -1768,7 +1871,7 @@ export default function Analysis({ demo: demoProp = false }) {
               </div>
             </div>
 
-            {/* Pinned Ask Practa bottom bar */}
+            {/* Pinned Ask Mediant bottom bar */}
             <div className={aStyles.stickyBottomBar}>
               <div className={aStyles.stickyBarPrompts}>
                 {QUICK_PROMPTS.map(p => (
@@ -1793,7 +1896,7 @@ export default function Analysis({ demo: demoProp = false }) {
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
                     <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" />
                   </svg>
-                  <span className={aStyles.stickyBarLabel}>Ask Practa</span>
+                  <span className={aStyles.stickyBarLabel}>Ask Mediant</span>
                 </div>
                 <div className={aStyles.stickyBarDivider} />
                 <input

@@ -1,0 +1,40 @@
+/* Ambient decorative equalizer — subtle musical motion behind content. */
+.ambience {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 0 6px;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+  /* fade the strip out at both edges so it reads as ambient, not a widget */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+}
+
+.bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(to top, var(--accent), var(--gold));
+  height: 100%;
+  transform: scaleY(0.24);
+  transform-origin: bottom;
+  animation: eqWave 3.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.11s);
+  will-change: transform;
+}
+
+@keyframes eqWave {
+  0%, 100% { transform: scaleY(0.2); }
+  50%      { transform: scaleY(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar { animation: none; transform: scaleY(0.4); }
+}

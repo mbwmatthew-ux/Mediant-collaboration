@@ -370,8 +370,8 @@
   width: 32px;
 }
 .green { background: var(--accent-bg-hover); color: var(--accent); }
-.gold  { background: rgba(214,177,104,0.18); color: var(--gold); }
-.coral { background: rgba(225,134,118,0.18); color: var(--coral); }
+.gold  { background: rgba(248, 188, 36,0.18); color: var(--gold); }
+.coral { background: rgba(245, 136, 0,0.18); color: var(--coral); }
 
 .actionItemText { flex: 1; min-width: 0; }
 .actionItemLabel { color: var(--text); display: block; font-size: 0.87rem; font-weight: 500; }
@@ -693,7 +693,7 @@
 }
 
 .ocrBadge {
-  background: rgba(214,177,104,0.12);
+  background: rgba(248, 188, 36,0.12);
   border-radius: 4px;
   color: var(--gold);
   font-size: 0.65rem;
@@ -744,7 +744,7 @@
 /* Score unavailable placeholder */
 .scoreUnavailable {
   align-items: center;
-  color: rgba(0,0,0,0.35);
+  color: var(--text-faint);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -865,10 +865,10 @@
 
 .errorBanner {
   align-items: center;
-  background: rgba(225,134,118,0.1);
-  border: 1px solid rgba(225,134,118,0.3);
+  background: rgba(245, 136, 0,0.1);
+  border: 1px solid rgba(245, 136, 0,0.3);
   border-radius: 8px;
-  color: rgba(225,134,118,0.9);
+  color: rgba(245, 136, 0,0.9);
   display: flex;
   font-size: 0.88rem;
   gap: 12px;
@@ -876,30 +876,30 @@
   padding: 12px 16px;
 }
 .errorRetry {
-  background: rgba(225,134,118,0.15);
-  border: 1px solid rgba(225,134,118,0.3);
+  background: rgba(245, 136, 0,0.15);
+  border: 1px solid rgba(245, 136, 0,0.3);
   border-radius: 6px;
-  color: rgba(225,134,118,0.9);
+  color: rgba(245, 136, 0,0.9);
   cursor: pointer;
   font-size: 0.8rem;
   margin-left: auto;
   padding: 4px 12px;
   white-space: nowrap;
 }
-.errorRetry:hover { background: rgba(225,134,118,0.25); }
+.errorRetry:hover { background: rgba(245, 136, 0,0.25); }
 
 .errorUpgradeLink {
-  background: rgba(225,134,118,0.15);
-  border: 1px solid rgba(225,134,118,0.3);
+  background: rgba(245, 136, 0,0.15);
+  border: 1px solid rgba(245, 136, 0,0.3);
   border-radius: 6px;
-  color: rgba(225,134,118,0.9);
+  color: rgba(245, 136, 0,0.9);
   font-size: 0.8rem;
   margin-left: auto;
   padding: 4px 12px;
   text-decoration: none;
   white-space: nowrap;
 }
-.errorUpgradeLink:hover { background: rgba(225,134,118,0.25); }
+.errorUpgradeLink:hover { background: rgba(245, 136, 0,0.25); }
 
 /* ── Score Review ───────────────────────────────────────────── */
 .issueStrip { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -907,16 +907,16 @@
 .issueStripHint  { color: var(--text-faintest); font-size: 0.76rem; margin-left: 4px; }
 
 .issueChip {
-  background: rgba(225,134,118,0.08);
-  border: 1px solid rgba(225,134,118,0.22);
+  background: rgba(245, 136, 0,0.08);
+  border: 1px solid rgba(245, 136, 0,0.22);
   border-radius: 5px;
   color: var(--coral);
   font-size: 0.8rem;
   padding: 4px 11px;
   transition: background 140ms ease;
 }
-.issueChip:hover  { background: rgba(225,134,118,0.15); }
-.issueChipActive  { background: rgba(225,134,118,0.18); border-color: rgba(225,134,118,0.45); font-weight: 600; }
+.issueChip:hover  { background: rgba(245, 136, 0,0.15); }
+.issueChipActive  { background: rgba(245, 136, 0,0.18); border-color: rgba(245, 136, 0,0.45); font-weight: 600; }
 
 .reviewBody { display: grid; gap: 28px; grid-template-columns: 1fr 360px; flex: 1; align-items: start; }
 
@@ -980,18 +980,18 @@
 /* ── Delete buttons (Takes page) ───────────────────────────── */
 .deleteBtn {
   background: none;
-  border: 1px solid rgba(225,134,118,0.25);
+  border: 1px solid rgba(245, 136, 0,0.25);
   border-radius: 8px;
   color: var(--coral);
   font-size: 0.83rem;
   padding: 9px 14px;
   transition: background 150ms ease;
 }
-.deleteBtn:hover { background: rgba(225,134,118,0.08); }
+.deleteBtn:hover { background: rgba(245, 136, 0,0.08); }
 
 .deleteBtnConfirm {
-  background: rgba(225,134,118,0.12);
-  border: 1px solid rgba(225,134,118,0.45);
+  background: rgba(245, 136, 0,0.12);
+  border: 1px solid rgba(245, 136, 0,0.45);
   border-radius: 8px;
   color: var(--coral);
   font-size: 0.83rem;
@@ -999,7 +999,7 @@
   padding: 9px 14px;
   transition: background 150ms ease;
 }
-.deleteBtnConfirm:hover { background: rgba(225,134,118,0.22); }
+.deleteBtnConfirm:hover { background: rgba(245, 136, 0,0.22); }
 
 /* ── Persistent video bar ──────────────────────────────────── */
 .videoBar {
@@ -1200,8 +1200,8 @@
 }
 
 .chatContextPill {
-  background: rgba(225,134,118,0.12);
-  border: 1px solid rgba(225,134,118,0.3);
+  background: rgba(245, 136, 0,0.12);
+  border: 1px solid rgba(245, 136, 0,0.3);
   border-radius: 999px;
   color: var(--coral);
   font-size: 0.68rem;
@@ -1437,7 +1437,7 @@
 .profileCard { border-bottom: 1px solid var(--line); padding-bottom: 20px; }
 
 .profileBadge {
-  background: rgba(214,177,104,0.12);
+  background: rgba(248, 188, 36,0.12);
   border-radius: 5px;
   color: var(--gold);
   display: inline-block;
@@ -1543,14 +1543,14 @@
 
 .dangerBtn {
   background: none;
-  border: 1px solid rgba(225,134,118,0.2);
+  border: 1px solid rgba(245, 136, 0,0.2);
   border-radius: 7px;
   color: var(--coral);
   font-size: 0.83rem;
   padding: 8px 16px;
   transition: background 140ms ease;
 }
-.dangerBtn:hover { background: rgba(225,134,118,0.08); }
+.dangerBtn:hover { background: rgba(245, 136, 0,0.08); }
 
 /* ── Streak (still used in old home — keep for compat) ───────── */
 .streakCard { display: none; }

@@ -10,10 +10,13 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
+  overflow: hidden;
   padding: 20px 32px 18px;
+  position: relative;
 }
 
-.pageHeaderLeft { display: flex; flex-direction: column; gap: 2px; }
+.pageHeaderLeft { display: flex; flex-direction: column; gap: 2px; position: relative; z-index: 1; }
+.pageHeader .primaryBtn { position: relative; z-index: 1; }
 
 .pageTitle {
   color: var(--text);
@@ -32,10 +35,10 @@
 
 .primaryBtn {
   align-items: center;
-  background: #EE7B53;
+  background: var(--accent);
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-inverse);
   cursor: pointer;
   display: inline-flex;
   font-family: Arial, Helvetica, sans-serif;
@@ -43,9 +46,9 @@
   font-weight: 700;
   gap: 7px;
   padding: 10px 20px;
-  transition: background 140ms ease, transform 140ms ease;
+  transition: filter 140ms ease, transform 140ms ease;
 }
-.primaryBtn:hover { background: #d4622e; transform: translateY(-1px); }
+.primaryBtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
 /* ── Stat tiles row ──────────────────────────────────────── */
 .statTilesRow {
@@ -122,6 +125,7 @@
 
 /* ── Card ────────────────────────────────────────────────── */
 .card {
+  background: var(--panel-tint);
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -200,10 +204,10 @@
 }
 
 .activityBarToday {
-  border-color: #EE7B53;
+  border-color: var(--accent);
 }
 .activityBarFilled.activityBarToday {
-  background: #EE7B53;
+  background: var(--accent);
 }
 
 .activityDayLabel {
@@ -213,7 +217,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.activityDayToday { color: #EE7B53; font-weight: 700; }
+.activityDayToday { color: var(--accent); font-weight: 700; }
 
 .activityFooter {
   align-items: center;
@@ -451,8 +455,8 @@
 
 /* ── Focus card ──────────────────────────────────────────── */
 .focusCard {
-  background: rgba(30, 184, 157, 0.05) !important;
-  border-color: rgba(30, 184, 157, 0.14) !important;
+  background: rgba(38, 104, 103, 0.05) !important;
+  border-color: rgba(38, 104, 103, 0.14) !important;
 }
 
 .focusCardLabel {

@@ -1,56 +1,72 @@
 :root {
-  /* White/warm light theme (default) */
-  --bg: #fffdf9;
-  --bg-deep: #f5ede0;
+  /* Mediant LIGHT — teal-tinted surfaces, orange = action, gold = data */
+  --bg: #f1f6f4;
+  --bg-deep: #e4efec;
   --bg-card: #ffffff;
-  --bg-card-hover: #fdf8f2;
-  --hero-green: #8a6d14;
-  --panel-green: #6d5610;
-  --accent: #b8922a;
-  --accent-dim: rgba(184,146,42,0.16);
-  --accent-bg: rgba(184,146,42,0.06);
-  --accent-bg-hover: rgba(184,146,42,0.14);
-  --accent-border: rgba(184,146,42,0.28);
-  --cream: #f5ede0;
-  --cream-strong: #e8dfcb;
-  --text: #1a0f05;
-  --text-soft: rgba(26,15,5,0.72);
-  --text-muted: rgba(26,15,5,0.48);
-  --text-inverse: #fffdf9;
-  --border: rgba(26,15,5,0.14);
-  --gold: #b8922a;
-  --gold-soft: #e8d7a8;
-  --coral: #c0534a;
-  --coral-soft: #f5dfda;
-  --mint: #4a8c58;
-  --mint-soft: #ddeee2;
-  --line: rgba(26,15,5,0.10);
-  
+  --bg-card-hover: #eef5f2;
+  --hero-green: #1a4645;
+  --panel-green: #266867;
+  --accent: #e07407;
+  --accent-dim: rgba(224,116,7,0.14);
+  --accent-bg: rgba(224,116,7,0.10);
+  --accent-bg-hover: rgba(224,116,7,0.18);
+  --accent-border: rgba(224,116,7,0.38);
+  --cream: #f8bc24;
+  --cream-strong: #e07407;
+  --text: #051821;
+  --text-soft: rgba(5,24,33,0.72);
+  --text-muted: rgba(5,24,33,0.52);
+  --text-inverse: #f1f6f4;
+  --border: rgba(26,70,69,0.20);
+  --gold: #b8870e;
+  --gold-soft: rgba(248,188,36,0.28);
+  --coral: #e07407;
+  --coral-soft: rgba(224,116,7,0.14);
+  --mint: #1f9d76;
+  --mint-soft: rgba(31,157,118,0.16);
+  /* Value-coded score colors: good / ok / needs-work (distinct from action orange) */
+  --score-good: #1f9d76;
+  --score-ok: #c8941a;
+  --score-bad: #d9513a;
+  /* Subtle teal wash for panels/cards so the palette reads without heavy blocks */
+  --panel-tint: rgba(38,104,103,0.05);
+  --panel-tint-strong: rgba(38,104,103,0.10);
+  --line: rgba(26,70,69,0.14);
+
   /* Layered Premium Shadows */
-  --shadow-lg: 0 20px 40px -15px rgba(26,15,5,0.08), 0 1px 3px rgba(26,15,5,0.03);
-  --shadow-md: 0 12px 24px -10px rgba(26,15,5,0.06), 0 1px 2px rgba(26,15,5,0.02);
-  --shadow-sm: 0 4px 12px -4px rgba(26,15,5,0.04), 0 1px 1px rgba(26,15,5,0.01);
+  --shadow-lg: 0 20px 40px -15px rgba(5,24,33,0.10), 0 1px 3px rgba(5,24,33,0.04);
+  --shadow-md: 0 12px 24px -10px rgba(5,24,33,0.08), 0 1px 2px rgba(5,24,33,0.03);
+  --shadow-sm: 0 4px 12px -4px rgba(5,24,33,0.05), 0 1px 1px rgba(5,24,33,0.02);
   --radius-lg: 18px;
   --radius-md: 14px;
   --radius-sm: 10px;
   --sidebar-w: 230px;
 
+  /* Sidebar rail — intentionally a constant dark teal in BOTH themes
+     (defined only here in :root so it is inherited by [data-theme="dark"]). */
+  --sidebar-bg: #04141c;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-text: rgba(255,255,255,0.55);
+  --sidebar-text-hover: rgba(255,255,255,0.95);
+  --sidebar-surface: rgba(255,255,255,0.08);
+  --sidebar-surface-strong: rgba(255,255,255,0.14);
+
   /* Semantic surface tokens */
-  --surface-border: rgba(26,15,5,0.11);
-  --surface-hover: rgba(26,15,5,0.05);
-  --surface-subtle: rgba(26,15,5,0.02);
-  --text-dim: rgba(26,15,5,0.56);
-  --text-faint: rgba(26,15,5,0.46);
-  --text-faintest: rgba(26,15,5,0.32);
-  --nav-text: rgba(26,15,5,0.58);
-  --input-bg: rgba(26,15,5,0.03);
-  --input-border: rgba(26,15,5,0.15);
+  --surface-border: rgba(26,70,69,0.16);
+  --surface-hover: rgba(224,116,7,0.07);
+  --surface-subtle: rgba(5,24,33,0.03);
+  --text-dim: rgba(5,24,33,0.58);
+  --text-faint: rgba(5,24,33,0.48);
+  --text-faintest: rgba(5,24,33,0.34);
+  --nav-text: rgba(5,24,33,0.62);
+  --input-bg: rgba(5,24,33,0.03);
+  --input-border: rgba(26,70,69,0.22);
   --dropdown-bg: #ffffff;
 
   /* Glassmorphism overlays */
-  --glass-bg: rgba(255, 253, 249, 0.72);
-  --glass-bg-hover: rgba(255, 253, 249, 0.88);
-  --glass-border: rgba(26, 15, 5, 0.06);
+  --glass-bg: rgba(241, 246, 244, 0.72);
+  --glass-bg-hover: rgba(241, 246, 244, 0.88);
+  --glass-border: rgba(5, 24, 33, 0.06);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 160ms var(--ease-smooth);
@@ -58,54 +74,61 @@
 }
 
 [data-theme="dark"] {
-  /* Warm dark brown theme */
-  --bg: #150c05;
-  --bg-deep: #0a0602;
-  --bg-card: #201309;
-  --bg-card-hover: #2b1a0d;
-  --hero-green: #a38420;
-  --panel-green: #836a18;
-  --accent: #d4ae52;
-  --accent-dim: rgba(212,174,82,0.16);
-  --accent-bg: rgba(212,174,82,0.06);
-  --accent-bg-hover: rgba(212,174,82,0.15);
-  --accent-border: rgba(212,174,82,0.28);
-  --cream: #f5ede0;
-  --cream-strong: #e8dfcb;
-  --text: #f3edd8;
-  --text-soft: rgba(243,237,216,0.76);
-  --text-muted: rgba(243,237,216,0.50);
-  --text-inverse: #150c05;
-  --border: rgba(212,174,82,0.18);
-  --gold: #d4ae52;
-  --gold-soft: #e8d7a8;
-  --coral: #e06c64;
-  --coral-soft: #f5dfda;
-  --mint: #5cb86b;
-  --mint-soft: #e3ece6;
-  --line: rgba(243,237,216,0.08);
-  
+  /* Mediant DARK — #051821 canvas, #1A4645/#266867 teal surfaces, orange = action, gold = data */
+  --bg: #051821;
+  --bg-deep: #04141c;
+  --bg-card: #1a4645;
+  --bg-card-hover: #266867;
+  --hero-green: #266867;
+  --panel-green: #1a4645;
+  --accent: #f58800;
+  --accent-dim: rgba(245,136,0,0.16);
+  --accent-bg: rgba(245,136,0,0.12);
+  --accent-bg-hover: rgba(245,136,0,0.20);
+  --accent-border: rgba(245,136,0,0.34);
+  --cream: #f8bc24;
+  --cream-strong: #f58800;
+  --text: #e9f0ee;
+  --text-soft: rgba(233,240,238,0.78);
+  --text-muted: rgba(233,240,238,0.55);
+  --text-inverse: #051821;
+  --border: rgba(38,104,103,0.45);
+  --gold: #f8bc24;
+  --gold-soft: rgba(248,188,36,0.18);
+  --coral: #f58800;
+  --coral-soft: rgba(245,136,0,0.16);
+  --mint: #34c79b;
+  --mint-soft: rgba(52,199,155,0.16);
+  /* Value-coded score colors: good / ok / needs-work (distinct from action orange) */
+  --score-good: #46c98f;
+  --score-ok: #f8bc24;
+  --score-bad: #f0613a;
+  /* Subtle teal wash for panels/cards so the palette reads without heavy blocks */
+  --panel-tint: rgba(38,104,103,0.13);
+  --panel-tint-strong: rgba(38,104,103,0.22);
+  --line: rgba(38,104,103,0.30);
+
   /* Layered Premium Shadows (Dark) */
   --shadow-lg: 0 20px 50px -12px rgba(0,0,0,0.65), 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 12px 28px -8px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.2);
   --shadow-sm: 0 4px 12px -4px rgba(0,0,0,0.25), 0 1px 1px rgba(0,0,0,0.1);
 
-  /* Semantic surface tokens (dark warm) */
-  --surface-border: rgba(243,237,216,0.09);
-  --surface-hover: rgba(243,237,216,0.06);
-  --surface-subtle: rgba(243,237,216,0.03);
-  --text-dim: rgba(243,237,216,0.56);
-  --text-faint: rgba(243,237,216,0.44);
-  --text-faintest: rgba(243,237,216,0.28);
-  --nav-text: rgba(243,237,216,0.54);
-  --input-bg: rgba(243,237,216,0.05);
-  --input-border: rgba(243,237,216,0.12);
-  --dropdown-bg: #201309;
+  /* Semantic surface tokens (dark teal) */
+  --surface-border: rgba(38,104,103,0.40);
+  --surface-hover: rgba(245,136,0,0.08);
+  --surface-subtle: rgba(233,240,238,0.03);
+  --text-dim: rgba(233,240,238,0.60);
+  --text-faint: rgba(233,240,238,0.50);
+  --text-faintest: rgba(233,240,238,0.34);
+  --nav-text: rgba(233,240,238,0.66);
+  --input-bg: rgba(233,240,238,0.05);
+  --input-border: rgba(38,104,103,0.40);
+  --dropdown-bg: #1a4645;
 
   /* Glassmorphism overlays (Dark) */
-  --glass-bg: rgba(21, 12, 5, 0.76);
-  --glass-bg-hover: rgba(21, 12, 5, 0.90);
-  --glass-border: rgba(243, 237, 216, 0.05);
+  --glass-bg: rgba(5, 24, 33, 0.78);
+  --glass-bg-hover: rgba(5, 24, 33, 0.92);
+  --glass-border: rgba(38, 104, 103, 0.20);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

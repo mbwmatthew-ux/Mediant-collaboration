@@ -18,6 +18,7 @@ function userFromSession(session) {
     name:           user.user_metadata?.name           || '',
     instrument:     user.user_metadata?.instrument     || '',
     coaching_style: user.user_metadata?.coaching_style || 'Balanced',
+    default_note:   user.user_metadata?.default_note   || '',
   }
 }
 

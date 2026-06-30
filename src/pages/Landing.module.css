@@ -3,15 +3,15 @@
   --teal-deep:  #0C5C52;
   --teal-light: rgba(21, 154, 134, 0.10);
   --teal-mid:   rgba(21, 154, 134, 0.18);
-  --coral:      #EE7B53;
-  --coral-dark: #D4622E;
+  --coral:      var(--accent);
+  --coral-dark: var(--accent);
   --canvas:     #FAF8F3;
   --surface:    #FFFFFF;
   --line:       #E4E1D8;
   --muted:      #6B6A64;
   --ink:        #2C2C2A;
   --green:      #4A7A2E;
-  --amber:      #C09230;
+  --amber:      var(--gold);
   --red:        #C44040;
 }
 
@@ -367,9 +367,9 @@
   height: 100%;
 }
 
-.waveformMetricFill1 { background: #EE7B53; }
-.waveformMetricFill2 { background: #C09230; }
-.waveformMetricFill3 { background: #8fbe9f; }
+.waveformMetricFill1 { background: var(--accent); }
+.waveformMetricFill2 { background: var(--gold); }
+.waveformMetricFill3 { background: var(--score-good); }
 
 .waveformMetricVal {
   font-size: 0.88rem;

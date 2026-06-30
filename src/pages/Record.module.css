@@ -235,6 +235,48 @@
 .formInput:focus { border-color: var(--accent); }
 .formInput::placeholder { color: var(--text-faint); }
 
+.formTextarea {
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  outline: none;
+  padding: 10px 12px;
+  resize: vertical;
+  transition: border-color 140ms ease;
+  width: 100%;
+}
+.formTextarea:focus { border-color: var(--accent); }
+.formTextarea::placeholder { color: var(--text-faint); }
+
+/* AI-note quick chips */
+.noteChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+.noteChip {
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  transition: background 130ms ease, border-color 130ms ease, color 130ms ease;
+}
+.noteChip:hover { border-color: var(--accent-border); color: var(--text); }
+.noteChipActive {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 .formSelect {
   appearance: none;
   background: var(--surface-subtle) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 12px center;

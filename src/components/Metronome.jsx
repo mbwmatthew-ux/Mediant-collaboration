@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getAudioContext, unlockAudio } from '../utils/sounds'
 import styles from './Metronome.module.css'
 
 const BPM_MIN = 20
@@ -12,7 +13,6 @@ export default function MetronomeModal({ onClose }) {
   const [playing, setPlaying] = useState(false)
   const [beat,    setBeat]    = useState(-1) // current lit beat (0-indexed)
 
-  const audioCtxRef      = useRef(null)
   const nextBeatTimeRef  = useRef(0)
   const beatIndexRef     = useRef(0)
   const schedulerRef     = useRef(null)
@@ -23,11 +23,19 @@ export default function MetronomeModal({ onClose }) {
   useEffect(() => { bpmRef.current   = bpm   }, [bpm])
   useEffect(() => { beatsRef.current = beats }, [beats])
 
+  // Use the app-wide shared AudioContext (unlocked on first gesture).
   function getCtx() {
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    return getAudioContext()
+  }
+
+  // Toggle play from the button's click handler so resume() runs INSIDE the
+  // user gesture — this is what makes the metronome audible on iOS/Android.
+  async function togglePlay() {
+    const next = !playing
+    if (next) {
+      try { await unlockAudio() } catch {}
     }
-    return audioCtxRef.current
+    setPlaying(next)
   }
 
   function playClick(time, accent) {
@@ -171,7 +179,7 @@ export default function MetronomeModal({ onClose }) {
         {/* Play / Stop */}
         <button
           className={`${styles.playBtn} ${playing ? styles.playBtnActive : ''}`}
-          onClick={() => setPlaying(p => !p)}
+          onClick={togglePlay}
         >
           {playing ? '■ Stop' : '▶ Start'}
         </button>

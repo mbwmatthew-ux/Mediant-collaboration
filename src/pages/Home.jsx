@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTakes } from '../hooks/useTakes'
 import Onboarding from '../components/Onboarding'
+import MusicAmbience from '../components/MusicAmbience'
 import styles from './Home.module.css'
 import { playPop } from '../utils/sounds'
 
@@ -42,9 +43,9 @@ function calcStreak(sessions) {
 
 function scoreColor(n) {
   if (n == null) return 'var(--text-faintest)'
-  if (n >= 88) return 'var(--mint)'
-  if (n >= 74) return 'var(--accent)'
-  return 'var(--coral)'
+  if (n >= 88) return 'var(--score-good)'
+  if (n >= 74) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 /* Group takes by piece into song threads */
@@ -196,6 +197,7 @@ export default function Home() {
 
       {/* ── Page header ── */}
       <div className={styles.pageHeader}>
+        <MusicAmbience />
         <div className={styles.pageHeaderLeft}>
           <h1 className={styles.pageTitle}>Overview</h1>
           <p className={styles.pageSubtitle}>{formatDate()}</p>

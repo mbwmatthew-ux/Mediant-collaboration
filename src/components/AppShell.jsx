@@ -92,9 +92,9 @@ export default function AppShell() {
 
       {/* Mobile top header (logo + account) — hidden on desktop */}
       <header className={styles.mobileHeader}>
-        <NavLink to="/home" className={styles.mobileHeaderBrand} onClick={playNav} aria-label="Practapal home">
+        <NavLink to="/home" className={styles.mobileHeaderBrand} onClick={playNav} aria-label="Mediant home">
           <span className={styles.mobileHeaderLogo}><LogoMark size={20} color="rgba(255,255,255,0.92)" /></span>
-          <span className={styles.mobileHeaderWordmark}>Practapal</span>
+          <span className={styles.mobileHeaderWordmark}>Mediant</span>
         </NavLink>
         <button
           className={styles.mobileHeaderAvatar}
@@ -109,11 +109,11 @@ export default function AppShell() {
         {/* Sidebar */}
         <aside className={styles.sidebar}>
           {/* Logo */}
-          <NavLink to="/home" className={styles.sidebarLogo} onClick={playNav} title="Practapal">
+          <NavLink to="/home" className={styles.sidebarLogo} onClick={playNav} title="Mediant">
             <span className={styles.sidebarLogoMark}>
               <LogoMark size={22} color="currentColor" />
             </span>
-            <span className={styles.sidebarLogoText}>Practapal</span>
+            <span className={styles.sidebarLogoText}>Mediant</span>
           </NavLink>
 
           <nav className={styles.nav} aria-label="Primary navigation">

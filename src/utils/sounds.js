@@ -1,9 +1,27 @@
 let _ctx = null
 
-function ac() {
+// Shared AudioContext for all UI sounds AND the metronome (single context
+// avoids dual-context overhead and means one unlock covers everything).
+export function getAudioContext() {
   if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)()
-  if (_ctx.state === 'suspended') _ctx.resume()
   return _ctx
+}
+
+// Resume the shared AudioContext. Safe to call repeatedly; returns a promise.
+// On iOS/Android this MUST be triggered from inside a user-gesture handler the
+// first time, or audio output stays silent (autoplay policy).
+export function unlockAudio() {
+  try {
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') return ctx.resume()
+  } catch {}
+  return Promise.resolve()
+}
+
+function ac() {
+  const ctx = getAudioContext()
+  if (ctx.state === 'suspended') ctx.resume()
+  return ctx
 }
 
 function play(fn) {
@@ -11,6 +29,19 @@ function play(fn) {
     if (localStorage.getItem('mediant_sound') === 'false') return
     fn(ac())
   } catch {}
+}
+
+// App-wide primer: unlock audio on the first real user gesture so click sounds
+// and the metronome are reliably audible on mobile. Detaches once running.
+if (typeof window !== 'undefined') {
+  const events = ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click']
+  const handler = () => {
+    unlockAudio()
+    if (_ctx && _ctx.state === 'running') {
+      events.forEach(ev => window.removeEventListener(ev, handler))
+    }
+  }
+  events.forEach(ev => window.addEventListener(ev, handler, { passive: true }))
 }
 
 // ── Click / interaction sounds ────────────────────────────────

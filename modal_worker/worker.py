@@ -974,6 +974,7 @@ def evaluate_with_gemini(
     instrument: str, piece_title: str, composer: str,
     start_measure: int, end_measure: int | None,
     api_key: str,
+    user_note: str = "",
 ) -> dict:
     """
     Audio analysis via Gemini. Raises if ALL models fail — never returns None.
@@ -982,12 +983,17 @@ def evaluate_with_gemini(
     import httpx
     end_info = f" through measure {end_measure}" if end_measure else ""
     instrument_guidance = _instrument_guidance(instrument)
+    note_block = (
+        f'\nSTUDENT NOTE about this recording (subjective context — always prioritize what you actually HEAR over this; '
+        f'use it only to interpret ambiguous moments, never to invent or excuse audible problems): "{user_note}"\n'
+        if user_note else ""
+    )
     prompt = f"""AUDIO ANALYSIS TASK. You are listening to a student's recording of "{piece_title}" by {composer} on {instrument}, starting at measure {start_measure}{end_info}.
 
 Your ONLY job is to LISTEN. Report exactly what you HEAR — not what you see.
 
 {instrument_guidance}
-
+{note_block}
 MANDATORY — address all five categories. Do not skip any:
 
 1. INTONATION: Every passage where pitch is audibly flat or sharp. Give timestamp, direction (flat/sharp), and magnitude. If clean, say so.
@@ -1212,6 +1218,7 @@ def compare_and_coach_claude(
     score: dict, aligned: list[dict], alignment_ranges: list[dict],
     tempo: dict, piece_title: str, composer: str, instrument: str,
     gemini_assessment: dict, anthropic_api_key: str,
+    user_note: str = "",
 ) -> list[dict]:
     import anthropic as ac, re
     CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -1307,6 +1314,7 @@ def compare_and_coach_claude(
 
 Tempo: {tempo.get('bpm', '?')} BPM. Key: {score.get('key_signature', '?')}. Time signature: {score.get('time_signature', '?')}.
 {gemini_block}
+{f'STUDENT NOTE (subjective context — prioritize the audio evidence above over this; use it only to interpret ambiguous moments, never to invent or excuse issues): "{user_note}"' if user_note else ''}
 
 YOUR TASK: Identify 3–6 issues grounded in the Gemini audio evidence above. Priority: direct listening observations first, then CREPE intonation candidates, then pitch mismatches, then rhythm.
 
@@ -1479,6 +1487,8 @@ def run_full_analysis(payload: dict) -> None:
     end_measure    = payload.get("end_measure")
     gemini_key     = payload.get("gemini_api_key")
     anthropic_key  = payload.get("anthropic_api_key")
+    # Optional student-supplied context for this recording (sanitized client/edge-side).
+    user_note      = (payload.get("user_note") or "").strip()[:800]
 
     try:
         num, denom = map(int, time_sig.split("/"))
@@ -1531,6 +1541,7 @@ def run_full_analysis(payload: dict) -> None:
         gemini_assessment = evaluate_with_gemini(
             gemini_uri, video_mime, instrument,
             piece_title, composer, start_measure, end_measure, gemini_key,
+            user_note=user_note,
         )
         print(f"[run_full_analysis] Gemini assessment complete: {len(gemini_assessment.get('intonation_issues', []))} intonation, {len(gemini_assessment.get('rhythm_issues', []))} rhythm, {len(gemini_assessment.get('wrong_notes_cracks', []))} wrong notes")
 
@@ -1599,6 +1610,7 @@ def run_full_analysis(payload: dict) -> None:
                 tempo={"bpm": beats["tempo_bpm"], "steadiness": "steady"},
                 piece_title=piece_title, composer=composer, instrument=instrument,
                 gemini_assessment=gemini_assessment, anthropic_api_key=anthropic_key,
+                user_note=user_note,
             )
         else:
             raise RuntimeError("ANTHROPIC_API_KEY not provided")

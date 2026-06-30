@@ -109,7 +109,7 @@
   background: rgba(88,121,101,0.15);
   border: 1px solid rgba(88,121,101,0.28);
   border-radius: 6px;
-  color: #8fbe9f;
+  color: var(--score-good);
   font-size: 0.82rem;
   font-weight: 600;
   padding: 3px 10px;

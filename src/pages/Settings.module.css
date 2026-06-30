@@ -139,6 +139,24 @@
   border-color: var(--accent);
 }
 
+.fieldTextarea {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.875rem;
+  padding: 9px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 150ms ease;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.fieldTextarea:focus { border-color: var(--accent); }
+.fieldTextarea::placeholder { color: var(--text-faint); }
+
 .fieldInput[readonly] {
   color: var(--text-faint);
   cursor: default;

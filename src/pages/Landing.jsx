@@ -57,17 +57,17 @@ const STEPS = [
   {
     n: '01',
     title: 'Upload your score',
-    body: 'Add the sheet music for the piece you are practicing. MusicXML or image — both work. Practapal reads your score to understand the structure.',
+    body: 'Add the sheet music for the piece you are practicing. MusicXML or image — both work. Mediant reads your score to understand the structure.',
   },
   {
     n: '02',
     title: 'Record a take',
-    body: 'Upload audio or video from any practice session. Any device, any quality. Practapal handles the rest.',
+    body: 'Upload audio or video from any practice session. Any device, any quality. Mediant handles the rest.',
   },
   {
     n: '03',
     title: 'Get measure-level feedback',
-    body: 'See exactly which measure, which beat, and what went wrong — tied directly to your score. Then ask Practa for advice.',
+    body: 'See exactly which measure, which beat, and what went wrong — tied directly to your score. Then ask Mediant for advice.',
   },
 ]
 
@@ -80,12 +80,12 @@ const FEATURES = [
   {
     icon: '⊙',
     title: 'Timing analysis',
-    body: 'Beat-level timing measured in milliseconds. Practapal tells you whether you rushed, dragged, or nailed it.',
+    body: 'Beat-level timing measured in milliseconds. Mediant tells you whether you rushed, dragged, or nailed it.',
   },
   {
     icon: '≋',
     title: 'Dynamics tracking',
-    body: 'Are you hitting the marked crescendos and diminuendos? Practapal checks your dynamics against the score.',
+    body: 'Are you hitting the marked crescendos and diminuendos? Mediant checks your dynamics against the score.',
   },
   {
     icon: '↺',
@@ -116,7 +116,7 @@ const TESTIMONIALS = [
     role: 'Trumpet, semi-professional',
   },
   {
-    quote: "Practa remembered everything about my last take when I came back a week later. The AI coach actually knows my piece — it never asked me what notes I was playing.",
+    quote: "Mediant remembered everything about my last take when I came back a week later. The AI coach actually knows my piece — it never asked me what notes I was playing.",
     name: 'Mei-Lin Park',
     role: 'Piano, independent teacher',
   },
@@ -158,20 +158,20 @@ const PRICING = [
 
 const FAQS = [
   {
-    q: 'What instruments does Practapal support?',
-    a: 'Practapal works with any instrument that can be recorded: strings, woodwinds, brass, piano, guitar, voice, and more. The analysis adapts to the instrument and range detected in your recording.',
+    q: 'What instruments does Mediant support?',
+    a: 'Mediant works with any instrument that can be recorded: strings, woodwinds, brass, piano, guitar, voice, and more. The analysis adapts to the instrument and range detected in your recording.',
   },
   {
     q: 'Do I need to upload sheet music?',
-    a: 'Sheet music is recommended — it allows Practapal to align feedback directly to specific measures. You can upload a recording without a score and still receive timing and dynamics feedback, but pitch analysis is more accurate with a score.',
+    a: 'Sheet music is recommended — it allows Mediant to align feedback directly to specific measures. You can upload a recording without a score and still receive timing and dynamics feedback, but pitch analysis is more accurate with a score.',
   },
   {
     q: 'How long does analysis take?',
-    a: 'Most analyses complete in 60–90 seconds. Longer recordings (over 10 minutes) can take up to 3 minutes. You will see a progress indicator while Practapal processes your recording.',
+    a: 'Most analyses complete in 60–90 seconds. Longer recordings (over 10 minutes) can take up to 3 minutes. You will see a progress indicator while Mediant processes your recording.',
   },
   {
-    q: 'Can I use Practapal for orchestral or ensemble recordings?',
-    a: 'Practapal is optimized for solo recordings at this stage. It works best when a single instrument is the primary voice. Multi-instrument analysis is on our roadmap.',
+    q: 'Can I use Mediant for orchestral or ensemble recordings?',
+    a: 'Mediant is optimized for solo recordings at this stage. It works best when a single instrument is the primary voice. Multi-instrument analysis is on our roadmap.',
   },
   {
     q: 'Is my music data private?',
@@ -241,9 +241,9 @@ export default function Landing() {
 
       {/* ── NAV ────────────────────────────────────────── */}
       <nav className={styles.nav} aria-label="Main navigation">
-        <Link to="/" className={styles.navBrand} aria-label="Practapal home">
+        <Link to="/" className={styles.navBrand} aria-label="Mediant home">
           <span className={styles.navLogoMark} aria-hidden="true" />
-          <span className={styles.navWordmark}>Practapal</span>
+          <span className={styles.navWordmark}>Mediant</span>
         </Link>
 
         <div className={styles.navLinks}>
@@ -270,7 +270,7 @@ export default function Landing() {
                 Finally, feedback that points to the measure.
               </h1>
               <p className={styles.heroLead}>
-                Upload a recording. Practapal analyzes pitch, timing, and dynamics against your score — then shows you exactly where to focus before your next session.
+                Upload a recording. Mediant analyzes pitch, timing, and dynamics against your score — then shows you exactly where to focus before your next session.
               </p>
               <div className={styles.heroActions}>
                 <Link to="/signup" className={styles.btnPrimary}>Start for free →</Link>
@@ -350,7 +350,7 @@ export default function Landing() {
             <Reveal className={styles.sectionHead}>
               <p className={styles.eyebrow}>How it works</p>
               <h2>Three steps to sharper practice.</h2>
-              <p>Use Practapal after any session. Walk away with a specific, prioritized list of what to fix — not a vague impression.</p>
+              <p>Use Mediant after any session. Walk away with a specific, prioritized list of what to fix — not a vague impression.</p>
             </Reveal>
 
             <div className={styles.stepsStack}>
@@ -375,7 +375,7 @@ export default function Landing() {
               <p className={styles.comingSoonEyebrow}>App Preview</p>
               <h2 className={styles.comingSoonH2}>The full interface is on its way.</h2>
               <p className={styles.comingSoonBody}>
-                We're in the final stretch, putting the finishing touches on the Practapal experience. Sign up now and be the first to know when it launches.
+                We're in the final stretch, putting the finishing touches on the Mediant experience. Sign up now and be the first to know when it launches.
               </p>
               <div className={styles.comingSoonActions}>
                 <Link to="/signup" className={styles.btnPrimary}>Get early access →</Link>
@@ -389,7 +389,7 @@ export default function Landing() {
         <section className={styles.featuresSection} id="features">
           <div className={styles.sectionInner}>
             <Reveal className={styles.sectionHead}>
-              <p className={styles.eyebrow}>What Practapal helps with</p>
+              <p className={styles.eyebrow}>What Mediant helps with</p>
               <h2>Built around how musicians actually practice.</h2>
             </Reveal>
 
@@ -500,7 +500,7 @@ export default function Landing() {
           <div className={styles.ctaInner}>
             <Reveal>
               <h2>Ready for your next take?</h2>
-              <p>Join 1,100+ musicians using Practapal to practice with purpose.</p>
+              <p>Join 1,100+ musicians using Mediant to practice with purpose.</p>
               <div className={styles.ctaActions}>
                 <Link to="/signup" className={styles.btnWhite}>Create free account →</Link>
                 <Link to="/login" className={styles.btnGhostLight}>Log in</Link>
@@ -517,10 +517,10 @@ export default function Landing() {
           <div className={styles.footerBrand}>
             <div className={styles.footerLogoRow}>
               <span className={styles.footerLogoMark} aria-hidden="true" />
-              <span className={styles.footerWordmark}>Practapal</span>
+              <span className={styles.footerWordmark}>Mediant</span>
             </div>
             <p className={styles.footerTagline}>AI music practice coaching for growing musicians.</p>
-            <p className={styles.footerCopy}>© 2026 Practapal. All rights reserved.</p>
+            <p className={styles.footerCopy}>© 2026 Mediant. All rights reserved.</p>
           </div>
 
           <div className={styles.footerCol}>

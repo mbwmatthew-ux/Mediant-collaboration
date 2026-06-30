@@ -10,6 +10,14 @@ import { playDrop, playAnalyzeStart, playAnalyzeComplete, playThud } from '../ut
 
 const OCR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 
+// Quick-tap chips that append context to the AI note (toggle on/off).
+const NOTE_CHIPS = [
+  { label: 'Sight-reading', text: 'This was a sight-read / first attempt.' },
+  { label: 'Slow practice tempo', text: 'Practicing under tempo, not at performance speed.' },
+  { label: 'Different instrument / tuning', text: 'Different instrument or tuning than usual.' },
+  { label: 'Tired / noisy mic', text: 'Recorded while tired or in a noisy room / on a phone mic.' },
+]
+
 export default function Record() {
   const nav      = useNavigate()
   const { user } = useAuth()
@@ -37,6 +45,25 @@ export default function Record() {
   const [videoDrag, setVideoDrag] = useState(false)
   const videoInputRef = useRef()
   const captureInputRef = useRef()
+
+  // Notes for the AI (optional) — pre-filled once from the saved default note
+  const [notes, setNotes] = useState('')
+  const notesPrefilled = useRef(false)
+  useEffect(() => {
+    if (!notesPrefilled.current && user?.default_note) {
+      setNotes(user.default_note)
+      notesPrefilled.current = true
+    }
+  }, [user?.default_note])
+
+  function toggleNoteChip(text) {
+    setNotes(prev => {
+      if (prev.includes(text)) {
+        return prev.replace(text, '').replace(/\n{2,}/g, '\n').replace(/^\n+|\n+$/g, '')
+      }
+      return (prev.trim() ? prev.trimEnd() + '\n' : '') + text
+    })
+  }
 
   // Submission state
   const [phase,    setPhase]    = useState('idle')  // idle | uploading | analyzing | error
@@ -329,6 +356,7 @@ export default function Record() {
           difficulty:     difficulty || undefined,
           scoreFacts:      scoreFacts || undefined,
           audioFeatures:   audioFeatures || undefined,
+          notes:           notes.trim() || undefined,
         },
       })
 
@@ -688,6 +716,33 @@ export default function Record() {
                 <span className={styles.formOptional} style={{ marginTop: 4, display: 'block' }}>
                   Last measure played. Prevents false flags beyond your excerpt.
                 </span>
+              </div>
+            </div>
+
+            {/* Notes for the AI */}
+            <div className={styles.formGroup} style={{ marginTop: 18 }}>
+              <label className={styles.formLabel}>
+                Notes for the AI <span className={styles.formOptional}>(optional)</span>
+              </label>
+              <textarea
+                className={styles.formTextarea}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                maxLength={800}
+                rows={3}
+                placeholder="Context that helps the AI understand this recording — e.g. “sight-reading”, “my piano runs a bit flat”, “recorded on my phone in a small room.”"
+              />
+              <div className={styles.noteChips}>
+                {NOTE_CHIPS.map(c => (
+                  <button
+                    type="button"
+                    key={c.label}
+                    className={`${styles.noteChip} ${notes.includes(c.text) ? styles.noteChipActive : ''}`}
+                    onClick={() => toggleNoteChip(c.text)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

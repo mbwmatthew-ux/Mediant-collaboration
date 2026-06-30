@@ -623,6 +623,7 @@ async function runGeminiVideo(opts: {
   scoreFacts?:   unknown
   audioFeatures?: unknown
   measureTimeline?: MeasureTimelineEntry[]
+  userNote?:    string
 }): Promise<{ score: number; flags: NormalizedFlag[]; scoreContext: string }> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY')
   if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured')
@@ -746,6 +747,11 @@ Instructions for comparison:
 - If you hear an issue that was flagged in the previous take, note it as RECURRING: "This was also flagged in your previous take — [what changed or didn't]."
 - If a previous issue is no longer present, note it as IMPROVED: "Your [issue] from last time is no longer flagged — good progress."
 - Do not invent improvements or regressions. Only compare what you can actually hear.
+` : ''}
+${opts.userNote ? `
+STUDENT'S OWN NOTE ABOUT THIS RECORDING (context only — treat as subjective; always prioritize what you actually see and hear over these claims):
+"${opts.userNote}"
+Use it to interpret ambiguous moments (e.g. a sight-read, slow practice, a different instrument or tuning, a noisy phone mic), but never invent issues or excuse clearly audible problems because of it.
 ` : ''}
 HIGH-VALUE DETECTION TARGETS:
 1. WRONG NOTES: Only flag when the pitch is clearly wrong against the attached/known score. If the exact expected note is unreadable, say the audible problem without pretending to know the score.
@@ -879,6 +885,7 @@ async function runClaudeVision(opts: {
   safeEnd:      number | null
   tempo:        number
   measureTimeline?: MeasureTimelineEntry[]
+  userNote?:    string
 }): Promise<{ score: number; flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -907,7 +914,7 @@ Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
 ${opts.tempo > 0 ? `Reference tempo: ${opts.tempo} BPM` : ''}
-
+${opts.userNote ? `\nStudent's own note about this recording (subjective context — prioritize what you can actually see over this): "${opts.userNote}"\n` : ''}
 For each frame, assess visible technique only:
 - Embouchure / bow hold / hand position: visible tension, collapse, or misalignment
 - Body posture: hunching, raised shoulders, jaw tension, tilted head
@@ -989,6 +996,7 @@ async function runClaudeCoaching(opts: {
   priorTake:     { score: number | null; flags: any[] } | null
   scoreFacts?:    unknown
   measureTimeline?: MeasureTimelineEntry[]
+  userNote?:     string
 }): Promise<{ flags: NormalizedFlag[] }> {
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -1034,6 +1042,7 @@ Piece: "${opts.pieceTitle}" by ${opts.composer}
 Instrument: ${opts.instrument}
 ${keyNote}Time signature: ${opts.timeSig}
 Passage: ${measureRange}
+${opts.userNote ? `\nStudent's own note about this recording (subjective context): "${opts.userNote}"\n` : ''}
 ${hasImage ? '\nThe sheet music is shown above — study it carefully.' : ''}
 STRUCTURED SCORE FACTS:
 ${scoreFactsText}
@@ -1161,7 +1170,15 @@ serve(async (req: Request) => {
       difficulty,
       scoreFacts,
       audioFeatures,
+      notes,
     } = body
+
+    // Optional student-supplied context for this recording. Sanitize: strip
+    // control chars, trim, and cap length to bound tokens and reduce the chance
+    // of prompt-injection. Treated as untrusted, lower-priority context downstream.
+    const cleanNote = (typeof notes === 'string' ? notes : '')
+      .split('').filter((ch) => ch >= ' ').join('')
+      .replace(/ {2,}/g, ' ').trim().slice(0, 800)
 
     if (!videoPath || !videoMimeType) {
       return new Response(JSON.stringify({ error: 'videoPath and videoMimeType are required' }), {
@@ -1200,6 +1217,7 @@ serve(async (req: Request) => {
         video_path:      videoPath,
         video_mime_type: videoMimeType,
         score_path:      scorePath   ?? null,
+        note:            cleanNote,
         score:           null,
         flags:           [],
         job_status:      'processing',
@@ -1236,6 +1254,7 @@ serve(async (req: Request) => {
           video_mime_type:   videoMimeType,
           score_url:         scoreSignedUrl,
           score_mime_type:   scoreMimeType   ?? null,
+          user_note:         cleanNote,
           instrument:        instrument      ?? 'instrument',
           part:              part            ?? '',
           piece_title:       pieceTitle      ?? 'this piece',
@@ -1299,6 +1318,7 @@ serve(async (req: Request) => {
       scoreFacts:    safeScoreFacts,
       audioFeatures: safeAudioFeatures,
       measureTimeline,
+      userNote:      cleanNote,
     }
 
     let score: number | null = null

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext(null)
 
-const THEME_VERSION = '2'
+const THEME_VERSION = '3'
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
@@ -12,7 +12,7 @@ export function ThemeProvider({ children }) {
       localStorage.removeItem('mediant_theme')
       localStorage.setItem('mediant_theme_v', THEME_VERSION)
     }
-    return localStorage.getItem('mediant_theme') || 'light'
+    return localStorage.getItem('mediant_theme') || 'dark'
   })
 
   useEffect(() => {

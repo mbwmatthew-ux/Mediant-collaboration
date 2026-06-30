@@ -66,6 +66,7 @@ function AccountTab() {
   const [name,          setName]          = useState(user?.name ?? '')
   const [instrument,    setInstrument]    = useState(user?.instrument ?? 'Piano')
   const [coachingStyle, setCoachingStyle] = useState(user?.coaching_style ?? 'Balanced')
+  const [defaultNote,   setDefaultNote]   = useState(user?.default_note ?? '')
   const [saveStatus,    setSaveStatus]    = useState('idle') // idle | saving | saved
 
   const [soundOn, setSoundOn] = useState(
@@ -81,7 +82,7 @@ function AccountTab() {
     if (saveStatus === 'saving') return
     setSaveStatus('saving')
     try {
-      await supabase.auth.updateUser({ data: { name, instrument, coaching_style: coachingStyle } })
+      await supabase.auth.updateUser({ data: { name, instrument, coaching_style: coachingStyle, default_note: defaultNote.trim() } })
       playSave()
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2200)
@@ -171,6 +172,18 @@ function AccountTab() {
                   <option value="Direct">Direct — concise, no-nonsense feedback</option>
                 </select>
               </div>
+            </div>
+
+            <div className={styles.field} style={{ marginTop: 16 }}>
+              <label className={styles.fieldLabel}>Default note for the AI</label>
+              <textarea
+                className={styles.fieldTextarea}
+                value={defaultNote}
+                onChange={e => setDefaultNote(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Always tell the AI this about your playing — e.g. an instrument quirk, an injury, or your usual setup. It pre-fills the notes on every new recording."
+              />
             </div>
 
             <div className={styles.profileFooter}>

@@ -186,8 +186,8 @@
 }
 
 .iconGreen { background: var(--accent-bg-hover); color: var(--accent); }
-.iconGold  { background: rgba(214,177,104,0.18); color: var(--gold); }
-.iconCoral { background: rgba(225,134,118,0.18); color: var(--coral); }
+.iconGold  { background: rgba(248, 188, 36,0.18); color: var(--gold); }
+.iconCoral { background: rgba(245, 136, 0,0.18); color: var(--coral); }
 
 .issueMeasureNum {
   color: var(--text-faint);
@@ -372,8 +372,8 @@
 }
 
 .chatContextPill {
-  background: rgba(225,134,118,0.12);
-  border: 1px solid rgba(225,134,118,0.3);
+  background: rgba(245, 136, 0,0.12);
+  border: 1px solid rgba(245, 136, 0,0.3);
   border-radius: 999px;
   color: var(--coral);
   font-size: 0.68rem;
@@ -429,8 +429,8 @@
 }
 
 .summaryCardImprovements {
-  background: rgba(214,177,104,0.06);
-  border: 1px solid rgba(214,177,104,0.18);
+  background: rgba(248, 188, 36,0.06);
+  border: 1px solid rgba(248, 188, 36,0.18);
 }
 
 .summaryCardTitle {
@@ -536,7 +536,7 @@
 .tab:hover { color: var(--text-soft); }
 
 .tabActive {
-  border-bottom-color: #EE7B53;
+  border-bottom-color: var(--accent);
   color: var(--text);
 }
 
@@ -754,13 +754,13 @@
   padding: 2px 6px;
   white-space: nowrap;
 }
-.timelineTypePill[data-type="intonation"] { background: rgba(225,134,118,0.18); color: var(--coral); }
-.timelineTypePill[data-type="dynamics"]   { background: rgba(225,134,118,0.18); color: var(--coral); }
+.timelineTypePill[data-type="intonation"] { background: rgba(245, 136, 0,0.18); color: var(--coral); }
+.timelineTypePill[data-type="dynamics"]   { background: rgba(245, 136, 0,0.18); color: var(--coral); }
 .timelineTypePill[data-type="timing"],
 .timelineTypePill[data-type="rhythm"],
 .timelineTypePill[data-type="phrasing"],
 .timelineTypePill[data-type="articulation"],
-.timelineTypePill[data-type="expression"] { background: rgba(214,177,104,0.18); color: var(--gold); }
+.timelineTypePill[data-type="expression"] { background: rgba(248, 188, 36,0.18); color: var(--gold); }
 .timelineTypePill[data-type="technique"],
 .timelineTypePill[data-type="tone"],
 .timelineTypePill[data-type="posture"],
@@ -1315,7 +1315,7 @@
   text-align: left;
   transition: background 120ms ease;
 }
-.threadMenuItem:hover { background: rgba(225,134,118,0.1); }
+.threadMenuItem:hover { background: rgba(245, 136, 0,0.1); }
 
 /* ── Triple Pane Layout (legacy — keep for reference) ────────── */
 .tripleLayout {
@@ -1581,7 +1581,7 @@
 
 .takeSelect:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(212, 174, 82, 0.2), 0 2px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 2px rgba(248, 188, 36, 0.2), 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
 .takeSelect option {
@@ -1592,8 +1592,8 @@
 
 /* Custom premium delete take button */
 .deleteTakeBtn {
-  background: rgba(225, 134, 118, 0.08);
-  border: 1px solid rgba(225, 134, 118, 0.2);
+  background: rgba(245, 136, 0, 0.08);
+  border: 1px solid rgba(245, 136, 0, 0.2);
   border-radius: var(--radius-sm);
   color: var(--coral);
   font-size: 0.82rem;
@@ -1614,11 +1614,11 @@
 }
 
 .deleteTakeBtn:hover {
-  background: rgba(225, 134, 118, 0.16);
+  background: rgba(245, 136, 0, 0.16);
   border-color: var(--coral);
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(225, 134, 118, 0.25);
+  box-shadow: 0 4px 12px rgba(245, 136, 0, 0.25);
 }
 
 .deleteTakeBtn:hover svg {
@@ -1627,7 +1627,7 @@
 
 .deleteTakeBtn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(225, 134, 118, 0.15);
+  box-shadow: 0 2px 6px rgba(245, 136, 0, 0.15);
 }
 
 /* Premium thread hover action container */
@@ -1663,7 +1663,7 @@
 }
 
 .threadDeleteBtn:hover {
-  background: rgba(225, 134, 118, 0.12);
+  background: rgba(245, 136, 0, 0.12);
 }
 
 .threadDeleteBtn:hover svg {
@@ -1872,7 +1872,7 @@
 }
 
 .waveHeader::before {
-  background: radial-gradient(ellipse at 65% 50%, rgba(30, 184, 157, 0.06) 0%, transparent 65%);
+  background: radial-gradient(ellipse at 65% 50%, rgba(38, 104, 103, 0.06) 0%, transparent 65%);
   content: '';
   inset: 0;
   pointer-events: none;
@@ -1909,8 +1909,8 @@
 }
 
 .waveHeaderBadge {
-  background: rgba(30, 184, 157, 0.1);
-  border: 1px solid rgba(30, 184, 157, 0.22);
+  background: rgba(38, 104, 103, 0.1);
+  border: 1px solid rgba(38, 104, 103, 0.22);
   border-radius: 99px;
   color: var(--accent);
   font-size: 0.66rem;
@@ -1951,10 +1951,10 @@
 
 .waveHeaderDeleteBtn {
   align-items: center;
-  background: rgba(238, 123, 83, 0.12);
-  border: 1px solid rgba(238, 123, 83, 0.2);
+  background: rgba(245, 136, 0, 0.12);
+  border: 1px solid rgba(245, 136, 0, 0.2);
   border-radius: 6px;
-  color: rgba(238, 123, 83, 0.8);
+  color: rgba(245, 136, 0, 0.8);
   cursor: pointer;
   display: flex;
   height: 26px;
@@ -1962,7 +1962,7 @@
   padding: 0 7px;
   transition: background 140ms ease;
 }
-.waveHeaderDeleteBtn:hover { background: rgba(238, 123, 83, 0.22); }
+.waveHeaderDeleteBtn:hover { background: rgba(245, 136, 0, 0.22); }
 
 .waveHeaderAnalyzedAt {
   color: var(--text-faintest);
@@ -1983,7 +1983,7 @@
 }
 
 .waveHeaderBar {
-  background: rgba(30, 184, 157, 0.18);
+  background: rgba(38, 104, 103, 0.18);
   border-radius: 2px 2px 0 0;
   flex: 1;
   height: var(--barH, 32px);
@@ -1992,7 +1992,7 @@
 }
 
 .waveHeaderBarFlagged {
-  background: #EE7B53;
+  background: var(--accent);
   opacity: 0.85;
 }
 
@@ -2040,9 +2040,9 @@
   height: 100%;
 }
 
-.waveHeaderFill1 { background: #EE7B53; }
-.waveHeaderFill2 { background: #C09230; }
-.waveHeaderFill3 { background: #8fbe9f; }
+.waveHeaderFill1 { background: var(--accent); }
+.waveHeaderFill2 { background: var(--gold); }
+.waveHeaderFill3 { background: var(--score-good); }
 
 .waveHeaderMetricVal {
   color: var(--text);
@@ -2079,7 +2079,7 @@
 }
 
 .waveHeaderReanalyze {
-  background: #EE7B53;
+  background: var(--accent);
   border: none;
   border-radius: 7px;
   color: #fff;
@@ -2091,7 +2091,7 @@
   white-space: nowrap;
 }
 .waveHeaderReanalyze:hover {
-  background: #d4622e;
+  background: var(--accent);
   transform: translateY(-1px);
 }
 
@@ -2171,8 +2171,8 @@
 }
 
 .insightCountBadge {
-  background: rgba(192, 144, 64, 0.15);
-  color: #C09040;
+  background: rgba(248, 188, 36, 0.15);
+  color: var(--gold);
   border-radius: 99px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -2233,15 +2233,15 @@
 }
 
 .insightRowActive {
-  background: rgba(192, 144, 64, 0.05);
+  background: rgba(248, 188, 36, 0.05);
 }
 
 .insightIndex {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid #C09040;
-  color: #C09040;
+  border: 1px solid var(--gold);
+  color: var(--gold);
   font-size: 0.72rem;
   font-weight: 600;
   display: flex;
@@ -2264,7 +2264,7 @@
 }
 
 .insightTime:hover {
-  color: #C09040;
+  color: var(--gold);
   text-decoration: underline;
 }
 
@@ -2287,20 +2287,20 @@
 }
 
 .insightTypeBadge[data-type="technique"] {
-  background: rgba(143, 190, 159, 0.12);
-  color: #8fbe9f;
+  background: rgba(70, 201, 143, 0.12);
+  color: var(--score-good);
 }
 
 .insightTypeBadge[data-type="timing"],
 .insightTypeBadge[data-type="rhythm"] {
-  background: rgba(192, 144, 64, 0.1);
-  color: #C09040;
+  background: rgba(248, 188, 36, 0.1);
+  color: var(--gold);
 }
 
 .insightTypeBadge[data-type="dynamics"],
 .insightTypeBadge[data-type="intonation"] {
-  background: rgba(225, 134, 118, 0.1);
-  color: #E18676;
+  background: rgba(245, 136, 0, 0.1);
+  color: var(--coral);
 }
 
 .insightRowTitle {
@@ -2343,21 +2343,21 @@
 }
 
 .insightLoopBtnActive {
-  background: rgba(192, 144, 64, 0.1);
-  border-color: rgba(192, 144, 64, 0.35);
-  color: #C09040;
+  background: rgba(248, 188, 36, 0.1);
+  border-color: rgba(248, 188, 36, 0.35);
+  color: var(--gold);
 }
 
 .insightLoopBtnActive:hover {
-  background: rgba(192, 144, 64, 0.15);
-  border-color: rgba(192, 144, 64, 0.5);
-  color: #a87530;
+  background: rgba(248, 188, 36, 0.15);
+  border-color: rgba(248, 188, 36, 0.5);
+  color: var(--gold);
 }
 
 /* ── Inline Insight Details ─────────────────────────────────── */
 .insightDetailPanel {
   background: var(--bg-card-hover);
-  border: 1px solid rgba(192, 144, 64, 0.2);
+  border: 1px solid rgba(248, 188, 36, 0.2);
   border-radius: 8px;
   padding: 16px 20px;
   margin-top: 10px;
@@ -2380,8 +2380,8 @@
 }
 
 .detailMeasureBadge {
-  background: rgba(192, 144, 64, 0.15);
-  color: #C09040;
+  background: rgba(248, 188, 36, 0.15);
+  color: var(--gold);
   font-family: "Geist Mono", monospace;
   font-size: 0.72rem;
   font-weight: 700;
@@ -2589,17 +2589,19 @@
 
 /* ── Sticky bottom input bar ────────────────────────────────── */
 .stickyBottomBar {
-  position: absolute;
+  position: fixed;
   bottom: 0;
-  left: 0;
+  left: 52px; /* clear the collapsed sidebar rail */
   right: 0;
-  height: 84px;
+  height: auto;
   background: var(--bg);
   border-top: 1px solid var(--border);
   display: flex;
+  flex-direction: column;   /* chips row centered above the input bar (no overlap) */
   align-items: center;
   justify-content: center;
-  padding: 0 32px 16px;
+  gap: 6px;
+  padding: 8px 32px 12px;
   z-index: 100;
 }
 
@@ -2658,7 +2660,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #EE7B53;
+  background: var(--accent);
   border: none;
   cursor: pointer;
   display: flex;
@@ -2669,7 +2671,7 @@
 }
 
 .stickyBarSendBtn:hover:not(:disabled) {
-  background: #A67B33;
+  background: var(--gold);
   transform: scale(1.05);
 }
 
@@ -2718,7 +2720,7 @@
   font-size: 3.8rem;
   font-weight: 500;
   letter-spacing: -0.05em;
-  color: #B03030;
+  color: var(--text);
 }
 
 .summaryTopScoreDenom {
@@ -2804,7 +2806,7 @@
 .summaryTopWidgetCol {
   flex: 1.2;
   background: var(--bg-card);
-  border: 1.5px solid rgba(192, 144, 64, 0.22);
+  border: 1.5px solid rgba(248, 188, 36, 0.22);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -2816,18 +2818,18 @@
 }
 
 .summaryTopWidgetCol:hover {
-  border-color: #C09040;
+  border-color: var(--gold);
   background: var(--bg-card-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(192, 144, 64, 0.08);
+  box-shadow: 0 4px 12px rgba(248, 188, 36, 0.08);
 }
 
 .widgetSparkleWrap {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(192, 144, 64, 0.08);
-  color: #C09040;
+  background: rgba(248, 188, 36, 0.08);
+  color: var(--gold);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2927,8 +2929,8 @@
 }
 
 .practiceCountBadge {
-  background: rgba(143, 190, 159, 0.15);
-  color: #8fbe9f;
+  background: rgba(70, 201, 143, 0.15);
+  color: var(--score-good);
   font-size: 0.68rem;
   font-weight: 700;
   border-radius: 99px;
@@ -2962,7 +2964,7 @@
 
 .drillCard:hover {
   background: var(--bg-card);
-  border-color: rgba(192, 144, 64, 0.22);
+  border-color: rgba(248, 188, 36, 0.22);
   transform: translateY(-1px);
   box-shadow: none;
 }
@@ -3001,7 +3003,7 @@
 .viewAllDrillsBtn {
   background: transparent;
   border: none;
-  color: #C09040;
+  color: var(--gold);
   font-size: 0.82rem;
   font-weight: 600;
   display: flex;
@@ -3014,7 +3016,7 @@
 }
 
 .viewAllDrillsBtn:hover {
-  color: #A67B33;
+  color: var(--gold);
 }
 
 /* ── Bottom Rows Dashboard Cards ────────────────────────────── */
@@ -3041,7 +3043,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #C09040;
+  color: var(--gold);
 }
 
 .conversationDesc {
@@ -3058,7 +3060,7 @@
 }
 
 .uploadFollowupBtn {
-  background: #C09040;
+  background: var(--gold);
   border: none;
   border-radius: 8px;
   color: #FFFFFF;
@@ -3070,11 +3072,11 @@
   align-items: center;
   transition: all 0.2s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(192, 144, 64, 0.15);
+  box-shadow: 0 2px 6px rgba(248, 188, 36, 0.15);
 }
 
 .uploadFollowupBtn:hover {
-  background: #A67B33;
+  background: var(--gold);
   transform: translateY(-1px);
 }
 
@@ -3113,12 +3115,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #C09040;
+  color: var(--gold);
   transition: all 0.15s ease;
 }
 
 .conversationSendBtn:hover:not(:disabled) {
-  background: rgba(192, 144, 64, 0.08);
+  background: rgba(248, 188, 36, 0.08);
 }
 
 .summaryPastTakesCard {
@@ -3190,9 +3192,9 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(192, 144, 64, 0.08);
+  background: rgba(248, 188, 36, 0.08);
   border: none;
-  color: #C09040;
+  color: var(--gold);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -3201,7 +3203,7 @@
 }
 
 .pastTakePlayBtn:hover {
-  background: rgba(192, 144, 64, 0.18);
+  background: rgba(248, 188, 36, 0.18);
   transform: scale(1.05);
 }
 
@@ -3327,7 +3329,7 @@
 .reviewLayoutColumns {
   gap: clamp(14px, 1.6vw, 22px);
   grid-template-columns: minmax(300px, 0.92fr) minmax(420px, 1.08fr);
-  margin: 0 auto 72px;
+  margin: 0 auto 124px; /* clearance for the fixed chips+input bar */
   max-width: 1480px;
   overflow: clip;
   width: 100%;
@@ -3429,8 +3431,8 @@
 }
 
 .stickyBottomBar {
-  height: 72px;
-  padding: 0 clamp(14px, 2.2vw, 28px) 12px;
+  height: auto;
+  padding: 8px clamp(14px, 2.2vw, 28px) 12px;
 }
 
 .stickyBarInner {
@@ -3475,13 +3477,13 @@
   align-self: flex-start;
   background: var(--bg-card-hover);
   border: 1px solid var(--border);
-  color: #5f554b;
+  color: var(--text);
 }
 
 .analysisChatMsgUser {
   align-self: flex-end;
-  background: rgba(192, 144, 64, 0.12);
-  border: 1px solid rgba(192, 144, 64, 0.18);
+  background: rgba(248, 188, 36, 0.12);
+  border: 1px solid rgba(248, 188, 36, 0.18);
   color: var(--text);
 }
 
@@ -3559,7 +3561,7 @@
 .videoMissingState {
   align-items: center;
   background: var(--bg-card-hover);
-  border: 1px dashed rgba(192, 144, 64, 0.28);
+  border: 1px dashed rgba(248, 188, 36, 0.28);
   border-radius: 10px;
   color: var(--text-faint);
   display: flex;
@@ -3637,7 +3639,7 @@
   }
 
   .stickyBottomBar {
-    position: sticky;
+    position: fixed;
   }
 
   .scorePhotoPolish {
@@ -3660,14 +3662,16 @@
   }
 
   .takeSelectRow,
-  .videoControls,
-  .stickyBarInner {
+  .videoControls {
     align-items: stretch;
     flex-direction: column;
     height: auto;
   }
 
   .stickyBottomBar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
     height: auto;
     padding-block: 10px;
   }
@@ -3675,7 +3679,9 @@
   .stickyBarInner {
     border-radius: 16px;
     gap: 8px;
-    padding: 12px;
+    height: 48px;
+    padding: 0 8px 0 16px;
+    width: 100%;
   }
 
   .stickyBarDivider,
@@ -3723,8 +3729,8 @@
   .rightLane > :nth-child(1) { order: 2; }
   .rightLane > :nth-child(2) { order: 1; }
   .rightLane > :nth-child(3) { order: 3; }
-  /* Keep the sticky query bar above the 64px mobile bottom nav */
-  .stickyBottomBar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* Keep the sticky query bar above the 64px mobile bottom nav; sidebar is hidden so span full width */
+  .stickyBottomBar { bottom: calc(64px + env(safe-area-inset-bottom)); left: 0; right: 0; }
   /* Clearance so the last card isn't hidden behind the sticky bar + nav */
   .reviewLayoutColumns { margin-bottom: 136px; }
   /* Comfortable Loop touch target + roomier cards */
@@ -3749,8 +3755,10 @@
   align-items: center;
   display: flex;
   gap: 6px;
+  justify-content: center;
+  max-width: 100%;
   overflow-x: auto;
-  padding: 6px 16px 0;
+  padding: 2px 4px;
   scrollbar-width: none;
 }
 .stickyBarPrompts::-webkit-scrollbar { display: none; }
@@ -3828,7 +3836,7 @@
 }
 .stickyBarUploadBtn:disabled { opacity: 0.4; cursor: default; }
 
-/* ── Ask Practa button on insight rows ──────────────────────── */
+/* ── Ask Mediant button on insight rows ─────────────────────── */
 .insightAskBtn {
   align-items: center;
   background: transparent;
@@ -3886,7 +3894,7 @@
 
 .analysisNewSessionBtn {
   align-items: center;
-  background: #EE7B53;
+  background: var(--accent);
   border: none;
   border-radius: 7px;
   color: #fff;
@@ -3900,7 +3908,7 @@
   padding: 9px 18px;
   transition: background 140ms ease, transform 140ms ease;
 }
-.analysisNewSessionBtn:hover { background: #d4622e; transform: translateY(-1px); }
+.analysisNewSessionBtn:hover { background: var(--accent); transform: translateY(-1px); }
 
 /* ── Session strip ───────────────────────────────────────────── */
 .sessionStrip {
@@ -4000,4 +4008,108 @@
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
+}
+
+/* ── AI context note + re-analyze ── */
+.noteCard {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 32px 18px;
+}
+.noteCardHead {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.noteCardTitle {
+  color: var(--text-faintest);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.noteCardHint {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+.noteCardInput {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 9px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  outline: none;
+  padding: 10px 12px;
+  resize: vertical;
+  transition: border-color 140ms ease;
+  width: 100%;
+}
+.noteCardInput:focus { border-color: var(--accent); }
+.noteCardInput::placeholder { color: var(--text-faint); }
+.noteCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.noteSaveBtn {
+  background: var(--surface-subtle);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  transition: background 130ms ease, color 130ms ease, border-color 130ms ease;
+}
+.noteSaveBtn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.noteSaveBtn:disabled { opacity: 0.5; cursor: default; }
+.noteReanalyzeBtn {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #051821;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  transition: filter 130ms ease, transform 130ms ease;
+}
+.noteReanalyzeBtn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.noteReanalyzeBtn:disabled { opacity: 0.55; cursor: default; }
+
+/* ── Phone overrides (placed last so they win source-order over the
+   base metric-tile / note-card rules defined earlier in this file) ── */
+@media (max-width: 760px) {
+  /* 4-up metric tiles overflow on phones — go 2x2 */
+  .metricTilesRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .metricTile {
+    padding: 14px 16px;
+  }
+  .metricTile:nth-child(2) {
+    border-right: none;
+  }
+  .metricTile:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* AI-note card: stack the actions full-width */
+  .noteCard {
+    padding: 14px 16px 16px;
+  }
+  .noteCardActions {
+    flex-direction: column;
+  }
+  .noteSaveBtn,
+  .noteReanalyzeBtn {
+    text-align: center;
+    width: 100%;
+  }
 }
