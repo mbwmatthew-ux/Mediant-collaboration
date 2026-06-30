@@ -1,538 +1,295 @@
-/* ── Page override ─────────────────────────────────────── */
+/* ── Page ──────────────────────────────────────────────────── */
 .page {
-  margin: 0 auto;
-  max-width: 1312px;
-  padding: 42px 40px 72px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-/* ── Page header ───────────────────────────────────────── */
+/* ── Page header ─────────────────────────────────────────── */
+.pageHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 32px 16px;
+}
+
+.pageHeaderLeft { display: flex; flex-direction: column; gap: 2px; }
+
 .pageTitle {
   color: var(--text);
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  font-size: clamp(2rem, 3vw, 2.5rem);
-  font-weight: 400;
-  letter-spacing: -0.035em;
-  margin: 0 0 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0;
 }
 
 .pageSubtitle {
   color: var(--text-faint);
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   margin: 0;
 }
 
-/* ── Period toggle ─────────────────────────────────────── */
+/* ── Period toggle ───────────────────────────────────────── */
 .periodToggle {
-  align-items: center;
   background: var(--surface-subtle);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
-  flex-shrink: 0;
   gap: 2px;
   padding: 3px;
 }
 
-.toggleBtn {
+.periodBtn {
   background: none;
   border: none;
   border-radius: 5px;
-  color: var(--text-dim);
+  color: var(--text-faint);
   cursor: pointer;
-  font-size: 0.82rem;
-  padding: 6px 14px;
-  transition: background 140ms ease, color 140ms ease;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  transition: background 130ms ease, color 130ms ease;
 }
-.toggleBtn:hover { color: var(--text); }
-.toggleBtnActive {
-  background: var(--border);
+.periodBtnActive {
+  background: var(--bg-card);
   color: var(--text);
 }
 
-/* ── Premium Glassmorphic Stats Cards Grid ──────────────── */
-.metricGrid {
+/* ── Skill summary tiles ─────────────────────────────────── */
+.skillTiles {
+  border-bottom: 1px solid var(--border);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 28px;
-  margin-top: 16px;
+  grid-template-columns: repeat(4, 1fr);
 }
 
-.metricCard {
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 20px 22px;
+.skillTile {
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  position: relative;
-  transition: border-color 0.2s ease;
+  gap: 8px;
+  padding: 22px 28px;
 }
+.skillTile:last-child { border-right: none; }
 
-.metricCard:hover {
-  border-color: var(--accent-border);
-}
-
-.cardLabel {
-  color: var(--text-faint);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.cardValue {
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 2.2rem;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--text);
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 2px;
-}
-
-.cardSubtext {
-  color: var(--text-faint);
-  font-size: 0.73rem;
-  margin-top: auto;
-  padding-top: 10px;
-  display: block;
-}
-
-.cardProgressTrack {
-  background: var(--surface-hover);
-  height: 5px;
-  border-radius: 2px;
-  margin-top: 10px;
-  overflow: hidden;
-  position: relative;
-}
-
-.cardProgressFill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-
-/* ── Premium Visual Score Progress Graph ─────────────────── */
-.graphPanel {
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 24px;
-  margin-bottom: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: relative;
-  overflow: hidden;
-}
-
-.graphHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.graphTitle {
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: 0.01em;
-}
-
-.graphSubtitle {
-  color: var(--text-faint);
-  font-size: 0.74rem;
-  margin-top: 2px;
-  margin-bottom: 0;
-}
-
-.graphWrap {
-  width: 100%;
-  height: 180px;
-  position: relative;
-  margin-top: 6px;
-}
-
-.gridLine {
-  stroke: var(--surface-border);
-  stroke-width: 1;
-  stroke-dasharray: 4, 4;
-}
-
-.axisLabel {
-  fill: var(--text-faint);
-  font-size: 9px;
-  font-family: inherit;
-  font-weight: 500;
-}
-
-.graphLine {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  animation: strokeDraw 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.graphArea {
-  fill: url(#graphGradient);
-}
-
-.graphNodeGroup {
-  cursor: pointer;
-}
-
-.graphNode {
-  fill: var(--bg-card);
-  stroke: var(--accent);
-  stroke-width: 3px;
-  r: 5.5px;
-  transition: r 0.25s cubic-bezier(0.16, 1, 0.3, 1), stroke-width 0.25s ease, stroke 0.25s ease;
-}
-
-.graphNodeGroup:hover .graphNode {
-  r: 9px;
-  stroke-width: 5px;
-  stroke: var(--gold);
-}
-
-.nodeLabel {
-  fill: var(--text-faint);
-  font-size: 9px;
-  font-weight: 500;
-  text-anchor: middle;
-  transition: fill 0.25s ease, font-size 0.25s ease, opacity 0.25s ease;
-  pointer-events: none; /* Make text click-through */
-  opacity: 0.85;
-}
-
-.graphNodeGroup:hover .nodeLabel {
-  fill: var(--accent);
+.skillTileLabel {
+  color: var(--text-faintest);
+  font-size: 0.63rem;
   font-weight: 700;
-  font-size: 10px;
-  opacity: 1;
+  letter-spacing: 0.1em;
 }
 
-.nodeTitleLabel {
-  fill: var(--text-dim);
-  font-size: 9px;
-  font-weight: 600;
-  text-anchor: middle;
-  letter-spacing: 0.02em;
-  transition: fill 0.25s ease, font-size 0.25s ease;
-  pointer-events: none; /* Make text click-through */
-}
-
-.graphNodeGroup:hover .nodeTitleLabel {
-  fill: var(--text);
-  font-size: 10px;
-}
-
-
-/* ── Dashboard split 2-column layout ────────────────────── */
-.dashboardGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 32px;
-  align-items: start;
-}
-
-@media (min-width: 1024px) {
-  .dashboardGrid {
-    grid-template-columns: 1.25fr 1fr;
-  }
-}
-
-.leftCol, .rightCol {
+.skillTileBottom {
+  align-items: baseline;
   display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-
-/* ── Sessions table ─────────────────────────────────────── */
-.sessionTable {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-sm);
-  padding: 8px 16px;
-}
-
-.sessionRow {
-  align-items: center;
-  border-bottom: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: space-between;
-  padding: 14px 0;
-  gap: 16px;
-}
-.sessionRow:last-child { border-bottom: 0; }
-
-.sessionInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.sessionPiece {
-  color: var(--text);
-  font-size: 0.88rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sessionMeta {
-  color: var(--text-faint);
-  font-size: 0.76rem;
-}
-
-.sessionRight {
-  align-items: center;
-  display: flex;
-  flex-shrink: 0;
-  gap: 12px;
-}
-
-.sessionScore {
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 1.2rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.sessionFlags {
-  font-size: 0.7rem;
-}
-
-
-/* ── AI Practice report / Feedback card ──────────────────── */
-.feedbackCard {
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px 28px 28px;
-}
-
-.feedbackCardHeader {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-}
-
-.feedbackHeadline {
-  color: var(--text);
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 1.35rem;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  margin: 0;
-}
-
-.feedbackOverview {
-  border-bottom: 1px solid var(--line);
-  color: var(--text-soft);
-  font-size: 0.86rem;
-  line-height: 1.7;
-  margin: 0;
-  padding-bottom: 20px;
-}
-
-.feedbackSection {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
 }
 
-.feedbackSectionTitle {
-  align-items: center;
-  color: var(--text);
-  display: flex;
-  font-size: 0.83rem;
-  font-weight: 600;
-  gap: 8px;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.iconGreen { color: #8fbe9f; }
-.iconGold  { color: var(--gold); }
-.iconBlue  { color: rgba(120,160,210,0.9); }
-
-.feedbackList {
-  color: var(--text-soft);
-  display: flex;
-  flex-direction: column;
-  font-size: 0.84rem;
-  gap: 8px;
-  line-height: 1.6;
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 20px;
-}
-
-.feedbackList li {
-  position: relative;
-}
-
-.feedbackList li::before {
-  color: var(--text-faintest);
-  content: '·';
-  left: -14px;
-  position: absolute;
-  font-size: 1.2rem;
-  top: -2px;
-}
-
-
-/* ── AI Insights Loading & Empty Panels ───────────────────── */
-.insightsPanelEmpty, .insightsPanelLoading {
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 32px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.insightsIcon {
-  font-size: 2.2rem;
-  color: var(--accent);
-  margin-bottom: 12px;
+.skillTileValue {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
-.insightsTitle {
-  color: var(--text);
-  font-size: 0.96rem;
+.skillTileDelta {
+  font-size: 0.82rem;
   font-weight: 600;
-  margin: 0 0 8px 0;
-  letter-spacing: 0.01em;
 }
 
-.insightsDesc {
+/* ── Monthly trends ──────────────────────────────────────── */
+.trendsSection {
+  border-bottom: 1px solid var(--border);
+  padding: 28px 32px;
+}
+
+.trendsSectionTitle {
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+}
+
+.emptyState {
   color: var(--text-faint);
-  font-size: 0.81rem;
-  line-height: 1.6;
-  margin: 0 0 16px 0;
-  max-width: 320px;
+  font-size: 0.86rem;
+  padding: 24px 0;
+  text-align: center;
 }
 
-.insightsPanelLoading {
-  padding: 44px 28px;
-}
-
-.loaderPulse {
-  width: 24px;
-  height: 24px;
-  background-color: var(--accent);
-  border-radius: 50%;
-  margin-bottom: 16px;
-  box-shadow: 0 0 12px var(--accent);
-  animation: pulsePulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulsePulse {
-  0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(212,174,82,0.4); }
-  70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 10px rgba(212,174,82,0); }
-  100% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(212,174,82,0); }
-}
-
-@keyframes strokeDraw {
-  0% { stroke-dashoffset: 800; stroke-dasharray: 800; }
-  100% { stroke-dashoffset: 0; stroke-dasharray: 800; }
-}
-
-
-/* ── Responsive ─────────────────────────────────────────── */
-@media (max-width: 1024px) {
-  .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 768px) {
-  .page { padding: 28px 18px 48px; }
-  .metricGrid { grid-template-columns: 1fr 1fr; }
-  .periodToggle { align-self: flex-start; }
-  .feedbackCard, .insightsPanelEmpty, .insightsPanelLoading { padding: 20px 18px; }
-  .feedbackHeadline { font-size: 1.15rem; }
-}
-
-@media (max-width: 480px) {
-  .metricGrid { grid-template-columns: 1fr; }
-}
-
-/* ── Technique progress bars ────────────────────────────── */
-.techCard {
-  background: var(--bg-card);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  margin-bottom: 16px;
-  padding: 18px 20px;
-}
-
-.techCardTitle {
-  color: var(--text);
-  font-size: 0.92rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin: 0 0 16px;
-}
-
-.techBars {
+.trendList {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 28px;
 }
 
-.techBarRow {
-  align-items: center;
+.trendDim { display: flex; flex-direction: column; gap: 8px; }
+
+.trendDimHeader {
+  align-items: baseline;
   display: flex;
   gap: 12px;
+  justify-content: space-between;
 }
 
-.techBarLabel {
-  color: var(--text-soft);
-  font-size: 0.79rem;
-  font-weight: 500;
-  flex-shrink: 0;
-  width: 88px;
+.trendDimLabel {
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
-.techBarTrack {
-  background: var(--surface-hover);
-  border-radius: 99px;
-  flex: 1;
-  height: 6px;
-  overflow: hidden;
+.trendDimRange {
+  color: var(--text-faintest);
+  font-size: 0.74rem;
 }
 
-.techBarFill {
-  border-radius: 99px;
+.trendBars {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(6, 1fr);
+  height: 64px;
+}
+
+.trendBarCol {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   height: 100%;
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.techBarScore {
-  flex-shrink: 0;
+.trendBarWrap {
+  align-items: flex-end;
+  display: flex;
+  flex: 1;
+  width: 100%;
+}
+
+.trendBar {
+  border-radius: 4px 4px 0 0;
+  transition: height 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+}
+
+.trendBarEmpty {
+  background: var(--surface-subtle);
+  border: 1px dashed var(--border);
+  border-radius: 4px 4px 0 0;
+  height: 20%;
+  width: 100%;
+}
+
+.trendBarLabel {
+  color: var(--text-faintest);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ── Session history table ───────────────────────────────── */
+.historySection {
+  padding: 24px 32px 40px;
+}
+
+.historyHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.historySectionTitle {
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.viewAllBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
   font-size: 0.78rem;
   font-weight: 600;
-  text-align: right;
-  width: 28px;
+  padding: 0;
+  transition: opacity 140ms ease;
+}
+.viewAllBtn:hover { opacity: 0.7; }
+
+.historyTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.historyTable thead tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.historyTable th {
+  color: var(--text-faintest);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  padding: 0 12px 10px 0;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.historyRow {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.historyRow:last-child { border-bottom: none; }
+.historyRow:hover { background: var(--surface-subtle); }
+
+.historyTable td {
+  color: var(--text);
+  font-size: 0.84rem;
+  padding: 11px 12px 11px 0;
+  vertical-align: middle;
+}
+
+.historyDate {
+  color: var(--text-faint) !important;
+  font-size: 0.78rem !important;
+  min-width: 80px;
+  white-space: nowrap;
+}
+
+.historyPiece { font-weight: 500; }
+
+.historyComposer { color: var(--text-faint); font-weight: 400; }
+
+.historyScore {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.historyFlags {
+  color: var(--text-faint) !important;
+  font-size: 0.78rem !important;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .skillTiles { grid-template-columns: repeat(2, 1fr); }
+  .skillTile:nth-child(2) { border-right: none; }
+}
+
+@media (max-width: 700px) {
+  .pageHeader { flex-direction: column; align-items: flex-start; gap: 12px; padding: 14px 16px 12px; }
+  .trendsSection { padding: 20px 16px; }
+  .trendBars { height: 48px; }
+  .historySection { padding: 16px 16px 32px; }
+  .skillTiles { grid-template-columns: repeat(2, 1fr); }
+  .skillTile { padding: 16px 18px; }
 }

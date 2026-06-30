@@ -32,6 +32,8 @@ import Summary from './pages/Summary'
 import Takes from './pages/Takes'
 import Coach from './pages/Coach'
 import ProgressFeedback from './pages/ProgressFeedback'
+import Calendar from './pages/Calendar'
+import Plan from './pages/Plan'
 import Settings from './pages/Settings'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
@@ -67,6 +69,8 @@ export default function App() {
             <Route path="/takes"    element={<Takes />} />
             <Route path="/coach"    element={<Coach />} />
             <Route path="/progress" element={<ProgressFeedback />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/plan"     element={<Plan />} />
             <Route path="/profile"  element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

@@ -1,0 +1,263 @@
+/* ── Page ──────────────────────────────────────────────────── */
+.page {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Page header ─────────────────────────────────────────── */
+.pageHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 32px 16px;
+}
+
+.pageHeaderLeft { display: flex; flex-direction: column; gap: 2px; }
+
+.pageTitle {
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.pageSubtitle {
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.primaryBtn {
+  align-items: center;
+  background: #EE7B53;
+  border: none;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 6px;
+  padding: 9px 18px;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.primaryBtn:hover { background: #d4622e; transform: translateY(-1px); }
+
+/* ── Progress bar ────────────────────────────────────────── */
+.progressBar {
+  background: var(--border);
+  height: 3px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progressFill {
+  background: var(--accent);
+  height: 100%;
+  transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── AI context banner ───────────────────────────────────── */
+.contextBanner {
+  align-items: flex-start;
+  background: rgba(30, 184, 157, 0.07);
+  border-bottom: 1px solid rgba(30, 184, 157, 0.14);
+  display: flex;
+  gap: 14px;
+  padding: 18px 32px;
+}
+
+.contextIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.contextMsg {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.contextLabel {
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-right: 6px;
+}
+
+/* ── Plan list ───────────────────────────────────────────── */
+.planList {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 32px;
+}
+
+.planItem {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  transition: background 100ms ease;
+}
+.planItem:last-child { border-bottom: none; }
+
+.planItemDone { opacity: 0.55; }
+
+/* Check button */
+.checkBtn {
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 26px;
+  justify-content: center;
+  margin-top: 3px;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+  width: 26px;
+}
+.checkBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.checkBtnDone {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.checkBtnDone:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Plan item content */
+.planItemContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.planItemHeader {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.planItemNum {
+  align-items: center;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-faint);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.planItemTitle {
+  color: var(--text);
+  font-size: 0.97rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.planItemTitleDone {
+  text-decoration: line-through;
+}
+
+.planItemTime {
+  align-items: center;
+  color: var(--text-faintest);
+  display: flex;
+  font-size: 0.75rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.planItemDesc {
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.planItemMeasure {
+  background: rgba(238, 123, 83, 0.1);
+  border: 1px solid rgba(238, 123, 83, 0.2);
+  border-radius: 4px;
+  color: #EE7B53;
+  font-size: 0.69rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  width: fit-content;
+}
+
+/* ── All done state ──────────────────────────────────────── */
+.allDone {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.allDoneIcon {
+  align-items: center;
+  background: rgba(30, 184, 157, 0.14);
+  border-radius: 50%;
+  color: var(--accent);
+  display: flex;
+  font-size: 1.4rem;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.allDoneText {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.recordBtn {
+  background: #EE7B53;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 11px 22px;
+  transition: background 140ms ease;
+}
+.recordBtn:hover { background: #d4622e; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .pageHeader { padding: 14px 16px 12px; }
+  .contextBanner { padding: 14px 16px; }
+  .planList { padding: 8px 16px; }
+  .allDone { padding: 32px 16px; }
+}
