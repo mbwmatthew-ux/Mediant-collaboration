@@ -25,8 +25,8 @@ export default function Terms() {
         </section>
 
         <section className={styles.section}>
-          <h2>Free and Pro plans</h2>
-          <p>Free accounts include one complimentary analysis. Pro accounts have no analysis limit. Subscription fees are billed monthly and are non-refundable except where required by applicable law. You may cancel at any time from your account settings — your Pro access continues until the end of the current billing period.</p>
+          <h2>Plans and subscriptions</h2>
+          <p>Paid plans include access to Mediant's analysis and coaching tools according to the limits shown at checkout. Subscription fees are billed on the selected schedule and are non-refundable except where required by applicable law. You may cancel at any time from your account settings — your access continues until the end of the current billing period.</p>
         </section>
 
         <section className={styles.section}>

@@ -6,35 +6,12 @@ import LogoMark from '../components/LogoMark'
 
 const PLANS = [
   {
-    id: 'free',
-    name: 'Free',
-    monthlyPrice: null,
-    yearlyPrice: null,
-    description: 'Get started with the basics.',
-    cta: 'Current plan',
-    ctaVariant: 'ghost',
-    features: [
-      { text: '5 recording uploads per month',  included: true  },
-      { text: 'Score alignment & analysis',      included: true  },
-      { text: 'Measure-by-measure feedback',     included: true  },
-      { text: 'Session history (30 days)',        included: true  },
-      { text: 'Mediant chat',                      included: true  },
-      { text: 'Unlimited uploads',               included: false },
-      { text: 'Priority analysis queue',         included: false },
-      { text: 'Full session history',            included: false },
-      { text: 'PDF export',                      included: false },
-      { text: 'Advanced progress tracking',      included: false },
-      { text: 'Multi-instrument profiles',       included: false },
-      { text: 'Early access to new features',    included: false },
-    ],
-  },
-  {
     id: 'pro',
     name: 'Pro',
     monthlyPrice: '$19.99',
     yearlyPrice: '$14.99',
     description: 'For musicians who practice seriously.',
-    cta: 'Get Pro',
+    cta: 'Choose Pro',
     ctaVariant: 'gold',
     badge: 'Most popular',
     features: [
@@ -58,7 +35,7 @@ const PLANS = [
     monthlyPrice: '$34.99',
     yearlyPrice: '$24.99',
     description: 'The full experience, no limits.',
-    cta: 'Get Max',
+    cta: 'Choose Max',
     ctaVariant: 'green',
     features: [
       { text: '5 recording uploads per month',  included: true  },
@@ -84,7 +61,6 @@ export default function Pricing() {
   const [pendingPlan, setPendingPlan] = useState(null)
 
   function handleCta(plan) {
-    if (plan.id === 'free') return
     if (!user) { nav('/signup'); return }
     setPendingPlan(plan.id)
     setTimeout(() => setPendingPlan(null), 3000)
@@ -109,7 +85,7 @@ export default function Pricing() {
           ) : (
             <>
               <Link to="/login"  className={styles.navBtn}>Log in</Link>
-              <Link to="/signup" className={styles.navCta}>Get started free</Link>
+              <Link to="/signup" className={styles.navCta}>Get started</Link>
             </>
           )}
         </div>
@@ -120,7 +96,7 @@ export default function Pricing() {
         <span className={styles.eyebrow}>Plans &amp; Pricing</span>
         <h1 className={styles.title}>Choose your level</h1>
         <p className={styles.subtitle}>
-          Start free, upgrade when you're ready. All plans include score-aware analysis and performance feedback.
+          Choose the plan that fits your practice. All plans include score-aware analysis and performance feedback.
         </p>
 
         {/* Billing toggle */}
@@ -147,19 +123,13 @@ export default function Pricing() {
 
             <div className={styles.cardHead}>
               <p className={styles.planName}>{plan.name}</p>
-              {plan.monthlyPrice ? (
-                <div className={styles.priceRow}>
-                  <span className={styles.price}>
-                    {billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}
-                  </span>
-                  <span className={styles.perMonth}>/mo</span>
-                </div>
-              ) : (
-                <div className={styles.priceRow}>
-                  <span className={styles.priceFree}>Free</span>
-                </div>
-              )}
-              {plan.monthlyPrice && billing === 'yearly' && (
+              <div className={styles.priceRow}>
+                <span className={styles.price}>
+                  {billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}
+                </span>
+                <span className={styles.perMonth}>/mo</span>
+              </div>
+              {billing === 'yearly' && (
                 <p className={styles.billedNote}>
                   Billed {plan.id === 'pro' ? '$179.88' : '$299.88'}/year
                 </p>
@@ -170,9 +140,8 @@ export default function Pricing() {
             <button
               className={`${styles.ctaBtn} ${styles['ctaBtn_' + plan.ctaVariant]}`}
               onClick={() => handleCta(plan)}
-              disabled={plan.id === 'free' && !!user}
             >
-              {plan.id === 'free' && user ? 'Current plan' : plan.cta}
+              {plan.cta}
             </button>
             {pendingPlan === plan.id && (
               <p style={{ color: 'rgba(248,246,242,0.55)', fontSize: '0.8rem', margin: '8px 0 0', textAlign: 'center' }}>

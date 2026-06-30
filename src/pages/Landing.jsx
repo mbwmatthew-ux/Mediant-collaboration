@@ -111,7 +111,7 @@ const PRICING = [
       'Priority analysis queue',
       'Email progress digest',
     ],
-    cta: 'Start Pro trial',
+    cta: 'Choose Pro',
     highlight: true,
   },
 ]

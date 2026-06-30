@@ -147,7 +147,7 @@ export default function Login() {
             </p>
             <p className={styles.footer}>
               Don&apos;t have an account?{' '}
-              <Link to="/signup" className={styles.footerLink}>Sign up free</Link>
+              <Link to="/signup" className={styles.footerLink}>Create an account</Link>
             </p>
           </>
         )}

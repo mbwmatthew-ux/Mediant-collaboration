@@ -757,12 +757,12 @@ export default function Record() {
                 onChange={e => setNotes(e.target.value)}
                 maxLength={800}
                 rows={3}
-                placeholder=”Context that helps the AI understand this recording — e.g. “sight-reading”, “my piano runs a bit flat”, “recorded on my phone in a small room.””
+                placeholder="Context that helps the AI understand this recording - e.g. sight-reading, my piano runs a bit flat, recorded on my phone in a small room."
               />
               <div className={styles.noteChips}>
                 {NOTE_CHIPS.map(c => (
                   <button
-                    type=”button”
+                    type="button"
                     key={c.label}
                     className={`${styles.noteChip} ${notes.includes(c.text) ? styles.noteChipActive : ''}`}
                     onClick={() => toggleNoteChip(c.text)}
@@ -789,8 +789,8 @@ export default function Record() {
               >
                 <input
                   ref={midiInputRef}
-                  type=”file”
-                  accept=”.mid,.midi”
+                  type="file"
+                  accept=".mid,.midi"
                   style={{ display: 'none' }}
                   onChange={e => { const f = e.target.files[0]; if (f) { playDrop(); setMidiFile(f) } }}
                 />

@@ -56,7 +56,7 @@ export default function Signup() {
       <div className={styles.card}>
         <p className={styles.eyebrow}>Get started</p>
         <h1 className={styles.heading}>Create your account</h1>
-        <p className={styles.sub}>Free to try. No credit card needed.</p>
+        <p className={styles.sub}>Create your Mediant account to start reviewing takes.</p>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {error && (
