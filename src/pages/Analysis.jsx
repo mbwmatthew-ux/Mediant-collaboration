@@ -334,7 +334,7 @@ function ConfidenceGauge({ confidence }) {
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '11px', fontWeight: '700', color: '#1A1410',
+          fontSize: '11px', fontWeight: '700', color: 'var(--text)',
           fontFamily: 'var(--font-mono)'
         }}>
           {confidence}%
@@ -1379,6 +1379,51 @@ export default function Analysis({ demo: demoProp = false }) {
 
       {/* ───── MAIN CONTENT AREA ───── */}
       <main className={aStyles.mainPageContent}>
+
+        {/* ── Page header ── */}
+        <div className={aStyles.analysisPageHeader}>
+          <div className={aStyles.analysisPageHeaderLeft}>
+            <h1 className={aStyles.analysisPageTitle}>Sessions</h1>
+            <p className={aStyles.analysisPageSubtitle}>
+              {pieceTitle || 'Select a session below'}{pieceComposer ? ` · ${pieceComposer}` : ''}
+            </p>
+          </div>
+          <button className={aStyles.analysisNewSessionBtn} onClick={() => nav('/record')}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New session
+          </button>
+        </div>
+
+        {/* ── Session strip (horizontal scroll of recent threads) ── */}
+        <div className={aStyles.sessionStrip}>
+          {threads.map((thread) => {
+            const latestTake = thread.takes?.[0]
+            const isActive = thread.piece_title === activeThreadTitle
+            return (
+              <button
+                key={thread.piece_title}
+                className={`${aStyles.sessionStripCard} ${isActive ? aStyles.sessionStripCardActive : ''}`}
+                onClick={() => { playPop(); setActiveThreadTitle(thread.piece_title); setSelectedTakeId(null) }}
+              >
+                <div className={aStyles.sessionStripTop}>
+                  <span className={aStyles.sessionStripPiece}>{thread.piece_title}</span>
+                  {latestTake?.score != null && (
+                    <span className={aStyles.sessionStripScore} style={{ color: scoreColor(latestTake.score) }}>
+                      {latestTake.score}
+                    </span>
+                  )}
+                </div>
+                <div className={aStyles.sessionStripMeta}>
+                  <span>{thread.piece_composer ?? ''}</span>
+                  {latestTake?.created_at && (
+                    <span>{timeAgo(latestTake.created_at)}</span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Demo banner */}
         {isDemo && (
           <div style={{
@@ -1482,6 +1527,32 @@ export default function Analysis({ demo: demoProp = false }) {
             <button className={aStyles.waveHeaderReanalyze} onClick={() => nav('/record')}>
               New Take
             </button>
+          </div>
+        </div>
+
+        {/* ── Metric tiles ── */}
+        <div className={aStyles.metricTilesRow}>
+          <div className={aStyles.metricTile}>
+            <span className={aStyles.metricTileLabel}>ISSUES FLAGGED</span>
+            <span className={aStyles.metricTileValue}>{issueCount}</span>
+          </div>
+          <div className={aStyles.metricTile}>
+            <span className={aStyles.metricTileLabel}>MEASURES</span>
+            <span className={aStyles.metricTileValue}>
+              {take?.flags?.length
+                ? Math.max(...take.flags.map(f => f.measure_end ?? f.measure ?? 0))
+                : '—'}
+            </span>
+          </div>
+          <div className={aStyles.metricTile}>
+            <span className={aStyles.metricTileLabel}>CONFIDENCE</span>
+            <span className={aStyles.metricTileValue}>{overallConfidence}%</span>
+          </div>
+          <div className={aStyles.metricTile}>
+            <span className={aStyles.metricTileLabel}>ANALYZED</span>
+            <span className={aStyles.metricTileValue} style={{ fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+              {timeAgo(take?.created_at) ?? '—'}
+            </span>
           </div>
         </div>
 
@@ -1928,7 +1999,7 @@ export default function Analysis({ demo: demoProp = false }) {
                     <line x1="8" y1="2" x2="8" y2="6" />
                     <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
-                  <span style={{ color: '#1A1410' }}>PRACTICE PLAN</span>
+                  <span style={{ color: 'var(--text-faint)' }}>PRACTICE PLAN</span>
                   <span className={aStyles.practiceCountBadge}>{activeSummary.drills.length}</span>
                 </div>
                 <p className={aStyles.practicePlanSubtitle}>Recommended drills for this session</p>

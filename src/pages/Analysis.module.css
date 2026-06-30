@@ -296,9 +296,9 @@
 
 .issueDetailTitle {
   color: var(--text);
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 1.1rem;
-  font-weight: 400;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
   overflow-wrap: anywhere;
@@ -517,6 +517,7 @@
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: 0;
+  padding: 0 32px;
 }
 
 .tab {
@@ -525,16 +526,17 @@
   border-bottom: 2px solid transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 0.86rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   padding: 10px 18px 10px 0;
+  text-transform: uppercase;
   transition: color 140ms ease, border-color 140ms ease;
 }
 .tab:hover { color: var(--text-soft); }
 
 .tabActive {
-  border-bottom-color: var(--accent);
+  border-bottom-color: #EE7B53;
   color: var(--text);
 }
 
@@ -1675,7 +1677,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 24px 32px 0;
+  padding: 0 0 0;
   background: var(--bg);
 }
 
@@ -1762,7 +1764,7 @@
 }
 
 .headerMetricLabel {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1779,13 +1781,13 @@
 }
 
 .headerMetricValue {
-  color: #1A1410;
+  color: var(--text);
   font-size: 0.95rem;
   font-weight: 600;
 }
 
 .headerMetricIcon {
-  color: #7A6F64;
+  color: var(--text-faint);
   opacity: 0.7;
 }
 
@@ -1805,12 +1807,12 @@
 }
 
 .headerScoreDenom {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.95rem;
 }
 
 .headerScoreBarTrack {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 99px;
   height: 4px;
   width: 100%;
@@ -1826,8 +1828,8 @@
 
 .headerReanalyzeBtn {
   background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #7A6F64;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -1842,14 +1844,14 @@
 }
 
 .headerReanalyzeBtn:hover {
-  background: #FBFAF7;
-  color: #1A1410;
-  border-color: rgba(0, 0, 0, 0.25);
+  background: var(--bg-card-hover);
+  color: var(--text);
+  border-color: var(--border);
   transform: translateY(-1px);
 }
 
 .infoIcon {
-  color: #7A6F64;
+  color: var(--text-faint);
   opacity: 0.7;
   cursor: help;
 }
@@ -1862,7 +1864,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
   display: flex;
   gap: 24px;
-  margin-bottom: 20px;
+  margin: 20px 32px 0;
   padding: 20px 24px;
   position: relative;
   overflow: hidden;
@@ -2109,6 +2111,7 @@
   overflow: hidden;
   margin-top: 8px;
   margin-bottom: 84px; /* Space for sticky query input */
+  padding: 0 32px;
 }
 
 .leftLane {
@@ -2190,14 +2193,14 @@
 }
 
 .legendLabel {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .legendItem {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.68rem;
   display: inline-flex;
   align-items: center;
@@ -2221,7 +2224,7 @@
   display: flex;
   align-items: center;
   padding: 14px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.15s ease;
   gap: 14px;
@@ -2232,7 +2235,7 @@
 }
 
 .insightRow:hover {
-  background: #FBFAF7;
+  background: var(--bg-card-hover);
 }
 
 .insightRowActive {
@@ -2254,7 +2257,7 @@
 }
 
 .insightTime {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-family: "Geist Mono", monospace;
   font-size: 0.72rem;
   min-width: 44px;
@@ -2272,7 +2275,7 @@
 }
 
 .insightMeasure {
-  color: #1A1410;
+  color: var(--text);
   font-family: "Geist Mono", monospace;
   font-size: 0.75rem;
   font-weight: 600;
@@ -2307,7 +2310,7 @@
 }
 
 .insightRowTitle {
-  color: #1A1410;
+  color: var(--text);
   font-size: 0.85rem;
   flex: 1;
   min-width: 0;
@@ -2325,9 +2328,9 @@
 
 .insightLoopBtn {
   background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.75rem;
   font-weight: 600;
   padding: 6px 12px;
@@ -2339,9 +2342,9 @@
 }
 
 .insightLoopBtn:hover {
-  background: #FBFAF7;
-  color: #1A1410;
-  border-color: rgba(0, 0, 0, 0.18);
+  background: var(--bg-card-hover);
+  color: var(--text);
+  border-color: var(--border);
   transform: translateY(-1px);
 }
 
@@ -2359,7 +2362,7 @@
 
 /* ── Inline Insight Details ─────────────────────────────────── */
 .insightDetailPanel {
-  background: #FBFAF7;
+  background: var(--bg-card-hover);
   border: 1px solid rgba(192, 144, 64, 0.2);
   border-radius: 8px;
   padding: 16px 20px;
@@ -2396,7 +2399,7 @@
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.05rem;
   font-weight: 500;
-  color: #1A1410;
+  color: var(--text);
   margin: 0;
   flex: 1;
 }
@@ -2404,14 +2407,14 @@
 .detailClose {
   background: none;
   border: none;
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.9rem;
   cursor: pointer;
   padding: 4px;
 }
 
 .detailBody {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.86rem;
   line-height: 1.6;
   margin: 0;
@@ -2546,7 +2549,7 @@
 .videoPlayer {
   width: 100%;
   border-radius: 8px;
-  background: #1A1410;
+  background: var(--bg-deep);
   display: block;
 }
 
@@ -2557,7 +2560,7 @@
 }
 
 .videoSpeedLabel {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -2569,9 +2572,9 @@
 
 .speedBtn {
   background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.75rem;
   font-weight: 600;
   padding: 5px 10px;
@@ -2580,14 +2583,14 @@
 }
 
 .speedBtn:hover {
-  background: #FBFAF7;
-  color: #1A1410;
+  background: var(--bg-card-hover);
+  color: var(--text);
 }
 
 .speedBtnActive {
-  background: #1A1410 !important;
+  background: var(--bg-card-hover) !important;
   color: #FFFFFF !important;
-  border-color: #1A1410 !important;
+  border-color: var(--text) !important;
 }
 
 /* ── Sticky bottom input bar ────────────────────────────────── */
@@ -2597,8 +2600,8 @@
   left: 0;
   right: 0;
   height: 84px;
-  background: #F7F4EF;
-  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2610,10 +2613,10 @@
   width: 100%;
   max-width: 1200px;
   height: 48px;
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   padding: 0 8px 0 20px;
@@ -2626,16 +2629,18 @@
 }
 
 .stickyBarLabel {
-  font-family: "Iowan Old Style", Georgia, serif;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #1A1410;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-transform: uppercase;
 }
 
 .stickyBarDivider {
   width: 1px;
   height: 24px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.08);
   margin: 0 16px;
   flex-shrink: 0;
 }
@@ -2646,12 +2651,12 @@
   border: none;
   outline: none;
   font-size: 0.88rem;
-  color: #1A1410;
+  color: var(--text);
   padding-right: 12px;
 }
 
 .stickyBarInput::placeholder {
-  color: #7A6F64;
+  color: var(--text-faint);
   opacity: 0.7;
 }
 
@@ -2659,7 +2664,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #C09040;
+  background: #EE7B53;
   border: none;
   cursor: pointer;
   display: flex;
@@ -2675,7 +2680,7 @@
 }
 
 .stickyBarSendBtn:disabled {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   cursor: not-allowed;
 }
 
@@ -2684,16 +2689,15 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 40px;
+  padding: 16px 32px 40px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  margin-top: 16px;
 }
 
 .summaryTopCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px 28px;
   display: flex;
@@ -2724,12 +2728,12 @@
 }
 
 .summaryTopScoreDenom {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 1.1rem;
 }
 
 .summaryTopScoreLabel {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2738,7 +2742,7 @@
 }
 
 .summaryTopScoreBarTrack {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 99px;
   height: 4px;
   width: 100px;
@@ -2755,7 +2759,7 @@
 .summaryTopDivider {
   width: 1px;
   height: 96px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
 
@@ -2769,7 +2773,7 @@
 }
 
 .summaryTopLabel {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2787,7 +2791,7 @@
 }
 
 .summaryTopGlanceHeadline {
-  color: #1A1410;
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.2rem;
   font-weight: 500;
@@ -2797,7 +2801,7 @@
 }
 
 .summaryTopGlanceDesc {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.86rem;
   line-height: 1.6;
   margin: 0;
@@ -2805,7 +2809,7 @@
 
 .summaryTopWidgetCol {
   flex: 1.2;
-  background: #FFFFFF;
+  background: var(--bg-card);
   border: 1.5px solid rgba(192, 144, 64, 0.22);
   border-radius: 12px;
   padding: 16px;
@@ -2819,7 +2823,7 @@
 
 .summaryTopWidgetCol:hover {
   border-color: #C09040;
-  background: #FBFAF7;
+  background: var(--bg-card-hover);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(192, 144, 64, 0.08);
 }
@@ -2843,7 +2847,7 @@
 }
 
 .widgetTitle {
-  color: #1A1410;
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 0.95rem;
   font-weight: 600;
@@ -2851,7 +2855,7 @@
 }
 
 .widgetDesc {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.74rem;
   line-height: 1.3;
   margin: 0;
@@ -2865,8 +2869,8 @@
 }
 
 .summaryDashboardCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -2881,7 +2885,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 12px;
 }
 
@@ -2915,14 +2919,14 @@
 }
 
 .summaryItemTitle {
-  color: #1A1410;
+  color: var(--text);
   font-size: 0.88rem;
   font-weight: 600;
   margin: 0;
 }
 
 .summaryItemDesc {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.8rem;
   line-height: 1.5;
   margin: 0;
@@ -2939,7 +2943,7 @@
 }
 
 .practicePlanSubtitle {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.78rem;
   margin: -8px 0 0;
 }
@@ -2951,8 +2955,8 @@
 }
 
 .drillCard {
-  background: #FBFAF7;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 16px;
   display: flex;
@@ -2963,18 +2967,18 @@
 }
 
 .drillCard:hover {
-  background: #FFFFFF;
+  background: var(--bg-card);
   border-color: rgba(192, 144, 64, 0.22);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 }
 
 .drillIconWrap {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.04);
-  color: #7A6F64;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2988,14 +2992,14 @@
 }
 
 .drillName {
-  color: #1A1410;
+  color: var(--text);
   font-size: 0.85rem;
   font-weight: 600;
   margin: 0;
 }
 
 .drillMetaText {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.76rem;
   margin: 0;
 }
@@ -3027,8 +3031,8 @@
 }
 
 .summaryConversationCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -3047,7 +3051,7 @@
 }
 
 .conversationDesc {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.86rem;
   line-height: 1.6;
   margin: 0 0 8px;
@@ -3083,8 +3087,8 @@
 .conversationInputContainer {
   flex: 1;
   height: 38px;
-  background: #FBFAF7;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
   border-radius: 20px;
   display: flex;
   align-items: center;
@@ -3097,11 +3101,11 @@
   border: none;
   outline: none;
   font-size: 0.84rem;
-  color: #1A1410;
+  color: var(--text);
 }
 
 .conversationInput::placeholder {
-  color: #7A6F64;
+  color: var(--text-faint);
   opacity: 0.65;
 }
 
@@ -3124,8 +3128,8 @@
 }
 
 .summaryPastTakesCard {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -3134,12 +3138,12 @@
 }
 
 .pastTakesHeader {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 12px;
 }
 
@@ -3150,8 +3154,8 @@
 }
 
 .pastTakeRow {
-  background: #FBFAF7;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 14px;
   display: flex;
@@ -3166,7 +3170,7 @@
 }
 
 .pastTakeLabel {
-  color: #1A1410;
+  color: var(--text);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -3179,7 +3183,7 @@
 }
 
 .pastTakeMeta {
-  color: #7A6F64;
+  color: var(--text-faint);
   font-size: 0.76rem;
 }
 
@@ -3212,7 +3216,7 @@
   height: 24px;
   background: transparent;
   border: none;
-  color: #7A6F64;
+  color: var(--text-faint);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -3475,8 +3479,8 @@
 
 .analysisChatMsgAI {
   align-self: flex-start;
-  background: #FBFAF7;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
   color: #5f554b;
 }
 
@@ -3484,7 +3488,7 @@
   align-self: flex-end;
   background: rgba(192, 144, 64, 0.12);
   border: 1px solid rgba(192, 144, 64, 0.18);
-  color: #1A1410;
+  color: var(--text);
 }
 
 .analysisChatTyping {
@@ -3560,10 +3564,10 @@
 
 .videoMissingState {
   align-items: center;
-  background: #FBFAF7;
+  background: var(--bg-card-hover);
   border: 1px dashed rgba(192, 144, 64, 0.28);
   border-radius: 10px;
-  color: #7A6F64;
+  color: var(--text-faint);
   display: flex;
   font-size: 0.88rem;
   justify-content: space-between;
@@ -3572,7 +3576,7 @@
 }
 
 .videoMissingState button {
-  background: #1A1410;
+  background: var(--bg-deep);
   border: 0;
   border-radius: 8px;
   color: #FFFFFF;
@@ -3850,4 +3854,156 @@
   background: var(--accent-bg);
   border-color: var(--accent-border);
   color: var(--accent);
+}
+
+/* ── Analysis page header ────────────────────────────────────── */
+.analysisPageHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-between;
+  padding: 18px 32px 16px;
+}
+
+.analysisPageHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.analysisPageTitle {
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.analysisPageSubtitle {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysisNewSessionBtn {
+  align-items: center;
+  background: #EE7B53;
+  border: none;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.81rem;
+  font-weight: 700;
+  gap: 6px;
+  padding: 9px 18px;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.analysisNewSessionBtn:hover { background: #d4622e; transform: translateY(-1px); }
+
+/* ── Session strip ───────────────────────────────────────────── */
+.sessionStrip {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+  gap: 0;
+  overflow-x: auto;
+  padding: 0;
+  scrollbar-width: none;
+}
+.sessionStrip::-webkit-scrollbar { display: none; }
+
+.sessionStripCard {
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  padding: 14px 20px;
+  text-align: left;
+  transition: background 120ms ease;
+}
+.sessionStripCard:hover { background: var(--surface-subtle); }
+
+.sessionStripCardActive {
+  background: var(--accent-bg) !important;
+  border-bottom: 2px solid var(--accent);
+}
+
+.sessionStripTop {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sessionStripPiece {
+  color: var(--text);
+  font-size: 0.83rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionStripScore {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: -0.03em;
+}
+
+.sessionStripMeta {
+  color: var(--text-faintest);
+  display: flex;
+  font-size: 0.71rem;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+/* ── Metric tiles row ────────────────────────────────────────── */
+.metricTilesRow {
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 16px 0 0;
+}
+
+.metricTile {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 16px 24px;
+}
+.metricTile:last-child { border-right: none; }
+
+.metricTileLabel {
+  color: var(--text-faintest);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.metricTileValue {
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
