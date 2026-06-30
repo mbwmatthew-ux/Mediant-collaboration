@@ -153,18 +153,18 @@
 }
 
 .ghostBtn {
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  background: var(--btn2-bg);
+  border: 1px solid var(--btn2-border);
   border-radius: var(--radius-sm);
-  color: var(--text-soft);
+  color: var(--btn2-text);
   font-size: 0.83rem;
   padding: 9px 18px;
   transition: background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth), border-color 0.2s var(--ease-smooth), transform 0.2s var(--ease-spring);
 }
 .ghostBtn:hover {
-  background: var(--surface-hover);
-  border-color: var(--text-muted);
-  color: var(--text);
+  background: var(--btn2-bg-hover);
+  border-color: var(--btn2-border);
+  color: var(--btn2-text-hover);
   transform: translateY(-1px);
 }
 .ghostBtn:active {
