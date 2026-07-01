@@ -211,10 +211,10 @@
 }
 
 .activityDayLabel {
-  color: var(--text-faintest);
-  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .activityDayToday { color: var(--accent); font-weight: 700; }

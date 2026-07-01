@@ -74,7 +74,7 @@
 }
 
 .inviteCard {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
@@ -164,7 +164,7 @@
   transition: background 140ms ease, border-color 140ms ease;
   width: 100%;
 }
-.studentBtn:hover { background: var(--surface); border-color: var(--border); }
+.studentBtn:hover { background: var(--bg-card); border-color: var(--border); }
 .studentBtnActive { background: rgba(188, 148, 99, 0.12) !important; border-color: var(--accent) !important; }
 
 .studentAvatar {
@@ -262,7 +262,7 @@
 }
 
 .takeCard {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -425,7 +425,7 @@
 }
 
 .annotBtn {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
@@ -489,7 +489,7 @@
 }
 
 .reasonBtn {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
@@ -506,7 +506,7 @@
 }
 
 .inlineInput {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
@@ -522,7 +522,7 @@
 .inlineInput:focus { border-color: var(--accent); }
 
 .inlineTextarea {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
@@ -540,7 +540,7 @@
 .inlineTextarea:focus { border-color: var(--accent); }
 
 .inlineSelect {
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);

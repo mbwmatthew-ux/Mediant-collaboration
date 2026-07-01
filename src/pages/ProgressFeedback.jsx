@@ -217,6 +217,7 @@ export default function ProgressFeedback() {
               View all →
             </button>
           </div>
+          <div className={styles.historyTableWrap}>
           <table className={styles.historyTable}>
             <thead>
               <tr>
@@ -247,6 +248,7 @@ export default function ProgressFeedback() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

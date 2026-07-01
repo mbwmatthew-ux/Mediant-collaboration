@@ -628,7 +628,7 @@ export default function Record() {
                 <>
                   <span className={styles.dropzoneIcon}>↑</span>
                   <strong>Drag a video here or click to upload</strong>
-                  <span className={styles.dropzoneSub}>MP4, MOV, or WebM · under 5 minutes</span>
+                  <span className={styles.dropzoneSub}>MP4, MOV, or WebM · up to 20 minutes</span>
                 </>
               )}
               {videoError && (

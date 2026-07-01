@@ -1,4 +1,8 @@
-:root {
+/* Scoped to .page (NOT :root) so these Landing-only tokens don't leak into the
+   global theme — an unscoped :root here overrode --line and defined --surface
+   app-wide, which broke the dark theme (white cards, cream borders, invisible
+   text on the teacher dashboard). CSS Modules do not scope :root; .page does. */
+.page {
   --teal:       #159A86;
   --teal-deep:  #0C5C52;
   --teal-light: rgba(21, 154, 134, 0.10);

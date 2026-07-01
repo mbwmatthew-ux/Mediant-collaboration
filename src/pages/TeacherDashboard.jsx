@@ -24,9 +24,9 @@ function timeAgo(iso) {
 }
 
 function scoreColor(n) {
-  if (n >= 88) return '#8fbe9f'
-  if (n >= 74) return '#bc9463'
-  return '#c0534a'
+  if (n >= 88) return 'var(--score-good)'
+  if (n >= 74) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }

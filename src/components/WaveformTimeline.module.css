@@ -91,9 +91,9 @@
 }
 
 .timestamp {
-  color: var(--text-faintest);
+  color: var(--text-muted);
   font-family: ui-monospace, monospace;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
 }
@@ -127,8 +127,8 @@
 
 /* ── No timing data message ──────────────────────────────────── */
 .noData {
-  color: var(--text-faintest);
-  font-size: 0.69rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
   font-style: italic;
   flex: 1;
   text-align: center;

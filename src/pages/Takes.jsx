@@ -8,9 +8,9 @@ import { playPop, playTick } from '../utils/sounds'
 /* ── Helpers ─────────────────────────────────────────────────── */
 function scoreColor(n) {
   if (n == null) return 'var(--text-faint)'
-  if (n >= 88) return 'var(--accent)'
-  if (n >= 74) return 'var(--gold)'
-  return 'var(--coral)'
+  if (n >= 88) return 'var(--score-good)'
+  if (n >= 74) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 function formatDate(iso) {

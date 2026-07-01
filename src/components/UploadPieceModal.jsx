@@ -151,7 +151,7 @@ export default function UploadPieceModal({ onClose, onAdded }) {
 
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>Add a piece</h2>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close"><span aria-hidden="true">✕</span></button>
         </div>
 
         <p className={styles.modalSub}>

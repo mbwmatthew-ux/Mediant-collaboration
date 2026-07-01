@@ -5,9 +5,9 @@ import styles from './Page.module.css'
 import { playTick, playPop } from '../utils/sounds'
 
 function scoreColor(n) {
-  if (n >= 88) return '#8fbe9f'
-  if (n >= 74) return 'var(--gold)'
-  return 'var(--coral)'
+  if (n >= 88) return 'var(--score-good)'
+  if (n >= 74) return 'var(--score-ok)'
+  return 'var(--score-bad)'
 }
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }

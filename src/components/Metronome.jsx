@@ -122,7 +122,7 @@ export default function MetronomeModal({ onClose }) {
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
           <p className={styles.modalTitle}>Metronome</p>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close metronome"><span aria-hidden="true">✕</span></button>
         </div>
 
         {/* Beat dots */}

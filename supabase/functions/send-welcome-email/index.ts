@@ -17,7 +17,12 @@ serve(async (req: Request) => {
       })
     }
 
-    const firstName = (name ?? '').split(' ')[0] || 'there'
+    // Escape the user-supplied name before it goes into HTML/subject to prevent
+    // markup/style injection into the outgoing email.
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+    const firstName = escapeHtml(String(name ?? '').split(' ')[0].slice(0, 40)) || 'there'
 
     const html = emailWrapper(`
       <h1 style="font-size:1.4rem;font-weight:700;color:#1a1710;margin:0 0 8px;">Welcome to Mediant, ${firstName}.</h1>

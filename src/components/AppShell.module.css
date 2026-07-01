@@ -333,7 +333,7 @@
   }
   .mobileNavItem:hover  { color: var(--text-soft); }
   .mobileNavItemActive  { color: var(--accent); }
-  .mobileNavLabel { font-size: 0.6rem; font-weight: 500; letter-spacing: 0.04em; }
+  .mobileNavLabel { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.03em; }
 
   /* Prominent Record button (raised, always one tap) */
   .mobileRecord {
@@ -366,7 +366,7 @@
   }
   .mobileRecord:hover .mobileRecordBtn { filter: brightness(1.06); transform: translateY(-1px); }
   .mobileRecordActive .mobileRecordBtn { box-shadow: 0 6px 22px rgba(245, 136, 0, 0.55); }
-  .mobileRecordLabel { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em; }
+  .mobileRecordLabel { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em; }
 
   /* ── Mobile top header ────────────────────────────────────── */
   .mobileHeader {

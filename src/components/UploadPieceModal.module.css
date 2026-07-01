@@ -84,7 +84,7 @@
 .dropzoneFilled   { border-color: var(--hero-green); border-style: solid; }
 
 .dzIcon {
-  color: var(--hero-green);
+  color: var(--mint);
   font-size: 2rem;
 }
 
@@ -169,7 +169,7 @@
 }
 
 .formRequired {
-  color: var(--hero-green);
+  color: var(--text-soft);
   font-style: italic;
   font-weight: 400;
   text-transform: none;

@@ -43,12 +43,24 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
+  // Resolve the Supabase user id from a Stripe customer, tolerating deleted
+  // customers / missing metadata (return null instead of throwing a 500 that
+  // would make Stripe retry the event forever).
+  async function resolveUserId(customerId: string): Promise<string | null> {
+    const customer = await stripe.customers.retrieve(customerId)
+    if ((customer as Stripe.DeletedCustomer).deleted) return null
+    return (customer as Stripe.Customer).metadata?.supabase_user_id ?? null
+  }
+
   if (event.type === 'checkout.session.completed') {
     const session    = event.data.object as Stripe.Checkout.Session
     const customerId = session.customer as string
-    const customer   = await stripe.customers.retrieve(customerId) as Stripe.Customer
-    const userId     = customer.metadata.supabase_user_id
-    const sub        = await stripe.subscriptions.retrieve(session.subscription as string)
+    const userId     = await resolveUserId(customerId)
+    if (!userId) {
+      console.warn('[stripe-webhook] no supabase_user_id for customer', customerId)
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+    const sub = await stripe.subscriptions.retrieve(session.subscription as string)
     await upsertSubscription(admin, userId, customerId, sub)
   }
 
@@ -58,8 +70,11 @@ serve(async (req) => {
   ) {
     const sub        = event.data.object as Stripe.Subscription
     const customerId = sub.customer as string
-    const customer   = await stripe.customers.retrieve(customerId) as Stripe.Customer
-    const userId     = customer.metadata.supabase_user_id
+    const userId     = await resolveUserId(customerId)
+    if (!userId) {
+      console.warn('[stripe-webhook] no supabase_user_id for customer', customerId)
+      return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
     await upsertSubscription(admin, userId, customerId, sub)
   }
 

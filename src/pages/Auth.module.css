@@ -1,4 +1,6 @@
-/* ── Auth pages (Login + Signup) ─────────────────────────── */
+/* ── Auth pages (Login + Signup + Reset + Confirm) ─────────────
+   Themed via design tokens so these pages match the dark teal/orange
+   app (and follow light mode too). Serif display headings kept. */
 @keyframes publicPageIn {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -7,8 +9,8 @@
 .page {
   align-items: center;
   animation: publicPageIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-  background: #f8f6f2;
-  color: #211d19;
+  background: var(--bg);
+  color: var(--text);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -26,7 +28,7 @@
 }
 
 .brandMark {
-  color: #211d19;
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 1.3rem;
   letter-spacing: -0.02em;
@@ -34,18 +36,19 @@
 }
 
 .brandMark svg {
-  background: #211d19;
-  border-radius: 2px;
+  background: var(--accent);
+  border-radius: 4px;
   box-sizing: content-box;
   color: #fff;
   padding: 5px;
 }
 
 .card {
-  background: #fffefa;
-  border: 1px solid #e4dfd7;
-  border-radius: 8px;
-  padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 26px;
   width: 100%;
   max-width: 448px;
 }
@@ -55,7 +58,7 @@
 }
 
 .heading {
-  color: #211d19;
+  color: var(--text);
   font-family: "Iowan Old Style", Georgia, serif;
   font-size: 2rem;
   font-weight: 400;
@@ -65,8 +68,8 @@
 }
 
 .sub {
-  color: #777068;
-  font-size: 0.92rem;
+  color: var(--text-soft);
+  font-size: 0.95rem;
   line-height: 1.6;
   margin: 0 0 30px;
   text-align: center;
@@ -85,17 +88,17 @@
 }
 
 .label {
-  color: #211d19;
-  font-size: 0.82rem;
-  font-weight: 500;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .input,
 .select {
-  background: #f3f1ed;
-  border: 1px solid #e5e0d8;
-  border-radius: 5px;
-  color: #211d19;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
   font: inherit;
   font-size: 0.95rem;
   outline: none;
@@ -105,42 +108,43 @@
 .input::placeholder { color: var(--text-muted); }
 .input:focus,
 .select:focus {
-  border-color: #bc9463;
-  box-shadow: 0 0 0 3px rgba(188, 148, 99, 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
   outline: none;
 }
 
 .error {
-  background: rgba(245, 136, 0, 0.1);
-  border: 1px solid rgba(245, 136, 0, 0.35);
+  background: rgba(245, 136, 0, 0.12);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  color: var(--coral);
+  color: var(--accent);
   font-size: 0.88rem;
   padding: 11px 14px;
 }
 
 .submitBtn {
-  background: #bc9463;
+  background: var(--accent);
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: #fff;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   margin-top: 6px;
-  padding: 11px;
+  padding: 12px;
   transition: filter 160ms ease, transform 160ms ease;
 }
 .submitBtn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.submitBtn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 .footer {
-  color: #777068;
-  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
   margin-top: 22px;
   text-align: center;
 }
 
 .footerLink {
-  color: #9d7749;
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -149,15 +153,15 @@
 /* ── Role toggle (Student / Teacher) ─────────────────────────── */
 .roleToggle {
   display: flex;
-  border: 1px solid #e5e0d8;
-  border-radius: 5px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .roleOption {
-  background: #f3f1ed;
+  background: var(--input-bg);
   border: 0;
-  color: #777068;
+  color: var(--text-muted);
   flex: 1;
   font: inherit;
   font-size: 0.9rem;
@@ -166,10 +170,10 @@
   transition: background 150ms ease, color 150ms ease;
 }
 .roleOption:not(:last-child) {
-  border-right: 1px solid #e5e0d8;
+  border-right: 1px solid var(--input-border);
 }
 .roleOptionActive {
-  background: #bc9463;
+  background: var(--accent);
   color: #fff;
 }
 

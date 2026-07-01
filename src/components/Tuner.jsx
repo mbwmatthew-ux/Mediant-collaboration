@@ -155,7 +155,7 @@ export default function TunerModal({ onClose }) {
 
         <div className={styles.modalHeader}>
           <p className={styles.modalTitle}>Instrument Tuner</p>
-          <button className={styles.closeBtn} onClick={() => { stop(); onClose() }}>✕</button>
+          <button className={styles.closeBtn} onClick={() => { stop(); onClose() }} aria-label="Close tuner"><span aria-hidden="true">✕</span></button>
         </div>
 
         {/* Error states */}

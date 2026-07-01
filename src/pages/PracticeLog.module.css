@@ -117,13 +117,17 @@
 }
 
 .deleteBtn {
+  align-items: center;
   background: none;
   border: none;
-  color: rgba(248,246,242,0.2);
+  color: var(--text-faint);
   cursor: pointer;
-  font-size: 1.1rem;
+  display: inline-flex;
+  font-size: 1.2rem;
+  justify-content: center;
   line-height: 1;
-  padding: 2px 4px;
+  min-height: 36px;
+  min-width: 36px;
   transition: color 140ms ease;
 }
 .deleteBtn:hover { color: var(--coral); }

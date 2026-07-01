@@ -72,6 +72,7 @@ export default function PracticeLog() {
   }
 
   async function handleDelete(id) {
+    if (!window.confirm('Delete this practice log entry?')) return
     await supabase.from('practice_logs').delete().eq('id', id)
     setLogs(prev => prev.filter(l => l.id !== id))
   }
@@ -197,8 +198,9 @@ export default function PracticeLog() {
                     className={logStyles.deleteBtn}
                     onClick={() => handleDelete(log.id)}
                     title="Delete entry"
+                    aria-label="Delete entry"
                   >
-                    ×
+                    <span aria-hidden="true">×</span>
                   </button>
                 </div>
               </div>
