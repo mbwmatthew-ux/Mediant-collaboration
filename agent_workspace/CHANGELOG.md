@@ -88,3 +88,32 @@ Added full website sections:
 ### Concepts Delivered
 - `agent_workspace/concepts/landing-concept.html` — landing page mockup
 - `agent_workspace/concepts/app-concept.html` — app interior mockup (Home, Analysis, New Take)
+
+## 2026-06-30 — AI Model Accuracy Polish
+
+### modal_worker/worker.py
+
+**Posture + Technique detection (new)**
+- Gemini prompt restructured: now asks for 7 mandatory categories — 5 audio (intonation, rhythm, wrong notes, dynamics, tone) + 2 visual (posture, technique)
+- New `_technique_visual_guidance(instrument)` returns per-instrument visual observation guidance (bow contact point for strings, hand shape for piano, embouchure for winds, etc.)
+- `evaluate_with_gemini` return dict now includes `posture_issues` and `technique_issues`; "not visible" placeholders are filtered before reaching Claude
+- `build_gemini_block` includes posture/technique in the evidence handed to Claude
+
+**Wrong note pre-computation (new)**
+- New `find_wrong_note_candidates(aligned, score)`: compares each CREPE event's MIDI pitch to all expected notes in its assigned measure; events ≥2 semitones from every expected note are flagged as wrong note candidates (up to 6)
+- Candidates merged into the evidence block alongside CREPE intonation/timing candidates
+
+**Claude coaching improvements**
+- Upgraded `compare_and_coach_claude` from `claude-haiku-4-5-20251001` → `claude-sonnet-4-6` (max_tokens 2000 → 3000)
+- `allowed_types` expanded: added `posture` and `technique`
+- Flag cap increased from 6 → 8; prompt now requests "4–8 issues"
+- Explicit priority order in prompt: wrong notes → intonation → posture → technique → rhythm/dynamics/articulation
+- Posture/technique dedup is global (one of each per analysis), not per-measure
+
+**Deployed**: `modal deploy modal_worker/worker.py` — both endpoints healthy
+
+### Bug Fix — cents_offset clamp order (same session)
+
+- **Bug**: cents_offset was computed AFTER the MIDI range clamp (max 36, min 96), producing values like -500¢ for low bass notes
+- **Fix**: compute cents from pre-clamp `midi_raw`, then clamp separately for pitch name display
+- **Tested**: 3 live runs on Modal endpoint — all 22 events show cents in [-40, +37]¢ range, 0 variance across runs

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -7,438 +7,351 @@ import { playToggle, playSave, playThud, playTick } from '../utils/sounds'
 import { INSTRUMENTS } from '../lib/instruments'
 import styles from './Settings.module.css'
 
-const TABS = [
-  { id: 'account',  label: 'Account'  },
-  { id: 'security', label: 'Security' },
-  { id: 'privacy',  label: 'Privacy'  },
-  { id: 'billing',  label: 'Billing'  },
+/* ── Sidebar nav structure ───────────────────────────────────── */
+const NAV_GROUPS = [
+  {
+    label: 'General',
+    items: [
+      { id: 'profile',     label: 'Profile'     },
+      { id: 'preferences', label: 'Preferences' },
+    ],
+  },
+  {
+    label: 'Security',
+    items: [
+      { id: 'password', label: 'Password'     },
+      { id: 'email',    label: 'Email address' },
+      { id: 'twofa',    label: 'Two-factor'   },
+    ],
+  },
+  {
+    label: 'Data',
+    items: [
+      { id: 'privacy', label: 'Privacy' },
+    ],
+  },
+  {
+    label: 'Billing',
+    items: [
+      { id: 'plan',     label: 'Plan'    },
+      { id: 'invoices', label: 'Invoices' },
+    ],
+  },
+  {
+    label: 'Danger zone',
+    items: [
+      { id: 'danger', label: 'Delete account', danger: true },
+    ],
+  },
 ]
 
-/* ── Shared bits ─────────────────────────────────────────────── */
+/* ── Shared primitives ───────────────────────────────────────── */
 
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, disabled }) {
   return (
     <button
       className={`${styles.toggle} ${checked ? styles.toggleOn : ''}`}
       onClick={onChange}
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
     >
       <span className={styles.toggleKnob} />
     </button>
   )
 }
 
-function Row({ icon, label, sub, onClick, danger, children, value }) {
+function SettingRow({ label, sub, children, mono, danger }) {
   return (
-    <div
-      className={`${styles.row} ${onClick ? styles.rowClickable : ''} ${danger ? styles.rowDanger : ''}`}
-      onClick={onClick}
-    >
-      {icon && <span className={styles.rowIcon}>{icon}</span>}
-      <div className={styles.rowText}>
-        <span className={styles.rowLabel}>{label}</span>
-        {sub && <span className={styles.rowSub}>{sub}</span>}
+    <div className={`${styles.settingRow} ${danger ? styles.settingRowDanger : ''}`}>
+      <div className={styles.settingRowLeft}>
+        <span className={`${styles.settingLabel} ${danger ? styles.settingLabelDanger : ''}`}>{label}</span>
+        {sub && <span className={styles.settingDesc}>{sub}</span>}
       </div>
-      {value && <span className={styles.rowValue}>{value}</span>}
-      {children && <div className={styles.rowControl}>{children}</div>}
-      {onClick && !children && <span className={styles.rowChevron}>›</span>}
+      <div className={`${styles.settingRowRight} ${mono ? styles.settingRowRightMono : ''}`}>
+        {children}
+      </div>
     </div>
   )
 }
 
-function StatusNote({ kind, children }) {
-  if (!children) return null
+function SectionHeader({ title, sub }) {
   return (
-    <p className={`${styles.statusNote} ${kind === 'ok' ? styles.statusOk : kind === 'err' ? styles.statusErr : ''}`}>
-      {children}
-    </p>
+    <div className={styles.sectionHeader}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      {sub && <p className={styles.sectionSub}>{sub}</p>}
+    </div>
   )
 }
 
-/* ── Account tab ─────────────────────────────────────────────── */
+function StatusMsg({ kind, children }) {
+  if (!children) return null
+  return (
+    <span className={`${styles.statusMsg} ${kind === 'ok' ? styles.statusOk : kind === 'err' ? styles.statusErr : ''}`}>
+      {children}
+    </span>
+  )
+}
 
-function AccountTab() {
-  const { user, subscription, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
-  const nav = useNavigate()
+function Btn({ variant = 'ghost', children, ...props }) {
+  const cls = {
+    primary:   styles.btnPrimary,
+    secondary: styles.btnSecondary,
+    danger:    styles.btnDanger,
+    ghost:     styles.btnGhost,
+  }[variant] ?? styles.btnGhost
+  return <button className={`${styles.btn} ${cls}`} {...props}>{children}</button>
+}
 
+/* ── Profile section ─────────────────────────────────────────── */
+
+function ProfileSection() {
+  const { user } = useAuth()
   const [name,          setName]          = useState(user?.name ?? '')
   const [instrument,    setInstrument]    = useState(user?.instrument ?? 'Piano')
   const [coachingStyle, setCoachingStyle] = useState(user?.coaching_style ?? 'Balanced')
   const [defaultNote,   setDefaultNote]   = useState(user?.default_note ?? '')
-  const [saveStatus,    setSaveStatus]    = useState('idle') // idle | saving | saved
+  const [status,        setStatus]        = useState('idle')
 
+  async function save() {
+    if (status === 'saving') return
+    setStatus('saving')
+    try {
+      await supabase.auth.updateUser({ data: { name, instrument, coaching_style: coachingStyle, default_note: defaultNote.trim() } })
+      playSave()
+      setStatus('saved')
+      setTimeout(() => setStatus('idle'), 2500)
+    } catch { setStatus('idle') }
+  }
+
+  const initials = (user?.name ?? '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Profile" sub="Your account identity and AI coaching preferences." />
+
+      <div className={styles.card}>
+        {/* Avatar row */}
+        <div className={styles.avatarRow}>
+          <div className={styles.avatar}>{initials}</div>
+          <div className={styles.avatarMeta}>
+            <span className={styles.avatarName}>{user?.name || 'No name set'}</span>
+            <span className={styles.avatarEmail}>{user?.email}</span>
+          </div>
+        </div>
+        <div className={styles.cardDivider} />
+
+        <SettingRow label="Display name" sub="Shown in session history and coaching messages.">
+          <input
+            className={styles.input}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Your name"
+          />
+        </SettingRow>
+
+        <SettingRow label="Email" sub="Your sign-in email address.">
+          <input className={styles.input} value={user?.email ?? ''} readOnly />
+        </SettingRow>
+
+        <SettingRow label="Primary instrument" sub="Used to tailor feedback language and technique tips.">
+          <select className={styles.select} value={instrument} onChange={e => { playTick(); setInstrument(e.target.value) }}>
+            {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
+          </select>
+        </SettingRow>
+
+        <SettingRow label="Coaching style" sub="How the AI coach phrases its feedback.">
+          <select className={styles.select} value={coachingStyle} onChange={e => { playTick(); setCoachingStyle(e.target.value) }}>
+            <option value="Balanced">Balanced</option>
+            <option value="Encouraging">Encouraging</option>
+            <option value="Technical">Technical</option>
+            <option value="Direct">Direct</option>
+          </select>
+        </SettingRow>
+
+        <SettingRow label="AI context note" sub="Pre-fills on every new session — instrument quirks, injuries, or setup notes.">
+          <textarea
+            className={styles.textarea}
+            value={defaultNote}
+            onChange={e => setDefaultNote(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="e.g. 'My bow arm tends to collapse on down-bows' or 'I use a thumb piano with alternate tuning'"
+          />
+        </SettingRow>
+
+        <div className={styles.cardFooter}>
+          <StatusMsg kind={status === 'saved' ? 'ok' : ''}>{status === 'saved' ? 'Changes saved.' : ''}</StatusMsg>
+          <Btn variant="primary" onClick={save} disabled={status === 'saving'}>
+            {status === 'saving' ? 'Saving…' : 'Save profile'}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Preferences section ─────────────────────────────────────── */
+
+function PreferencesSection() {
+  const { theme, toggleTheme } = useTheme()
   const [soundOn, setSoundOn] = useState(
     () => localStorage.getItem('mediant_sound') !== 'false'
   )
 
-  const initials = (user?.name ?? '?')
-    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-
-  const isPaid = subscription?.plan && subscription.plan !== 'free'
-
-  async function saveProfile() {
-    if (saveStatus === 'saving') return
-    setSaveStatus('saving')
-    try {
-      await supabase.auth.updateUser({ data: { name, instrument, coaching_style: coachingStyle, default_note: defaultNote.trim() } })
-      playSave()
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2200)
-    } catch {
-      setSaveStatus('idle')
-    }
-  }
-
-  function handleThemeToggle() {
-    playToggle(theme !== 'dark')
-    toggleTheme()
-  }
-
-  function handleSoundToggle() {
+  function handleTheme() { playToggle(theme !== 'dark'); toggleTheme() }
+  function handleSound() {
     const next = !soundOn
     setSoundOn(next)
     localStorage.setItem('mediant_sound', String(next))
     if (next) playToggle(true)
   }
 
-  function handleSignOut() {
-    playThud()
-    logout()
-    nav('/')
-  }
-
   return (
-    <>
-      {/* Profile */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Account information</h2>
-        <div className={styles.card}>
-          <div className={styles.profileCard}>
+    <div className={styles.section}>
+      <SectionHeader title="Preferences" sub="Appearance and audio feedback." />
+      <div className={styles.card}>
+        <SettingRow label="Dark mode" sub="Switch between light and dark interface theme.">
+          <Toggle checked={theme === 'dark'} onChange={handleTheme} />
+        </SettingRow>
+        <SettingRow label="Sound effects" sub="Subtle audio cues for interactions and analysis events.">
+          <Toggle checked={soundOn} onChange={handleSound} />
+        </SettingRow>
+      </div>
 
-            <div className={styles.profileTop}>
-              <div className={styles.avatar}>{initials}</div>
-              <div className={styles.profileMeta}>
-                <span style={{ fontSize: '0.925rem', fontWeight: 500, color: 'var(--text)' }}>
-                  {user?.name ?? 'Guest'}
-                </span>
-                <span className={styles.profileEmail}>{user?.email}</span>
-                <span className={`${styles.planBadge} ${isPaid ? '' : styles.planBadgeFree}`}>
-                  {isPaid ? `${subscription.plan} plan` : 'Free plan'}
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.profileFields}>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel}>Display name</label>
-                <input
-                  className={styles.fieldInput}
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your name"
-                />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel}>Email</label>
-                <input
-                  className={styles.fieldInput}
-                  value={user?.email ?? ''}
-                  readOnly
-                  aria-readonly="true"
-                />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel}>Primary instrument</label>
-                <select
-                  className={styles.fieldSelect}
-                  value={instrument}
-                  onChange={e => { playTick(); setInstrument(e.target.value) }}
-                >
-                  {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
-                </select>
-              </div>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel}>Coaching style</label>
-                <select
-                  className={styles.fieldSelect}
-                  value={coachingStyle}
-                  onChange={e => { playTick(); setCoachingStyle(e.target.value) }}
-                >
-                  <option value="Balanced">Balanced — mix of encouragement and critique</option>
-                  <option value="Encouraging">Encouraging — warm, motivating tone</option>
-                  <option value="Technical">Technical — detailed, analytical focus</option>
-                  <option value="Direct">Direct — concise, no-nonsense feedback</option>
-                </select>
-              </div>
-            </div>
-
-            <div className={styles.field} style={{ marginTop: 16 }}>
-              <label className={styles.fieldLabel}>Default note for the AI</label>
-              <textarea
-                className={styles.fieldTextarea}
-                value={defaultNote}
-                onChange={e => setDefaultNote(e.target.value)}
-                maxLength={500}
-                rows={3}
-                placeholder="Always tell the AI this about your playing — e.g. an instrument quirk, an injury, or your usual setup. It pre-fills the notes on every new recording."
-              />
-            </div>
-
-            <div className={styles.profileFooter}>
-              <button
-                className={`${styles.saveBtn} ${saveStatus === 'saved' ? styles.saveBtnSaved : ''}`}
-                onClick={saveProfile}
-                disabled={saveStatus === 'saving'}
-              >
-                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? '✓ Saved' : 'Save changes'}
-              </button>
-            </div>
-
+      {/* Keyboard shortcuts */}
+      <div className={styles.subsectionHeader}>Keyboard shortcuts</div>
+      <div className={styles.card}>
+        {[
+          ['Space',  'Play / pause video'],
+          ['←  →',   'Previous / next measure'],
+          ['L',      'Toggle loop on selected section'],
+          ['Esc',    'Close panel or menu'],
+          ['R',      'Open new recording'],
+          ['S',      'Go to score view'],
+        ].map(([key, desc]) => (
+          <div key={key} className={styles.shortcutRow}>
+            <kbd className={styles.kbd}>{key}</kbd>
+            <span className={styles.shortcutDesc}>{desc}</span>
           </div>
-        </div>
-      </section>
-
-      {/* Appearance */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Appearance</h2>
-        <div className={styles.card}>
-          <Row
-            icon={theme === 'dark' ? '🌙' : '☀️'}
-            label="Dark mode"
-            sub="Switch between light and dark theme"
-          >
-            <Toggle checked={theme === 'dark'} onChange={handleThemeToggle} />
-          </Row>
-        </div>
-      </section>
-
-      {/* Sound */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Sound</h2>
-        <div className={styles.card}>
-          <Row
-            icon="♪"
-            label="Sound effects"
-            sub="Subtle audio feedback for interactions and analysis"
-          >
-            <Toggle checked={soundOn} onChange={handleSoundToggle} />
-          </Row>
-        </div>
-      </section>
-
-      {/* Help */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Help</h2>
-        <div className={styles.card}>
-          <Row icon="⌨" label="Keyboard shortcuts">
-            <div />
-          </Row>
-          <div className={styles.shortcutsGrid}>
-            {[
-              ['Space', 'Play / pause'],
-              ['← →',  'Previous / next measure'],
-              ['L',     'Toggle loop on current section'],
-              ['Esc',   'Close any panel'],
-              ['R',     'Go to upload recording'],
-              ['S',     'Go to score review'],
-            ].map(([key, desc]) => (
-              <div key={key} className={styles.shortcutRow}>
-                <kbd className={styles.shortcutKey}>{key}</kbd>
-                <span className={styles.shortcutDesc}>{desc}</span>
-              </div>
-            ))}
-          </div>
-          <Row
-            icon="✉"
-            label="Contact support"
-            sub="mediantteam@gmail.com"
-            onClick={() => window.location.href = 'mailto:mediantteam@gmail.com'}
-          />
-        </div>
-      </section>
-
-      {/* About */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>About</h2>
-        <div className={styles.card}>
-          <div className={styles.versionRow}>
-            <span className={styles.versionLabel}>Mediant</span>
-            <span className={styles.versionValue}>Version 0.1</span>
-          </div>
-          <div className={styles.versionRow}>
-            <span className={styles.versionLabel}>Music performance analysis</span>
-            <a href="/terms" className={styles.versionLink}>Terms ↗</a>
-          </div>
-        </div>
-      </section>
-
-      <button className={styles.signOutBtn} onClick={handleSignOut}>
-        Sign out
-      </button>
-    </>
+        ))}
+      </div>
+    </div>
   )
 }
 
-/* ── Security tab ────────────────────────────────────────────── */
+/* ── Password section ────────────────────────────────────────── */
 
-function SecurityTab() {
-  const { user } = useAuth()
+function PasswordSection() {
+  const [pw,    setPw]    = useState('')
+  const [pw2,   setPw2]   = useState('')
+  const [state, setState] = useState('idle')
+  const [msg,   setMsg]   = useState('')
 
-  const [pw,  setPw]  = useState('')
-  const [pw2, setPw2] = useState('')
-  const [pwState, setPwState] = useState('idle') // idle | saving | saved | error
-  const [pwMsg,   setPwMsg]   = useState('')
-
-  const [email, setEmail] = useState('')
-  const [emailState, setEmailState] = useState('idle')
-  const [emailMsg,   setEmailMsg]   = useState('')
-
-  async function updatePassword(e) {
+  async function submit(e) {
     e.preventDefault()
-    if (pwState === 'saving') return
-    if (pw.length < 8)  { setPwState('error'); setPwMsg('Use at least 8 characters.'); return }
-    if (pw !== pw2)     { setPwState('error'); setPwMsg("The two passwords don't match."); return }
-    setPwState('saving'); setPwMsg('')
+    if (state === 'saving') return
+    if (pw.length < 8)  { setState('err'); setMsg('Minimum 8 characters.'); return }
+    if (pw !== pw2)     { setState('err'); setMsg("Passwords don't match."); return }
+    setState('saving'); setMsg('')
     const { error } = await supabase.auth.updateUser({ password: pw })
-    if (error) { setPwState('error'); setPwMsg(error.message); return }
+    if (error) { setState('err'); setMsg(error.message); return }
     playSave()
-    setPwState('saved'); setPwMsg('Password updated.')
+    setState('ok'); setMsg('Password updated.')
     setPw(''); setPw2('')
-    setTimeout(() => { setPwState('idle'); setPwMsg('') }, 3200)
-  }
-
-  async function updateEmail(e) {
-    e.preventDefault()
-    if (emailState === 'saving') return
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      setEmailState('error'); setEmailMsg('Enter a valid email address.'); return
-    }
-    setEmailState('saving'); setEmailMsg('')
-    const { error } = await supabase.auth.updateUser({ email })
-    if (error) { setEmailState('error'); setEmailMsg(error.message); return }
-    playSave()
-    setEmailState('saved'); setEmailMsg('Confirmation link sent — check your inbox to finish the change.')
-    setEmail('')
-    setTimeout(() => { setEmailState('idle'); setEmailMsg('') }, 5000)
+    setTimeout(() => { setState('idle'); setMsg('') }, 3500)
   }
 
   return (
-    <>
-      {/* Password */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Password</h2>
-        <div className={styles.card}>
-          <form className={styles.cardBody} onSubmit={updatePassword}>
-            <p className={styles.cardDesc}>Choose a new password for your account. You'll stay signed in on this device.</p>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel}>New password</label>
-              <input
-                className={styles.fieldInput}
-                type="password"
-                autoComplete="new-password"
-                value={pw}
-                onChange={e => setPw(e.target.value)}
-                placeholder="At least 8 characters"
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel}>Confirm new password</label>
-              <input
-                className={styles.fieldInput}
-                type="password"
-                autoComplete="new-password"
-                value={pw2}
-                onChange={e => setPw2(e.target.value)}
-                placeholder="Re-enter new password"
-              />
-            </div>
-            <div className={styles.formActions}>
-              <button
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                type="submit"
-                disabled={pwState === 'saving' || !pw || !pw2}
-              >
-                {pwState === 'saving' ? 'Updating…' : 'Update password'}
-              </button>
-              <StatusNote kind={pwState === 'saved' ? 'ok' : pwState === 'error' ? 'err' : ''}>{pwMsg}</StatusNote>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      {/* Two-factor */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Two-factor authentication</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <div className={styles.cardHeadRow}>
-              <div>
-                <p className={styles.cardTitle}>Authenticator app</p>
-                <p className={styles.cardDesc}>Add a second step at sign-in using a one-time code from an authenticator app.</p>
-              </div>
-              <span className={styles.tag}>Coming soon</span>
-            </div>
-            <div className={styles.formActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary}`} disabled>
-                Set up two-factor
-              </button>
-              <span className={styles.cardDesc}>Available in an upcoming release.</span>
-            </div>
+    <div className={styles.section}>
+      <SectionHeader title="Password" sub="Choose a strong password — at least 8 characters. You'll stay signed in on this device." />
+      <div className={styles.card}>
+        <form onSubmit={submit}>
+          <SettingRow label="New password">
+            <input className={styles.input} type="password" autoComplete="new-password" value={pw} onChange={e => setPw(e.target.value)} placeholder="At least 8 characters" />
+          </SettingRow>
+          <SettingRow label="Confirm password">
+            <input className={styles.input} type="password" autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Re-enter password" />
+          </SettingRow>
+          <div className={styles.cardFooter}>
+            <StatusMsg kind={state === 'ok' ? 'ok' : state === 'err' ? 'err' : ''}>{msg}</StatusMsg>
+            <Btn variant="primary" type="submit" disabled={state === 'saving' || !pw || !pw2}>
+              {state === 'saving' ? 'Updating…' : 'Update password'}
+            </Btn>
           </div>
-        </div>
-      </section>
-
-      {/* Email */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Email address</h2>
-        <div className={styles.card}>
-          <form className={styles.cardBody} onSubmit={updateEmail}>
-            <p className={styles.cardDesc}>
-              Your account email is <strong className={styles.inlineStrong}>{user?.email ?? '—'}</strong>. Changing it sends a confirmation link to the new address.
-            </p>
-            <div className={styles.field}>
-              <label className={styles.fieldLabel}>New email</label>
-              <input
-                className={styles.fieldInput}
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className={styles.formActions}>
-              <button
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                type="submit"
-                disabled={emailState === 'saving' || !email}
-              >
-                {emailState === 'saving' ? 'Sending…' : 'Send confirmation'}
-              </button>
-              <StatusNote kind={emailState === 'saved' ? 'ok' : emailState === 'error' ? 'err' : ''}>{emailMsg}</StatusNote>
-            </div>
-          </form>
-        </div>
-      </section>
-    </>
+        </form>
+      </div>
+    </div>
   )
 }
 
-/* ── Privacy tab ─────────────────────────────────────────────── */
+/* ── Email section ───────────────────────────────────────────── */
 
-function PrivacyTab() {
-  const { logout } = useAuth()
-  const nav = useNavigate()
-  const [exportState, setExportState] = useState('idle') // idle | requested
-  const [clearState,  setClearState]  = useState('idle') // idle | confirm | done
-  const [delState,    setDelState]    = useState('idle') // idle | confirm | deleting | error
-  const [delError,    setDelError]    = useState('')
+function EmailSection() {
+  const { user } = useAuth()
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState('idle')
+  const [msg,   setMsg]   = useState('')
+
+  async function submit(e) {
+    e.preventDefault()
+    if (state === 'saving') return
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setState('err'); setMsg('Enter a valid email.'); return }
+    setState('saving'); setMsg('')
+    const { error } = await supabase.auth.updateUser({ email })
+    if (error) { setState('err'); setMsg(error.message); return }
+    playSave()
+    setState('ok'); setMsg('Confirmation link sent — check your inbox.')
+    setEmail('')
+    setTimeout(() => { setState('idle'); setMsg('') }, 5000)
+  }
+
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Email address" sub="Changing your email sends a confirmation link to the new address before the change takes effect." />
+      <div className={styles.card}>
+        <SettingRow label="Current email" mono>
+          <span className={styles.monoValue}>{user?.email ?? '—'}</span>
+        </SettingRow>
+        <form onSubmit={submit}>
+          <SettingRow label="New email">
+            <input className={styles.input} type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+          </SettingRow>
+          <div className={styles.cardFooter}>
+            <StatusMsg kind={state === 'ok' ? 'ok' : state === 'err' ? 'err' : ''}>{msg}</StatusMsg>
+            <Btn variant="primary" type="submit" disabled={state === 'saving' || !email}>
+              {state === 'saving' ? 'Sending…' : 'Send confirmation'}
+            </Btn>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ── Two-factor section ──────────────────────────────────────── */
+
+function TwoFactorSection() {
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Two-factor authentication" sub="Add a second verification step at sign-in using a one-time code from an authenticator app." />
+      <div className={styles.card}>
+        <SettingRow label="Authenticator app" sub="TOTP via Google Authenticator, Authy, or 1Password.">
+          <span className={styles.comingSoon}>Coming soon</span>
+        </SettingRow>
+      </div>
+    </div>
+  )
+}
+
+/* ── Privacy section ─────────────────────────────────────────── */
+
+function PrivacySection() {
+  const [exportState, setExportState] = useState('idle')
+  const [clearState,  setClearState]  = useState('idle')
 
   function requestExport() {
-    playTick()
-    setExportState('requested')
+    playTick(); setExportState('requested')
     setTimeout(() => setExportState('idle'), 5000)
   }
 
@@ -450,300 +363,263 @@ function PrivacyTab() {
     setTimeout(() => setClearState('idle'), 2600)
   }
 
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Privacy" sub="How your data is stored and how you can manage it." />
+      <div className={styles.card}>
+        <SettingRow label="Data handling" sub="Your recordings are processed only to generate feedback and are never sold or shared with advertisers.">
+          <Link to="/privacy" className={styles.linkBtn}>Privacy policy ↗</Link>
+        </SettingRow>
+        <SettingRow label="Export data" sub="Request a copy of your sessions and feedback history.">
+          <div className={styles.rowActions}>
+            {exportState === 'requested'
+              ? <StatusMsg kind="ok">Export requested — feature coming soon.</StatusMsg>
+              : <Btn variant="secondary" onClick={requestExport}>Request export</Btn>
+            }
+          </div>
+        </SettingRow>
+        <SettingRow label="Cached recordings" sub="Clears browser-cached media. Nothing is deleted from your account.">
+          <div className={styles.rowActions}>
+            {clearState === 'done'
+              ? <StatusMsg kind="ok">Cache cleared.</StatusMsg>
+              : <>
+                  <Btn
+                    variant={clearState === 'confirm' ? 'danger' : 'secondary'}
+                    onClick={clearCache}
+                  >
+                    {clearState === 'confirm' ? 'Confirm clear' : 'Clear cache'}
+                  </Btn>
+                  {clearState === 'confirm' && (
+                    <Btn variant="ghost" onClick={() => setClearState('idle')}>Cancel</Btn>
+                  )}
+                </>
+            }
+          </div>
+        </SettingRow>
+      </div>
+    </div>
+  )
+}
+
+/* ── Plan section ────────────────────────────────────────────── */
+
+function PlanSection() {
+  const { subscription } = useAuth()
+  const nav = useNavigate()
+
+  const isPaid   = subscription?.plan && subscription.plan !== 'free'
+  const planName = isPaid ? subscription.plan : 'Free'
+  const renewal  = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Plan" sub="Manage your Mediant subscription." />
+      <div className={styles.card}>
+        <SettingRow label="Current plan" mono>
+          <div className={styles.planRow}>
+            <span className={`${styles.planBadge} ${isPaid ? styles.planBadgePaid : styles.planBadgeFree}`}>
+              {planName}
+            </span>
+            {renewal && <span className={styles.monoValue}>Renews {renewal}</span>}
+            {!isPaid && <span className={styles.monoValueFaint}>5 sessions / month</span>}
+          </div>
+        </SettingRow>
+        <SettingRow label="Payment method" sub="Billing is handled by Stripe — card details never touch Mediant servers.">
+          <div className={styles.rowActions}>
+            {isPaid
+              ? <div className={styles.cardOnFile}>
+                  <span className={styles.cardBrand}>VISA</span>
+                  <span className={styles.monoValue}>•••• 4242</span>
+                </div>
+              : null
+            }
+            <Btn variant="secondary" onClick={() => { playTick(); nav('/pricing') }}>
+              {isPaid ? 'Change plan' : 'Upgrade to Pro'}
+            </Btn>
+          </div>
+        </SettingRow>
+      </div>
+    </div>
+  )
+}
+
+/* ── Invoices section ────────────────────────────────────────── */
+
+function InvoicesSection() {
+  const invoices = [
+    { id: 'INV-2026-0007', date: 'Jun 1, 2026',  amount: '$14.99', status: 'paid' },
+    { id: 'INV-2026-0006', date: 'May 1, 2026',  amount: '$14.99', status: 'paid' },
+    { id: 'INV-2026-0005', date: 'Apr 1, 2026',  amount: '$14.99', status: 'refunded' },
+  ]
+
+  const statusStyle = { paid: styles.pillPaid, pending: styles.pillPending, refunded: styles.pillRefunded }
+  const statusLabel = { paid: 'Paid', pending: 'Pending', refunded: 'Refunded' }
+
+  return (
+    <div className={styles.section}>
+      <SectionHeader title="Invoices" sub="Download receipts for past payments. Sample data — real invoices appear once Stripe is connected." />
+      <div className={styles.card}>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map(inv => (
+                <tr key={inv.id}>
+                  <td className={styles.mono}>{inv.id}</td>
+                  <td>{inv.date}</td>
+                  <td className={styles.mono}>{inv.amount}</td>
+                  <td>
+                    <span className={`${styles.pill} ${statusStyle[inv.status] ?? ''}`}>
+                      {statusLabel[inv.status] ?? inv.status}
+                    </span>
+                  </td>
+                  <td className={styles.tableBtnCell}>
+                    <button className={styles.iconBtn} disabled aria-label="Download receipt">
+                      <DownloadIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Danger section ──────────────────────────────────────────── */
+
+function DangerSection() {
+  const { logout } = useAuth()
+  const nav = useNavigate()
+  const [state, setState] = useState('idle')
+  const [err,   setErr]   = useState('')
+
   async function deleteAccount() {
-    if (delState === 'idle') { playTick(); setDelState('confirm'); return }
-    if (delState !== 'confirm') return
-    playThud()
-    setDelState('deleting')
-    setDelError('')
+    if (state === 'idle') { playTick(); setState('confirm'); return }
+    if (state !== 'confirm') return
+    playThud(); setState('deleting'); setErr('')
     try {
       const { data, error } = await supabase.functions.invoke('delete-account')
       if (error || !data?.ok) {
-        setDelState('error')
-        setDelError(error?.message ?? data?.error ?? 'Something went wrong. Please email mediantteam@gmail.com.')
+        setState('error')
+        setErr(error?.message ?? data?.error ?? 'Something went wrong. Email mediantteam@gmail.com.')
         return
       }
-      await logout()
-      nav('/')
+      await logout(); nav('/')
     } catch (e) {
-      setDelState('error')
-      setDelError((e instanceof Error ? e.message : null) ?? 'Something went wrong.')
+      setState('error'); setErr(e?.message ?? 'Something went wrong.')
     }
   }
 
   return (
-    <>
-      {/* How your data is handled */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Your data</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <p className={styles.cardDesc}>
-              When you upload a recording, the audio and any sheet music are sent to Mediant's
-              secure storage and processed by our analysis service to generate your feedback.
-              Your recordings are tied to your account and are not sold or shared with advertisers.
-              Use of your data is covered by our privacy policy.
-            </p>
-            <div className={styles.formActions}>
-              <Link to="/privacy" className={`${styles.btn} ${styles.btnGhost}`}>
-                Read privacy policy ↗
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Export */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Export your data</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <p className={styles.cardDesc}>
-              Request a copy of your recordings, takes, and feedback history. We'll prepare an
-              archive and email you a download link when it's ready.
-            </p>
-            <div className={styles.formActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={requestExport}>
-                Request data export
-              </button>
-              <StatusNote kind={exportState === 'requested' ? 'ok' : ''}>
-                {exportState === 'requested' ? "Export isn't live yet — this is where your download will appear soon." : ''}
-              </StatusNote>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Cached recordings */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Cached recordings</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <p className={styles.cardDesc}>
-              Mediant keeps recent recordings in this browser for faster playback. Clearing them
-              frees up space on this device and doesn't delete anything from your account.
-            </p>
-            <div className={styles.formActions}>
-              <button
-                className={`${styles.btn} ${clearState === 'confirm' ? styles.btnDanger : styles.btnSecondary}`}
-                onClick={clearCache}
-              >
-                {clearState === 'confirm' ? 'Click again to confirm' : clearState === 'done' ? '✓ Cleared' : 'Clear cached recordings'}
-              </button>
-              {clearState === 'confirm' && (
-                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => setClearState('idle')}>Cancel</button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Danger zone */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Delete account</h2>
-        <div className={`${styles.card} ${styles.dangerCard}`}>
-          <div className={styles.cardBody}>
-            <p className={styles.cardDesc}>
-              Permanently delete your account and all associated recordings, takes, and feedback.
-              This cannot be undone — all your data will be removed immediately.
-            </p>
-            <div className={styles.formActions}>
-              <button
-                className={`${styles.btn} ${styles.btnDanger}`}
-                onClick={deleteAccount}
-                disabled={delState === 'deleting'}
-              >
-                {delState === 'deleting' ? 'Deleting…' : delState === 'confirm' ? 'Confirm — delete everything' : 'Delete account'}
-              </button>
-              {(delState === 'confirm' || delState === 'error') && (
-                <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setDelState('idle'); setDelError('') }}>Cancel</button>
-              )}
-            </div>
-            {delState === 'error' && delError && (
-              <StatusNote kind="err">{delError}</StatusNote>
+    <div className={styles.section}>
+      <SectionHeader title="Delete account" />
+      <div className={`${styles.card} ${styles.dangerCard}`}>
+        <SettingRow
+          label="Delete account"
+          sub="Permanently remove your account, recordings, sessions, and all feedback. This cannot be undone."
+          danger
+        >
+          <div className={styles.rowActions}>
+            <Btn
+              variant="danger"
+              onClick={deleteAccount}
+              disabled={state === 'deleting'}
+            >
+              {state === 'deleting' ? 'Deleting…' : state === 'confirm' ? 'Confirm — delete everything' : 'Delete account'}
+            </Btn>
+            {(state === 'confirm' || state === 'error') && (
+              <Btn variant="ghost" onClick={() => { setState('idle'); setErr('') }}>Cancel</Btn>
             )}
           </div>
-        </div>
-      </section>
-    </>
+        </SettingRow>
+        {err && <div className={styles.cardError}>{err}</div>}
+      </div>
+    </div>
   )
 }
 
-/* ── Billing tab ─────────────────────────────────────────────── */
+/* ── Sign-out ────────────────────────────────────────────────── */
 
-function StatusPill({ status }) {
-  const map = {
-    paid:     ['Paid',     styles.pillPaid],
-    pending:  ['Pending',  styles.pillPending],
-    refunded: ['Refunded', styles.pillRefunded],
-  }
-  const [label, cls] = map[status] ?? ['—', '']
-  return (
-    <span className={`${styles.statusPill} ${cls}`}>
-      <span className={styles.pillDot} />{label}
-    </span>
-  )
-}
-
-function BillingTab() {
-  const { subscription } = useAuth()
+function SignOutSection() {
+  const { logout } = useAuth()
   const nav = useNavigate()
-
-  const isPaid    = subscription?.plan && subscription.plan !== 'free'
-  const planName  = isPaid ? subscription.plan : 'Free'
-  const renewal   = subscription?.current_period_end
-    ? new Date(subscription.current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-    : null
-
-  const invoices = [
-    { id: 'INV-2026-0007', date: 'Jun 1, 2026', amount: '$14.99', status: 'paid' },
-    { id: 'INV-2026-0006', date: 'May 1, 2026', amount: '$14.99', status: 'paid' },
-    { id: 'INV-2026-0005', date: 'Apr 1, 2026', amount: '$14.99', status: 'refunded' },
-  ]
-
+  function handleSignOut() { playThud(); logout(); nav('/') }
   return (
-    <>
-      {/* Current plan */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Current plan</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <div className={styles.cardHeadRow}>
-              <div>
-                <p className={styles.cardTitle}>{planName} plan</p>
-                <p className={styles.cardDesc}>
-                  {isPaid
-                    ? renewal ? `Renews on ${renewal}.` : 'Active subscription.'
-                    : "You're on the free plan — 5 uploads per month."}
-                </p>
-              </div>
-              <span className={`${styles.planBadge} ${isPaid ? '' : styles.planBadgeFree}`}>{planName}</span>
-            </div>
-            <div className={styles.formActions}>
-              <button
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                onClick={() => { playTick(); nav('/pricing') }}
-              >
-                {isPaid ? 'Change plan' : 'Upgrade to Pro'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Payment method */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Payment method</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody}>
-            <p className={styles.cardDesc}>
-              Billing is handled securely by Stripe — your card details never touch Mediant's servers.
-            </p>
-            <div className={styles.cardOnFile}>
-              <span className={styles.cardBrand}>VISA</span>
-              <div className={styles.cardMeta}>
-                <span className={styles.cardDigits}>•••• •••• •••• 4242</span>
-                <span className={styles.cardExp}>Expires 04 / 2028</span>
-              </div>
-              <span className={styles.tag} style={{ marginLeft: 'auto' }}>Sample</span>
-            </div>
-            <div className={styles.formActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary}`} disabled>
-                Manage via Stripe
-              </button>
-              <span className={styles.cardDesc}>Available once Stripe billing is connected.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Billing history */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Billing history</h2>
-        <div className={styles.card}>
-          <div className={styles.cardBody} style={{ paddingBottom: 0 }}>
-            <div className={styles.cardHeadRow}>
-              <div>
-                <p className={styles.cardTitle}>Invoices</p>
-                <p className={styles.cardDesc}>Receipts for past payments.</p>
-              </div>
-            </div>
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.billingTable}>
-              <thead>
-                <tr>
-                  <th>Invoice</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th><span className={styles.srOnly}>Receipt</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map(inv => (
-                  <tr key={inv.id}>
-                    <td className={styles.mono}>{inv.id}</td>
-                    <td>{inv.date}</td>
-                    <td>{inv.amount}</td>
-                    <td><StatusPill status={inv.status} /></td>
-                    <td className={styles.tableActionCell}>
-                      <button className={styles.dlBtn} disabled aria-label="Download receipt">
-                        <DownloadIcon />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className={styles.tableCaption}>
-            Sample data — your real invoices will appear here once Stripe billing is live.
-          </p>
-        </div>
-      </section>
-    </>
+    <div className={styles.signOutWrap}>
+      <button className={styles.signOutBtn} onClick={handleSignOut}>Sign out</button>
+    </div>
   )
 }
 
 /* ── Page ────────────────────────────────────────────────────── */
 
-export default function Settings() {
-  const [tab, setTab] = useState('account')
+const SECTION_MAP = {
+  profile:     ProfileSection,
+  preferences: PreferencesSection,
+  password:    PasswordSection,
+  email:       EmailSection,
+  twofa:       TwoFactorSection,
+  privacy:     PrivacySection,
+  plan:        PlanSection,
+  invoices:    InvoicesSection,
+  danger:      DangerSection,
+}
 
-  function selectTab(id) {
-    if (id === tab) return
+export default function Settings() {
+  const [active, setActive] = useState('profile')
+
+  function navigate(id) {
+    if (id === active) return
     playTick()
-    setTab(id)
+    setActive(id)
   }
+
+  const ActiveSection = SECTION_MAP[active] ?? ProfileSection
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Settings</h1>
-        <p className={styles.pageSub}>Manage your profile, security, privacy, and billing.</p>
-      </div>
+      {/* Sidebar */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarInner}>
+          <div className={styles.sidebarHeader}>Settings</div>
+          {NAV_GROUPS.map(group => (
+            <div key={group.label} className={styles.navGroup}>
+              <span className={styles.navGroupLabel}>{group.label}</span>
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  className={`${styles.navItem} ${active === item.id ? styles.navItemActive : ''} ${item.danger ? styles.navItemDanger : ''}`}
+                  onClick={() => navigate(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+          <div className={styles.sidebarFooter}>
+            <SignOutSection />
+          </div>
+        </div>
+      </aside>
 
-      <nav className={styles.tabStrip} role="tablist" aria-label="Settings sections">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
-            onClick={() => selectTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className={styles.tabPanel} role="tabpanel" key={tab}>
-        {tab === 'account'  && <AccountTab />}
-        {tab === 'security' && <SecurityTab />}
-        {tab === 'privacy'  && <PrivacyTab />}
-        {tab === 'billing'  && <BillingTab />}
-      </div>
+      {/* Content */}
+      <main className={styles.content} key={active}>
+        <ActiveSection />
+        <div className={styles.mobileSignOut}><SignOutSection /></div>
+      </main>
     </div>
   )
 }
@@ -752,7 +628,7 @@ export default function Settings() {
 
 function DownloadIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
