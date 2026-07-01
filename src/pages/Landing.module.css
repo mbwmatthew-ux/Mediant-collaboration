@@ -747,6 +747,16 @@
   margin-top: 0;
 }
 
+.pricingCompare {
+  margin: 22px 0 0;
+  text-align: center;
+}
+.pricingCompare a {
+  color: var(--teal-deep);
+  font-weight: 600;
+}
+.pricingCompare a:hover { text-decoration: underline; }
+
 .pricingCard {
   background: var(--surface);
   border: 1px solid var(--line);

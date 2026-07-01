@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PLANS, HIGHLIGHT_PLAN_ID } from '../lib/pricing'
 import styles from './Landing.module.css'
 
 function usePrefersReducedMotion() {
@@ -97,21 +98,17 @@ const FEATURES = [
   },
 ]
 
+// Teaser card on the homepage — derived from the shared pricing source so the
+// homepage can never show a different price than the /pricing page.
+const HIGHLIGHT = PLANS.find(p => p.id === HIGHLIGHT_PLAN_ID) ?? PLANS[0]
 const PRICING = [
   {
-    name: 'Pro',
-    price: '$14',
+    name: HIGHLIGHT.name,
+    price: HIGHLIGHT.monthlyPrice,
     period: 'per month',
-    desc: 'Everything serious musicians need.',
-    features: [
-      'Unlimited recordings',
-      'Full AI coach access',
-      'Cross-take comparison',
-      'PDF analysis export',
-      'Priority analysis queue',
-      'Email progress digest',
-    ],
-    cta: 'Choose Pro',
+    desc: HIGHLIGHT.description,
+    features: HIGHLIGHT.features.filter(f => f.included).map(f => f.text),
+    cta: HIGHLIGHT.cta,
   },
 ]
 
@@ -391,6 +388,11 @@ export default function Landing() {
                 </Reveal>
               ))}
             </div>
+            <Reveal>
+              <p className={styles.pricingCompare}>
+                <Link to="/pricing">Compare all plans →</Link>
+              </p>
+            </Reveal>
           </div>
         </section>
 

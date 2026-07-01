@@ -1,57 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { PLANS } from '../lib/pricing'
 import styles from './Pricing.module.css'
 import LogoMark from '../components/LogoMark'
-
-const PLANS = [
-  {
-    id: 'pro',
-    name: 'Pro',
-    monthlyPrice: '$19.99',
-    yearlyPrice: '$14.99',
-    description: 'For musicians who practice seriously.',
-    cta: 'Choose Pro',
-    ctaVariant: 'gold',
-    features: [
-      { text: '5 recording uploads per month',  included: true  },
-      { text: 'Score alignment & analysis',      included: true  },
-      { text: 'Measure-by-measure feedback',     included: true  },
-      { text: 'Session history (30 days)',        included: true  },
-      { text: 'Mediant chat',                      included: true  },
-      { text: 'Unlimited uploads',               included: true  },
-      { text: 'Priority analysis queue',         included: true  },
-      { text: 'Full session history',            included: true  },
-      { text: 'PDF export',                      included: true  },
-      { text: 'Advanced progress tracking',      included: false },
-      { text: 'Multi-instrument profiles',       included: false },
-      { text: 'Early access to new features',    included: false },
-    ],
-  },
-  {
-    id: 'max',
-    name: 'Max',
-    monthlyPrice: '$34.99',
-    yearlyPrice: '$24.99',
-    description: 'The full experience, no limits.',
-    cta: 'Choose Max',
-    ctaVariant: 'green',
-    features: [
-      { text: '5 recording uploads per month',  included: true  },
-      { text: 'Score alignment & analysis',      included: true  },
-      { text: 'Measure-by-measure feedback',     included: true  },
-      { text: 'Session history (30 days)',        included: true  },
-      { text: 'Mediant chat',                      included: true  },
-      { text: 'Unlimited uploads',               included: true  },
-      { text: 'Priority analysis queue',         included: true  },
-      { text: 'Full session history',            included: true  },
-      { text: 'PDF export',                      included: true  },
-      { text: 'Advanced progress tracking',      included: true  },
-      { text: 'Multi-instrument profiles',       included: true  },
-      { text: 'Early access to new features',    included: true  },
-    ],
-  },
-]
 
 export default function Pricing() {
   const { user, logout } = useAuth()
@@ -128,7 +80,7 @@ export default function Pricing() {
               </div>
               {billing === 'yearly' && (
                 <p className={styles.billedNote}>
-                  Billed {plan.id === 'pro' ? '$179.88' : '$299.88'}/year
+                  Billed {plan.yearlyTotal}/year
                 </p>
               )}
               <p className={styles.planDesc}>{plan.description}</p>
