@@ -738,7 +738,7 @@
 .pricingGrid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(2, 420px);
+  grid-template-columns: minmax(0, 420px);
   justify-content: center;
   margin-top: 0;
 }
@@ -752,25 +752,6 @@
   gap: 24px;
   padding: 32px;
   position: relative;
-}
-
-.pricingHighlight {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 1px var(--teal), 0 20px 56px rgba(21, 154, 134, 0.12);
-}
-
-.popularBadge {
-  background: var(--teal);
-  border-radius: 5px;
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  left: 28px;
-  letter-spacing: 0.06em;
-  padding: 3px 10px;
-  position: absolute;
-  text-transform: uppercase;
-  top: -12px;
 }
 
 .pricingTop { display: flex; flex-direction: column; gap: 8px; }

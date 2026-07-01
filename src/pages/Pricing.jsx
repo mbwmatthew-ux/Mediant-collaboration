@@ -13,7 +13,6 @@ const PLANS = [
     description: 'For musicians who practice seriously.',
     cta: 'Choose Pro',
     ctaVariant: 'gold',
-    badge: 'Most popular',
     features: [
       { text: '5 recording uploads per month',  included: true  },
       { text: 'Score alignment & analysis',      included: true  },
@@ -118,9 +117,7 @@ export default function Pricing() {
       {/* Plan cards */}
       <div className={styles.cardsRow}>
         {PLANS.map(plan => (
-          <div key={plan.id} className={`${styles.card} ${plan.badge ? styles.cardFeatured : ''}`}>
-            {plan.badge && <span className={styles.cardBadge}>{plan.badge}</span>}
-
+          <div key={plan.id} className={styles.card}>
             <div className={styles.cardHead}>
               <p className={styles.planName}>{plan.name}</p>
               <div className={styles.priceRow}>

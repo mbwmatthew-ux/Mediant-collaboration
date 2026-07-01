@@ -112,7 +112,6 @@ const PRICING = [
       'Email progress digest',
     ],
     cta: 'Choose Pro',
-    highlight: true,
   },
 ]
 
@@ -366,8 +365,7 @@ export default function Landing() {
 
             <div className={styles.pricingGrid}>
               {PRICING.map((plan, i) => (
-                <Reveal key={plan.name} className={`${styles.pricingCard} ${plan.highlight ? styles.pricingHighlight : ''}`} delay={`${i * 80}ms`}>
-                  {plan.highlight && <span className={styles.popularBadge}>Most popular</span>}
+                <Reveal key={plan.name} className={styles.pricingCard} delay={`${i * 80}ms`}>
                   <div className={styles.pricingTop}>
                     <h3 className={styles.planName}>{plan.name}</h3>
                     <div className={styles.planPrice}>
@@ -386,7 +384,7 @@ export default function Landing() {
                   </ul>
                   <Link
                     to="/signup"
-                    className={plan.highlight ? styles.btnPrimary : styles.btnOutline}
+                    className={styles.btnPrimary}
                   >
                     {plan.cta}
                   </Link>
